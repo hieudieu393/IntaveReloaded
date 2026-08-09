@@ -1,0 +1,27 @@
+name: Intave migration snapshot
+
+on:
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    if: github.head_ref == 'agent/packetevents-migration'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload migration source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: intave-migration-source
+          path: |
+            src
+            build.gradle.kts
+            settings.gradle.kts
+            gradle.properties
+            gradle
+          if-no-files-found: ignore
+          retention-days: 1
