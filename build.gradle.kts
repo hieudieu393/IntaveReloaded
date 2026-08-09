@@ -194,6 +194,9 @@ tasks.register<RunServer>("authtest") {
 
   pluginJars.from("build/libs/$simpleName.jar")
   minecraftVersion("1.8.8")
+  downloadPlugins {
+    modrinth("packetevents", "2.13.0+spigot")
+  }
   runDirectory(File("runs/authtest"))
   jvmArgs("-Dcom.mojang.eula.agree=true")
 //  jvmArgs("-Dintave.test.success=shutdown")
@@ -212,6 +215,9 @@ tasks.register<RunServer>("gommetest") {
 
   pluginJars.from("build/libs/$simpleName.jar")
   minecraftVersion("1.8.8")
+  downloadPlugins {
+    modrinth("packetevents", "2.13.0+spigot")
+  }
   runDirectory(File("runs/gommetest"))
   jvmArgs("-Dcom.mojang.eula.agree=true")
 //  jvmArgs("-Dintave.test.success=shutdown")
@@ -232,6 +238,9 @@ tasks.register<RunServer>("authtest_1.20.1") {
 
   pluginJars.from("build/libs/$simpleName.jar")
   minecraftVersion("1.20.1")
+  downloadPlugins {
+    modrinth("packetevents", "2.13.0+spigot")
+  }
   runDirectory(File("runs/authtest_1.20.1"))
   jvmArgs("-Dcom.mojang.eula.agree=true")
 //  jvmArgs("-Dintave.test.success=shutdown")
@@ -320,6 +329,9 @@ fun registerPaperTestTask(serverVersion: String, javaVersion: Int) {
     dependsOn("shadowJar")
     pluginJars.from("build/libs/$simpleName.jar")
     minecraftVersion(serverVersion)
+    downloadPlugins {
+      modrinth("packetevents", "2.13.0+spigot")
+    }
     // Minecraft 1.8.8 requires special patches to work with Java 17
     if (serverVersion == "1.8.8") {
       serverJar(File("libs/servers/panda-1.8.8.jar"))
@@ -369,6 +381,7 @@ fun registerPaperRunTask(serverVersion: String, javaVersion: Int) {
       serverJar(File("libs/servers/paper-1.21.7-15.jar"))
     }
     downloadPlugins {
+      modrinth("packetevents", "2.13.0+spigot")
       modrinth("viaversion", "5.9.1")
       modrinth("viabackwards", "5.9.1")
     }
@@ -391,6 +404,9 @@ fun registerFoliaRunTask(serverVersion: String, javaVersion: Int) {
     dependsOn("shadowJar")
     pluginJars.from("build/libs/$simpleName.jar")
     minecraftVersion(serverVersion)
+    downloadPlugins {
+      modrinth("packetevents", "2.13.0+spigot")
+    }
     runDirectory(File("runs/folia_${serverVersion}-j$javaVersion"))
     jvmArgs("-Dcom.mojang.eula.agree=true")
     args("-o", "false")

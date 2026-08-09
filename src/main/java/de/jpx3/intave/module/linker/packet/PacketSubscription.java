@@ -21,7 +21,7 @@ import java.lang.annotation.Target;
 public @interface PacketSubscription {
   ListenerPriority priority() default ListenerPriority.NORMAL;
   PrioritySlot prioritySlot() default PrioritySlot.INTERNAL;
-  Engine engine() default Engine.PROTOCOLLIB;
+  Engine engine() default Engine.PACKETEVENTS;
   String identifier() default "no identifier assigned";
   PacketId.Client[] packetsIn() default {};
   PacketId.Server[] packetsOut() default {};

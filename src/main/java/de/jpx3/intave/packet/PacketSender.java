@@ -44,7 +44,7 @@ public final class PacketSender {
     try {
       RECEIVE_PACKET_METHOD.invoke(protocolManager, receiver, packet);
     } catch (UnsupportedOperationException exception) {
-      IntaveLogger.logger().error("Your version of ProtocolLib is broken, see https://github.com/dmulloy2/ProtocolLib/issues/1552 for details on the issue");
+      IntaveLogger.logger().error("PacketEvents failed to send a packet; verify that PacketEvents 2.13.0 or newer is installed and initialized");
       IntaveLogger.logger().error("We recommend you to upgrade your version");
       exception.printStackTrace();
     } catch (IllegalAccessException | InvocationTargetException exception) {

@@ -174,7 +174,7 @@ public final class PacketSubscriptionLinker extends Module {
         PacketType[] packetTypes = translateProtocolLibPacketTypes(metadata.packetsIn(), metadata.packetsOut(), metadata.debug());
         performCustomLinkage(instanceProvider, priority, packetTypes, ignoreCancelled, methodName, executor);
         break;
-      case PROTOCOLLIB:
+      case PACKETEVENTS:
         executor = assemblePESubscriptionMethodCaller(instanceProvider.type(), method, metadata.engine());
         packetTypes = translateProtocolLibPacketTypes(metadata.packetsIn(), metadata.packetsOut(), metadata.debug());
         if (metadata.prioritySlot() == PrioritySlot.INTERNAL) {

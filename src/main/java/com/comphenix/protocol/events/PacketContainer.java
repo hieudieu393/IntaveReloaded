@@ -89,7 +89,7 @@ public class PacketContainer {
     if (type == null || type.handle() == null) return null;
     PacketTypeCommon handle = type.handle();
     Class<? extends PacketWrapper<?>> wrapperClass = handle.getWrapperClass();
-    if (wrapperClass == null || wrapperClass == PacketWrapper.class) {
+    if (wrapperClass == null || wrapperClass.getName().equals(PacketWrapper.class.getName())) {
       return new PacketWrapper(handle);
     }
 
