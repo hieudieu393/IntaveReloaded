@@ -7,6 +7,8 @@ public final class EnumWrappers {
   public enum Direction { DOWN, UP, NORTH, SOUTH, WEST, EAST }
   public enum Hand { MAIN_HAND, OFF_HAND }
   public enum EntityUseAction { INTERACT, ATTACK, INTERACT_AT }
+  public enum ClientCommand { PERFORM_RESPAWN, REQUEST_STATS, OPEN_INVENTORY_ACHIEVEMENT }
+  public static final class EnumEntityUseAction { private final EntityUseAction action; public EnumEntityUseAction(EntityUseAction action){this.action=action;} public EntityUseAction getAction(){return action;} }
   public enum PlayerAction { START_SNEAKING, STOP_SNEAKING, LEAVE_BED, START_SPRINTING, STOP_SPRINTING, START_RIDING_JUMP, STOP_RIDING_JUMP, OPEN_INVENTORY, START_FALL_FLYING }
   public enum PlayerInfoAction { ADD_PLAYER, UPDATE_GAME_MODE, UPDATE_LATENCY, UPDATE_DISPLAY_NAME, REMOVE_PLAYER }
   public enum NativeGameMode { NOT_SET, SURVIVAL, CREATIVE, ADVENTURE, SPECTATOR }

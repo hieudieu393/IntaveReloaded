@@ -85,6 +85,11 @@ public class PacketContainer {
   public StructureModifier<WrappedBlockData> getBlockData(){return getModifier().withType(WrappedBlockData.class);}
   public StructureModifier<MovingObjectPositionBlock> getMovingBlockPositions(){return getModifier().withType(MovingObjectPositionBlock.class);}
   public StructureModifier<MinecraftKey> getMinecraftKeys(){return getModifier().withType(MinecraftKey.class);}
+  @SuppressWarnings("unchecked") public StructureModifier<List<Integer>> getIntLists(){return (StructureModifier)getModifier().withType(List.class);}
+  public StructureModifier<EnumWrappers.ClientCommand> getClientCommands(){return getModifier().withType(EnumWrappers.ClientCommand.class);}
+  public StructureModifier<EnumWrappers.EntityUseAction> getEntityUseActions(){return getModifier().withType(EnumWrappers.EntityUseAction.class);}
+  public StructureModifier<EnumWrappers.EnumEntityUseAction> getEnumEntityUseActions(){return getModifier().withType(EnumWrappers.EnumEntityUseAction.class);}
+  public StructureModifier<org.bukkit.WorldType> getWorldTypeModifier(){return getModifier().withType(org.bukkit.WorldType.class);}
   public StructureModifier<EnumWrappers.PlayerDigType> getPlayerDigTypes(){return getModifier().withType(EnumWrappers.PlayerDigType.class);}
   public StructureModifier<EnumWrappers.Direction> getDirections(){return getModifier().withType(EnumWrappers.Direction.class);}
   public StructureModifier<EnumWrappers.Hand> getHands(){return getModifier().withType(EnumWrappers.Hand.class);}
