@@ -30,6 +30,7 @@ jobs:
         run: |
           python3 <<'PY'
           from pathlib import Path
+          import shutil
 
           # PacketEvents is now a hard plugin dependency. Every development/test server must install it too.
           p = Path('build.gradle.kts')
@@ -63,11 +64,12 @@ jobs:
 
           # Java generic Class comparison needs a wildcard-safe form.
           p = Path('src/main/java/com/comphenix/protocol/events/PacketContainer.java')
-          text = p.read_text().replace(
-              'wrapperClass == null || wrapperClass == PacketWrapper.class',
-              'wrapperClass == null || wrapperClass.getName().equals(PacketWrapper.class.getName())'
-          )
-          p.write_text(text)
+          if p.exists():
+              text = p.read_text().replace(
+                  'wrapperClass == null || wrapperClass == PacketWrapper.class',
+                  'wrapperClass == null || wrapperClass.getName().equals(PacketWrapper.class.getName())'
+              )
+              p.write_text(text)
 
           # User-facing diagnostics must identify the real packet library.
           for path in [
@@ -79,6 +81,7 @@ jobs:
               text = text.replace('ProtocolLib is ', 'PacketEvents is ')
               text = text.replace('"ProtocolLib"', '"packetevents"')
               text = text.replace(' ProtocolLib: ', ' PacketEvents: ')
+              text = text.replace('Intave is ', 'IntaveReloaded is ')
               path.write_text(text)
 
           p = Path('src/main/java/de/jpx3/intave/packet/PacketSender.java')
@@ -88,15 +91,50 @@ jobs:
           )
           p.write_text(text)
 
-          # Rename the subscription engine label; implementation already routes through PacketEvents.
-          for path in Path('src/main/java').rglob('*.java'):
+          # Rename old API identifiers to PacketEvents/compatibility-neutral names.
+          replacements = {
+              'Engine.PROTOCOLLIB': 'Engine.PACKETEVENTS',
+              'case PROTOCOLLIB:': 'case PACKETEVENTS:',
+              'ProtocolLibraryAdapter': 'PacketEventsAdapter',
+              'ProtocolLibrary': 'PacketEventsLibrary',
+              'protocolLibAvailable': 'packetEventsAvailable',
+              'toProtocolLibVersion': 'toPacketCompatibilityVersion',
+              'fromProtocolLib': 'fromPacketCompatibility',
+              'toProtocolLibPriority': 'toPacketEventsPriority',
+              'translateProtocolLibPacketTypes': 'translatePacketEventsPacketTypes',
+              'performInternalProtocolLibLinkage': 'performInternalPacketEventsLinkage',
+              'performExternalProtocolLibLinkage': 'performExternalPacketEventsLinkage',
+              'requireProtocolLib4': 'requirePacketEventsLegacyCompatible',
+              'requireProtocolLib': 'requirePacketEvents',
+          }
+          for path in Path('src').rglob('*.java'):
               text = path.read_text()
-              updated = text.replace('Engine.PROTOCOLLIB', 'Engine.PACKETEVENTS')
-              updated = updated.replace('case PROTOCOLLIB:', 'case PACKETEVENTS:')
+              updated = text.replace('com.comphenix.protocol', 'de.jpx3.intave.packet.compat')
+              for old, new in replacements.items():
+                  updated = updated.replace(old, new)
               if path.name == 'Engine.java':
                   updated = updated.replace('  PROTOCOLLIB,', '  PACKETEVENTS,')
               if updated != text:
                   path.write_text(updated)
+
+          # Move the compatibility classes out of the third-party ProtocolLib namespace.
+          old_root = Path('src/main/java/com/comphenix/protocol')
+          new_root = Path('src/main/java/de/jpx3/intave/packet/compat')
+          if old_root.exists():
+              new_root.parent.mkdir(parents=True, exist_ok=True)
+              if new_root.exists():
+                  shutil.rmtree(new_root)
+              shutil.move(str(old_root), str(new_root))
+
+          old_library = new_root / 'ProtocolLibrary.java'
+          new_library = new_root / 'PacketEventsLibrary.java'
+          if old_library.exists():
+              old_library.rename(new_library)
+
+          old_adapter = Path('src/main/java/de/jpx3/intave/adapter/ProtocolLibraryAdapter.java')
+          new_adapter = Path('src/main/java/de/jpx3/intave/adapter/PacketEventsAdapter.java')
+          if old_adapter.exists():
+              old_adapter.rename(new_adapter)
           PY
 
       - name: Commit final migration changes locally
@@ -104,9 +142,17 @@ jobs:
         run: |
           git config user.name "Onxe"
           git config user.email "hieudieu393@gmail.com"
-          git add build.gradle.kts src/main/java
+          git add -A build.gradle.kts src
           if ! git diff --cached --quiet; then
-            git commit -m "fix: finalize PacketEvents runtime migration"
+            git commit -m "refactor: move compatibility layer to PacketEvents namespace"
+          fi
+
+      - name: Assert ProtocolLib namespace is gone
+        shell: bash
+        run: |
+          if grep -R --line-number --include='*.java' 'com\.comphenix\.protocol' src; then
+            echo 'ProtocolLib namespace references remain' >&2
+            exit 1
           fi
 
       - name: Validate build against latest master
