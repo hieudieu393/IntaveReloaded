@@ -201,6 +201,7 @@ public final class PacketType {
       case "BLOCK_CHANGE": return a("BLOCK_CHANGE");
       case "BLOCK_CHANGED_ACK": return a("ACKNOWLEDGE_BLOCK_CHANGES");
       case "BOSS": return a("BOSS_BAR");
+      case "BUNDLE": return a("BUNDLE");
       case "CAMERA": return a("CAMERA");
       case "CHAT": return a("CHAT_MESSAGE", "SYSTEM_CHAT_MESSAGE", "DISGUISED_CHAT");
       case "CLOSE_WINDOW": return a("CLOSE_WINDOW");
@@ -335,6 +336,7 @@ public final class PacketType {
       public static final PacketType ATTACH_ENTITY = s("ATTACH_ENTITY", "ATTACH_ENTITY");
       public static final PacketType BLOCK_CHANGE = s("BLOCK_CHANGE", "BLOCK_CHANGE");
       public static final PacketType BLOCK_CHANGED_ACK = s("BLOCK_CHANGED_ACK", "ACKNOWLEDGE_BLOCK_CHANGES");
+      public static final PacketType BUNDLE = s("BUNDLE", "BUNDLE");
       public static final PacketType CHAT = s("CHAT", "CHAT_MESSAGE", "SYSTEM_CHAT_MESSAGE");
       public static final PacketType CLOSE_WINDOW = s("CLOSE_WINDOW", "CLOSE_WINDOW");
       public static final PacketType CUSTOM_PAYLOAD = s("CUSTOM_PAYLOAD", "PLUGIN_MESSAGE");
@@ -349,6 +351,7 @@ public final class PacketType {
       public static final PacketType EXPERIENCE = s("EXPERIENCE", "SET_EXPERIENCE");
       public static final PacketType EXPLOSION = s("EXPLOSION", "EXPLOSION");
       public static final PacketType INITIALIZE_BORDER = s("INITIALIZE_BORDER", "INITIALIZE_WORLD_BORDER");
+      public static final PacketType KEEP_ALIVE = s("KEEP_ALIVE", "KEEP_ALIVE");
       public static final PacketType LOGIN = s("LOGIN", "JOIN_GAME");
       public static final PacketType MAP_CHUNK = s("MAP_CHUNK", "CHUNK_DATA");
       public static final PacketType MAP_CHUNK_BULK = s("MAP_CHUNK_BULK", "MAP_CHUNK_BULK");
