@@ -120,6 +120,16 @@ jobs:
               if updated != text:
                   path.write_text(updated)
 
+          # PacketEvents has no ProtocolLib-4 mode. Keep the same effective default used by the 2.x backend.
+          linker = Path('src/main/java/de/jpx3/intave/module/linker/packet/PacketSubscriptionLinker.java')
+          text = linker.read_text()
+          text = text.replace(
+              '    boolean packetEventsLegacyMode = PacketEventsLibrary.getPlugin().getDescription().getVersion().startsWith("4");\n'
+              '    IGNORE_CHAT_PACKETS = IGNORE_SCOREBOARD_TEAM_PACKETS = plugin.getConfig().getBoolean("compatibility.ignore-scoreboard-packets", !packetEventsLegacyMode);',
+              '    IGNORE_CHAT_PACKETS = IGNORE_SCOREBOARD_TEAM_PACKETS = plugin.getConfig().getBoolean("compatibility.ignore-scoreboard-packets", true);'
+          )
+          linker.write_text(text)
+
           # Move the compatibility classes out of the third-party ProtocolLib namespace.
           old_root = Path('src/main/java/com/comphenix/protocol')
           new_root = Path('src/main/java/de/jpx3/intave/packet/compat')
