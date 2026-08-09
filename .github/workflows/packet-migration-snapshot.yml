@@ -1,4 +1,4 @@
-name: Packet migration compile fixes
+name: Packet migration final validation
 
 on:
   pull_request:
@@ -25,87 +25,95 @@ jobs:
           java-version: '21'
           cache: gradle
 
-      - name: Complete compatibility surface
+      - name: Finalize PacketEvents migration
         shell: bash
         run: |
           python3 <<'PY'
           from pathlib import Path
 
+          # PacketEvents is now a hard plugin dependency. Every development/test server must install it too.
           p = Path('build.gradle.kts')
           s = p.read_text()
-          marker = '  compileOnly("net.bytebuddy:byte-buddy:1.18.2")\n'
-          runtime = '  testRuntimeOnly("net.bytebuddy:byte-buddy:1.18.2")\n'
-          if runtime not in s:
-              s = s.replace(marker, marker + runtime)
+          pe = '      modrinth("packetevents", "2.13.0+spigot")\n'
+
+          # Add PacketEvents to the generic Paper test task.
+          needle = '    minecraftVersion(serverVersion)\n    // Minecraft 1.8.8 requires special patches to work with Java 17\n'
+          repl = '    minecraftVersion(serverVersion)\n    downloadPlugins {\n' + pe + '    }\n    // Minecraft 1.8.8 requires special patches to work with Java 17\n'
+          if needle in s and repl not in s:
+              s = s.replace(needle, repl, 1)
+
+          # Add PacketEvents to generic Paper run task alongside ViaVersion.
+          run_block = '    downloadPlugins {\n      modrinth("viaversion", "5.9.1")\n      modrinth("viabackwards", "5.9.1")\n    }\n'
+          run_repl = '    downloadPlugins {\n      modrinth("packetevents", "2.13.0+spigot")\n      modrinth("viaversion", "5.9.1")\n      modrinth("viabackwards", "5.9.1")\n    }\n'
+          if run_block in s:
+              s = s.replace(run_block, run_repl)
+
+          # Folia run task also needs the hard dependency.
+          folia_needle = '    minecraftVersion(serverVersion)\n    runDirectory(File("runs/folia_${serverVersion}-j$javaVersion"))\n'
+          folia_repl = '    minecraftVersion(serverVersion)\n    downloadPlugins {\n      modrinth("packetevents", "2.13.0+spigot")\n    }\n    runDirectory(File("runs/folia_${serverVersion}-j$javaVersion"))\n'
+          if folia_needle in s:
+              s = s.replace(folia_needle, folia_repl)
+
+          # Special run tasks are outside the generic task factory.
+          for marker in [
+              '  minecraftVersion("1.8.8")\n  runDirectory(File("runs/authtest"))\n',
+              '  minecraftVersion("1.8.8")\n  runDirectory(File("runs/gommetest"))\n',
+              '  minecraftVersion("1.20.1")\n  runDirectory(File("runs/authtest_1.20.1"))\n',
+          ]:
+              if marker in s:
+                  version_line, run_line = marker.split('\n', 1)
+                  s = s.replace(marker, version_line + '\n  downloadPlugins {\n    modrinth("packetevents", "2.13.0+spigot")\n  }\n' + run_line)
+
           p.write_text(s)
 
-          p = Path('src/main/java/com/comphenix/protocol/wrappers/EnumWrappers.java')
-          s = p.read_text()
-          if 'public enum EntityPose' not in s:
-              s = s.replace(
-                  '  public enum Hand { MAIN_HAND, OFF_HAND }\n',
-                  '''  public enum Hand { MAIN_HAND, OFF_HAND }\n  public enum EntityPose {\n    STANDING, FALL_FLYING, SLEEPING, SWIMMING, SPIN_ATTACK, CROUCHING, LONG_JUMPING, DYING,\n    CROAKING, USING_TONGUE, SITTING, ROARING, SNIFFING, EMERGING, DIGGING, SLIDING, SHOOTING, INHALING;\n    public static EntityPose fromNms(Object value) {\n      if (value == null) return null;\n      String name = value instanceof Enum ? ((Enum<?>) value).name() : String.valueOf(value);\n      name = name.toUpperCase(java.util.Locale.ROOT).replace('-', '_').replace(' ', '_');\n      try { return valueOf(name); } catch (IllegalArgumentException ignored) { return null; }\n    }\n  }\n''')
-          s = s.replace(
-              '  public static <T extends Enum<T>> EquivalentConverter<T> getGenericConverter(Class<T> c, Class<?> ignored){return enumConverter(c);}\n',
-              '  public static <T extends Enum<T>> EquivalentConverter<T> getGenericConverter(Class<?> ignoredNative, Class<T> specific){return enumConverter(specific);}\n')
-          p.write_text(s)
+          # User-facing diagnostics must identify the real packet library.
+          for path in [
+              Path('src/main/java/de/jpx3/intave/command/stages/DiagnosticsStage.java'),
+              Path('src/main/java/de/jpx3/intave/command/stages/BaseStage.java'),
+          ]:
+              text = path.read_text()
+              text = text.replace('protocolLibVersion', 'packetEventsVersion')
+              text = text.replace('ProtocolLib is ', 'PacketEvents is ')
+              text = text.replace('"ProtocolLib"', '"packetevents"')
+              text = text.replace(' ProtocolLib: ', ' PacketEvents: ')
+              path.write_text(text)
 
-          p = Path('src/main/java/com/comphenix/protocol/wrappers/BlockPosition.java')
-          s = p.read_text()
-          if 'com.comphenix.protocol.reflect.EquivalentConverter' not in s:
-              s = s.replace('package com.comphenix.protocol.wrappers;\n', 'package com.comphenix.protocol.wrappers;\nimport com.comphenix.protocol.reflect.EquivalentConverter;\nimport com.github.retrooper.packetevents.util.Vector3i;\n')
-          if 'BlockPosition(Vector vector)' not in s:
-              s = s.replace(
-                  '  public BlockPosition(int x,int y,int z){this.x=x;this.y=y;this.z=z;}\n',
-                  '''  public BlockPosition(int x,int y,int z){this.x=x;this.y=y;this.z=z;}\n  public BlockPosition(Vector vector){this(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ());}\n  public static EquivalentConverter<BlockPosition> getConverter(){\n    return new EquivalentConverter<BlockPosition>() {\n      @Override public Object getGeneric(BlockPosition value){\n        return value == null ? null : new Vector3i(value.x, value.y, value.z);\n      }\n      @Override public BlockPosition getSpecific(Object value){\n        if(value == null) return null;\n        if(value instanceof BlockPosition) return (BlockPosition)value;\n        if(value instanceof Vector3i){ Vector3i v=(Vector3i)value; return new BlockPosition(v.x, v.y, v.z); }\n        try {\n          java.lang.reflect.Method mx=value.getClass().getMethod("getX"), my=value.getClass().getMethod("getY"), mz=value.getClass().getMethod("getZ");\n          return new BlockPosition(((Number)mx.invoke(value)).intValue(), ((Number)my.invoke(value)).intValue(), ((Number)mz.invoke(value)).intValue());\n        } catch(Exception ignored) { return null; }\n      }\n      @Override public Class<BlockPosition> getSpecificType(){return BlockPosition.class;}\n    };\n  }\n''')
-          p.write_text(s)
+          p = Path('src/main/java/de/jpx3/intave/packet/PacketSender.java')
+          text = p.read_text()
+          text = text.replace(
+              'Your version of ProtocolLib is broken, see https://github.com/dmulloy2/ProtocolLib/issues/1552 for details on the issue',
+              'PacketEvents failed to send a packet; verify that PacketEvents 2.13.0 or newer is installed and initialized'
+          )
+          p.write_text(text)
 
-          p = Path('src/main/java/com/comphenix/protocol/wrappers/CustomPacketPayloadWrapper.java')
-          s = p.read_text()
-          if 'CustomPacketPayloadWrapper(byte[] payload, MinecraftKey id)' not in s:
-              s = s.replace(
-                  'public CustomPacketPayloadWrapper(MinecraftKey id, byte[] payload){this.id=id;this.payload=payload;}',
-                  'public CustomPacketPayloadWrapper(MinecraftKey id, byte[] payload){this.id=id;this.payload=payload;} public CustomPacketPayloadWrapper(byte[] payload, MinecraftKey id){this(id,payload);}')
-          p.write_text(s)
-
-          p = Path('src/main/java/com/comphenix/protocol/PacketType.java')
-          s = p.read_text()
-          server = s.split('public static final class Server {', 1)[1]
-          if 'public static final PacketType BUNDLE =' not in server:
-              s = s.replace(
-                  '      public static final PacketType BLOCK_CHANGED_ACK = s("BLOCK_CHANGED_ACK", "ACKNOWLEDGE_BLOCK_CHANGES");\n',
-                  '      public static final PacketType BLOCK_CHANGED_ACK = s("BLOCK_CHANGED_ACK", "ACKNOWLEDGE_BLOCK_CHANGES");\n      public static final PacketType BUNDLE = s("BUNDLE", "BUNDLE");\n')
-          server = s.split('public static final class Server {', 1)[1]
-          if 'public static final PacketType KEEP_ALIVE =' not in server:
-              s = s.replace(
-                  '      public static final PacketType INITIALIZE_BORDER = s("INITIALIZE_BORDER", "INITIALIZE_WORLD_BORDER");\n',
-                  '      public static final PacketType INITIALIZE_BORDER = s("INITIALIZE_BORDER", "INITIALIZE_WORLD_BORDER");\n      public static final PacketType KEEP_ALIVE = s("KEEP_ALIVE", "KEEP_ALIVE");\n')
-          p.write_text(s)
+          # Rename the subscription engine label; implementation already routes through PacketEvents.
+          for path in Path('src/main/java').rglob('*.java'):
+              text = path.read_text()
+              updated = text.replace('Engine.PROTOCOLLIB', 'Engine.PACKETEVENTS')
+              updated = updated.replace('case PROTOCOLLIB:', 'case PACKETEVENTS:')
+              if path.name == 'Engine.java':
+                  updated = updated.replace('  PROTOCOLLIB,', '  PACKETEVENTS,')
+              if updated != text:
+                  path.write_text(updated)
           PY
 
-      - name: Commit fixes locally
+      - name: Commit final migration changes locally
         shell: bash
         run: |
           git config user.name "Onxe"
           git config user.email "hieudieu393@gmail.com"
-          git add build.gradle.kts src/main/java/com/comphenix/protocol
-          git commit -m "fix: complete PacketEvents compatibility surface"
+          git add build.gradle.kts src/main/java
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: finalize PacketEvents runtime migration"
+          fi
 
-      - name: Validate against latest master
+      - name: Validate build against latest master
         shell: bash
         run: |
           git fetch origin master
           git merge --no-commit --no-ff origin/master
-          set +e
           ./gradlew build
-          status=$?
-          if [ "$status" -ne 0 ]; then
-            echo '===== TEST FAILURE DETAILS ====='
-            find build/test-results/test -type f -name '*.xml' -print -exec cat {} \; 2>/dev/null || true
-            echo '===== END TEST FAILURE DETAILS ====='
-          fi
           git merge --abort
-          exit "$status"
 
       - name: Remove migration helper and publish
         shell: bash
