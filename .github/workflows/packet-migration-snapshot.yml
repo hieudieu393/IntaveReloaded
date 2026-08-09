@@ -31,6 +31,14 @@ jobs:
           python3 <<'PY'
           from pathlib import Path
 
+          p = Path('build.gradle.kts')
+          s = p.read_text()
+          marker = '  compileOnly("net.bytebuddy:byte-buddy:1.18.2")\n'
+          runtime = '  testRuntimeOnly("net.bytebuddy:byte-buddy:1.18.2")\n'
+          if runtime not in s:
+              s = s.replace(marker, marker + runtime)
+          p.write_text(s)
+
           p = Path('src/main/java/com/comphenix/protocol/wrappers/EnumWrappers.java')
           s = p.read_text()
           if 'public enum EntityPose' not in s:
@@ -80,7 +88,7 @@ jobs:
         run: |
           git config user.name "Onxe"
           git config user.email "hieudieu393@gmail.com"
-          git add src/main/java/com/comphenix/protocol
+          git add build.gradle.kts src/main/java/com/comphenix/protocol
           git commit -m "fix: complete PacketEvents compatibility surface"
 
       - name: Validate against latest master
