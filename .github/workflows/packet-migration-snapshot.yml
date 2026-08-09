@@ -36,25 +36,21 @@ jobs:
           s = p.read_text()
           pe = '      modrinth("packetevents", "2.13.0+spigot")\n'
 
-          # Add PacketEvents to the generic Paper test task.
           needle = '    minecraftVersion(serverVersion)\n    // Minecraft 1.8.8 requires special patches to work with Java 17\n'
           repl = '    minecraftVersion(serverVersion)\n    downloadPlugins {\n' + pe + '    }\n    // Minecraft 1.8.8 requires special patches to work with Java 17\n'
           if needle in s and repl not in s:
               s = s.replace(needle, repl, 1)
 
-          # Add PacketEvents to generic Paper run task alongside ViaVersion.
           run_block = '    downloadPlugins {\n      modrinth("viaversion", "5.9.1")\n      modrinth("viabackwards", "5.9.1")\n    }\n'
           run_repl = '    downloadPlugins {\n      modrinth("packetevents", "2.13.0+spigot")\n      modrinth("viaversion", "5.9.1")\n      modrinth("viabackwards", "5.9.1")\n    }\n'
           if run_block in s:
               s = s.replace(run_block, run_repl)
 
-          # Folia run task also needs the hard dependency.
           folia_needle = '    minecraftVersion(serverVersion)\n    runDirectory(File("runs/folia_${serverVersion}-j$javaVersion"))\n'
           folia_repl = '    minecraftVersion(serverVersion)\n    downloadPlugins {\n      modrinth("packetevents", "2.13.0+spigot")\n    }\n    runDirectory(File("runs/folia_${serverVersion}-j$javaVersion"))\n'
           if folia_needle in s:
               s = s.replace(folia_needle, folia_repl)
 
-          # Special run tasks are outside the generic task factory.
           for marker in [
               '  minecraftVersion("1.8.8")\n  runDirectory(File("runs/authtest"))\n',
               '  minecraftVersion("1.8.8")\n  runDirectory(File("runs/gommetest"))\n',
@@ -63,8 +59,15 @@ jobs:
               if marker in s:
                   version_line, run_line = marker.split('\n', 1)
                   s = s.replace(marker, version_line + '\n  downloadPlugins {\n    modrinth("packetevents", "2.13.0+spigot")\n  }\n' + run_line)
-
           p.write_text(s)
+
+          # Java generic Class comparison needs a wildcard-safe form.
+          p = Path('src/main/java/com/comphenix/protocol/events/PacketContainer.java')
+          text = p.read_text().replace(
+              'wrapperClass == null || wrapperClass == PacketWrapper.class',
+              'wrapperClass == null || wrapperClass.getName().equals(PacketWrapper.class.getName())'
+          )
+          p.write_text(text)
 
           # User-facing diagnostics must identify the real packet library.
           for path in [
@@ -79,8 +82,7 @@ jobs:
               path.write_text(text)
 
           p = Path('src/main/java/de/jpx3/intave/packet/PacketSender.java')
-          text = p.read_text()
-          text = text.replace(
+          text = p.read_text().replace(
               'Your version of ProtocolLib is broken, see https://github.com/dmulloy2/ProtocolLib/issues/1552 for details on the issue',
               'PacketEvents failed to send a packet; verify that PacketEvents 2.13.0 or newer is installed and initialized'
           )
