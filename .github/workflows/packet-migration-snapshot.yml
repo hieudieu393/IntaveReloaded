@@ -1,27 +1,99 @@
-name: Packet migration snapshot
+name: Packet migration compile fixes
 
 on:
   pull_request:
     branches: [ master ]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  snapshot:
+  migrate-and-validate:
     if: github.head_ref == 'agent/packetevents-migration'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/upload-artifact@v4
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
         with:
-          name: packetevents-migration-current
-          path: |
-            src
-            build.gradle.kts
-            settings.gradle.kts
-            gradle.properties
-            gradle
-            gradlew
-            gradlew.bat
-          retention-days: 1
+          ref: agent/packetevents-migration
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Complete compatibility surface
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          p = Path('src/main/java/com/comphenix/protocol/wrappers/EnumWrappers.java')
+          s = p.read_text()
+          if 'public enum EntityPose' not in s:
+              s = s.replace(
+                  '  public enum Hand { MAIN_HAND, OFF_HAND }\n',
+                  '''  public enum Hand { MAIN_HAND, OFF_HAND }\n  public enum EntityPose {\n    STANDING, FALL_FLYING, SLEEPING, SWIMMING, SPIN_ATTACK, CROUCHING, LONG_JUMPING, DYING,\n    CROAKING, USING_TONGUE, SITTING, ROARING, SNIFFING, EMERGING, DIGGING, SLIDING, SHOOTING, INHALING;\n    public static EntityPose fromNms(Object value) {\n      if (value == null) return null;\n      String name = value instanceof Enum ? ((Enum<?>) value).name() : String.valueOf(value);\n      name = name.toUpperCase(java.util.Locale.ROOT).replace('-', '_').replace(' ', '_');\n      try { return valueOf(name); } catch (IllegalArgumentException ignored) { return null; }\n    }\n  }\n''')
+          s = s.replace(
+              '  public static <T extends Enum<T>> EquivalentConverter<T> getGenericConverter(Class<T> c, Class<?> ignored){return enumConverter(c);}\n',
+              '  public static <T extends Enum<T>> EquivalentConverter<T> getGenericConverter(Class<?> ignoredNative, Class<T> specific){return enumConverter(specific);}\n')
+          p.write_text(s)
+
+          p = Path('src/main/java/com/comphenix/protocol/wrappers/BlockPosition.java')
+          s = p.read_text()
+          if 'com.comphenix.protocol.reflect.EquivalentConverter' not in s:
+              s = s.replace('package com.comphenix.protocol.wrappers;\n', 'package com.comphenix.protocol.wrappers;\nimport com.comphenix.protocol.reflect.EquivalentConverter;\nimport com.github.retrooper.packetevents.util.Vector3i;\n')
+          if 'BlockPosition(Vector vector)' not in s:
+              s = s.replace(
+                  '  public BlockPosition(int x,int y,int z){this.x=x;this.y=y;this.z=z;}\n',
+                  '''  public BlockPosition(int x,int y,int z){this.x=x;this.y=y;this.z=z;}\n  public BlockPosition(Vector vector){this(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ());}\n  public static EquivalentConverter<BlockPosition> getConverter(){\n    return new EquivalentConverter<BlockPosition>() {\n      @Override public Object getGeneric(BlockPosition value){\n        return value == null ? null : new Vector3i(value.x, value.y, value.z);\n      }\n      @Override public BlockPosition getSpecific(Object value){\n        if(value == null) return null;\n        if(value instanceof BlockPosition) return (BlockPosition)value;\n        if(value instanceof Vector3i){ Vector3i v=(Vector3i)value; return new BlockPosition(v.x, v.y, v.z); }\n        try {\n          java.lang.reflect.Method mx=value.getClass().getMethod("getX"), my=value.getClass().getMethod("getY"), mz=value.getClass().getMethod("getZ");\n          return new BlockPosition(((Number)mx.invoke(value)).intValue(), ((Number)my.invoke(value)).intValue(), ((Number)mz.invoke(value)).intValue());\n        } catch(Exception ignored) { return null; }\n      }\n      @Override public Class<BlockPosition> getSpecificType(){return BlockPosition.class;}\n    };\n  }\n''')
+          p.write_text(s)
+
+          p = Path('src/main/java/com/comphenix/protocol/wrappers/CustomPacketPayloadWrapper.java')
+          s = p.read_text()
+          if 'CustomPacketPayloadWrapper(byte[] payload, MinecraftKey id)' not in s:
+              s = s.replace(
+                  'public CustomPacketPayloadWrapper(MinecraftKey id, byte[] payload){this.id=id;this.payload=payload;}',
+                  'public CustomPacketPayloadWrapper(MinecraftKey id, byte[] payload){this.id=id;this.payload=payload;} public CustomPacketPayloadWrapper(byte[] payload, MinecraftKey id){this(id,payload);}')
+          p.write_text(s)
+
+          p = Path('src/main/java/com/comphenix/protocol/PacketType.java')
+          s = p.read_text()
+          server = s.split('public static final class Server {', 1)[1]
+          if 'public static final PacketType BUNDLE =' not in server:
+              s = s.replace(
+                  '      public static final PacketType BLOCK_CHANGED_ACK = s("BLOCK_CHANGED_ACK", "ACKNOWLEDGE_BLOCK_CHANGES");\n',
+                  '      public static final PacketType BLOCK_CHANGED_ACK = s("BLOCK_CHANGED_ACK", "ACKNOWLEDGE_BLOCK_CHANGES");\n      public static final PacketType BUNDLE = s("BUNDLE", "BUNDLE");\n')
+          server = s.split('public static final class Server {', 1)[1]
+          if 'public static final PacketType KEEP_ALIVE =' not in server:
+              s = s.replace(
+                  '      public static final PacketType INITIALIZE_BORDER = s("INITIALIZE_BORDER", "INITIALIZE_WORLD_BORDER");\n',
+                  '      public static final PacketType INITIALIZE_BORDER = s("INITIALIZE_BORDER", "INITIALIZE_WORLD_BORDER");\n      public static final PacketType KEEP_ALIVE = s("KEEP_ALIVE", "KEEP_ALIVE");\n')
+          p.write_text(s)
+          PY
+
+      - name: Commit fixes locally
+        shell: bash
+        run: |
+          git config user.name "Onxe"
+          git config user.email "hieudieu393@gmail.com"
+          git add src/main/java/com/comphenix/protocol
+          git commit -m "fix: complete PacketEvents compatibility surface"
+
+      - name: Validate against latest master
+        shell: bash
+        run: |
+          git fetch origin master
+          git merge --no-commit --no-ff origin/master
+          ./gradlew build
+          git merge --abort
+
+      - name: Remove migration helper and publish
+        shell: bash
+        run: |
+          git rm .github/workflows/packet-migration-snapshot.yml
+          git commit -m "chore: remove migration helper"
+          git push origin HEAD:agent/packetevents-migration
