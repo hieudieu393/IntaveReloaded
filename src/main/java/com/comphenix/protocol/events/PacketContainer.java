@@ -85,6 +85,15 @@ public class PacketContainer {
   public StructureModifier<WrappedBlockData> getBlockData(){return getModifier().withType(WrappedBlockData.class);}
   public StructureModifier<MovingObjectPositionBlock> getMovingBlockPositions(){return getModifier().withType(MovingObjectPositionBlock.class);}
   public StructureModifier<MinecraftKey> getMinecraftKeys(){return getModifier().withType(MinecraftKey.class);}
+  public StructureModifier<org.bukkit.Material> getBlocks(){return getModifier().withType(org.bukkit.Material.class);}
+  public StructureModifier<BlockPosition[]> getSectionPositionArrays(){return getModifier().withType(BlockPosition[].class);}
+  public StructureModifier<BlockPosition> getSectionPositions(){return getModifier().withType(BlockPosition.class);}
+  public StructureModifier<short[]> getShortArrays(){return getModifier().withType(short[].class);}
+  public StructureModifier<WrappedBlockData[]> getBlockDataArrays(){return getModifier().withType(WrappedBlockData[].class);}
+  @SuppressWarnings("unchecked") public StructureModifier<Set<EnumWrappers.PlayerInfoAction>> getPlayerInfoActions(){return (StructureModifier)getModifier().withType(Set.class);}
+  @SuppressWarnings("unchecked") public <T> StructureModifier<List<T>> getLists(EquivalentConverter<T> converter){return (StructureModifier)getModifier().withType(List.class);}
+  public StructureModifier<org.bukkit.entity.Entity> getEntityModifier(org.bukkit.World world){return getModifier().withType(org.bukkit.entity.Entity.class);}
+
   @SuppressWarnings("unchecked") public StructureModifier<List<Integer>> getIntLists(){return (StructureModifier)getModifier().withType(List.class);}
   public StructureModifier<EnumWrappers.ClientCommand> getClientCommands(){return getModifier().withType(EnumWrappers.ClientCommand.class);}
   public StructureModifier<EnumWrappers.EntityUseAction> getEntityUseActions(){return getModifier().withType(EnumWrappers.EntityUseAction.class);}
