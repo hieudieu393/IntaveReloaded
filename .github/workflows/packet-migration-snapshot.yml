@@ -1,0 +1,27 @@
+name: Packet migration snapshot
+
+on:
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    if: github.head_ref == 'agent/packetevents-migration'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packetevents-migration-current
+          path: |
+            src
+            build.gradle.kts
+            settings.gradle.kts
+            gradle.properties
+            gradle
+            gradlew
+            gradlew.bat
+          retention-days: 1
