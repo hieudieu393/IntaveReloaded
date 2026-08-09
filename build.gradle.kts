@@ -86,6 +86,7 @@ dependencies {
 
   // bytebuddy
   compileOnly("net.bytebuddy:byte-buddy:1.18.2")
+  testRuntimeOnly("net.bytebuddy:byte-buddy:1.18.2")
 
   // floodgate
   compileOnly("org.geysermc.floodgate:api:2.0-SNAPSHOT")
