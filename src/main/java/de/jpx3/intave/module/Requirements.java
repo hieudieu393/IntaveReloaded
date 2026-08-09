@@ -1,7 +1,6 @@
 package de.jpx3.intave.module;
 
-import com.comphenix.protocol.ProtocolLibrary;
-
+import com.github.retrooper.packetevents.PacketEvents;
 import java.util.Arrays;
 
 final class Requirements {
@@ -9,16 +8,19 @@ final class Requirements {
     return new NoRequirement();
   }
 
+  /** Legacy method name retained so existing module declarations remain source compatible. */
   public static Requirement protocolLib() {
-    return requiresPlugin("ProtocolLib").and(() -> ProtocolLibrary.getProtocolManager() != null);
+    return requiresPlugin("packetevents")
+      .and(() -> PacketEvents.getAPI() != null && PacketEvents.getAPI().isInitialized());
   }
 
+  /** PacketEvents has no ProtocolLib-4 split; any initialized PacketEvents backend satisfies it. */
   public static Requirement protocolLib4() {
-    return protocolLib().and(() -> ProtocolLibrary.getPlugin().getDescription().getVersion().startsWith("4"));
+    return protocolLib();
   }
 
   public static Requirement intaveEnabled() {
-    return requiresPlugin("Intave");
+    return requiresPlugin("IntaveReloaded");
   }
 
   public static Requirement requiresPlugin(String plugin) {

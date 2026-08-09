@@ -37,7 +37,7 @@ val gitCommitHash by lazy {
   }.standardOutput.asText.get().trim()
 }
 
-val simpleName = "Intave"
+val simpleName = "IntaveReloaded"
 group = "de.jpx3"
 version = "$gitTag-$gitCommitHash"
 description = "Automated cheat detection and prevention"
@@ -66,7 +66,6 @@ dependencies {
 
   testRuntimeOnly("it.unimi.dsi:fastutil:8.5.12")
   testImplementation("org.spigotmc:spigot-api:26.1.2-R0.1-SNAPSHOT")
-  testImplementation("net.dmulloy2:ProtocolLib:5.4.0")
   testImplementation("io.netty:netty-all:4.2.15.Final")
 
   // random shit
@@ -117,13 +116,14 @@ configurations[benchmarkSourceSet.runtimeOnlyConfigurationName].extendsFrom(
  */
 bukkit {
   name = simpleName
-  authors = listOf("DarkAndBlue", "Jpx3", "vento", "vxcus", "lennoxlotl", "NotLucky", "Trattue")
+  authors = listOf("Onxe", "DarkAndBlue", "Jpx3", "vento", "vxcus", "lennoxlotl", "NotLucky", "Trattue")
   version = "${rootProject.version}"
   description = "${rootProject.description}"
 
   main = "de.jpx3.intave.IntavePlugin"
   apiVersion = "1.13"
-  softDepend = listOf("packetevents", "ProtocolLib", "ViaVersion")
+  depend = listOf("packetevents")
+  softDepend = listOf("ViaVersion")
 
   commands { register("intave") { aliases = listOf("iac") } }
 

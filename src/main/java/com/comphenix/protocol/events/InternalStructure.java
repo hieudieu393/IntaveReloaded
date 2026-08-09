@@ -1,0 +1,3 @@
+package com.comphenix.protocol.events;
+import com.comphenix.protocol.reflect.StructureModifier;
+public class InternalStructure { private final Object handle; public InternalStructure(Object handle){this.handle=handle;} public Object getHandle(){return handle;} public StructureModifier<Object> getModifier(){return new StructureModifier<>(handle);} public StructureModifier<Integer> getIntegers(){return getModifier().withType(int.class);} public StructureModifier<Boolean> getBooleans(){return getModifier().withType(boolean.class);} public StructureModifier<Double> getDoubles(){return getModifier().withType(double.class);} public StructureModifier<String> getStrings(){return getModifier().withType(String.class);} }
