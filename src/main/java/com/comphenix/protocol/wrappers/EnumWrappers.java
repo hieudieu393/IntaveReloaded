@@ -15,9 +15,14 @@ public final class EnumWrappers {
   public enum ItemSlot { MAINHAND, OFFHAND, FEET, LEGS, CHEST, HEAD, BODY }
   public enum ChatType { CHAT, SYSTEM, GAME_INFO }
   public enum SoundCategory { MASTER, MUSIC, RECORDS, WEATHER, BLOCKS, HOSTILE, NEUTRAL, PLAYERS, AMBIENT, VOICE }
+  public enum EntityPose {
+    STANDING, FALL_FLYING, SLEEPING, SWIMMING, SPIN_ATTACK, CROUCHING, LONG_JUMPING, DYING, CROAKING, USING_TONGUE, SITTING, ROARING, SNIFFING, EMERGING, DIGGING, SLIDING, SHOOTING, INHALING;
+    public static EntityPose fromNms(Object value){ if(value==null)return null; try{return value instanceof EntityPose?(EntityPose)value:EntityPose.valueOf(value instanceof Enum?((Enum<?>)value).name():String.valueOf(value));}catch(Exception ignored){return null;} }
+  }
   public static Class<?> getGameModeClass(){return GameMode.class;}
   public static EquivalentConverter<NativeGameMode> getGameModeConverter(){return enumConverter(NativeGameMode.class);}
-  public static <T extends Enum<T>> EquivalentConverter<T> getGenericConverter(Class<T> c, Class<?> ignored){return enumConverter(c);}
-  public static <T extends Enum<T>> EquivalentConverter<T> getGenericConverter(Class<T> c){return enumConverter(c);}
+  @SuppressWarnings({"rawtypes","unchecked"}) public static EquivalentConverter getGenericConverter(Class c, Class<?> ignored){return enumConverterUnchecked(c);}
+  @SuppressWarnings({"rawtypes","unchecked"}) public static EquivalentConverter getGenericConverter(Class c){return enumConverterUnchecked(c);}
   private static <T extends Enum<T>> EquivalentConverter<T> enumConverter(Class<T> c){return new EquivalentConverter<T>(){public Object getGeneric(T s){return s==null?null:s.name();} public T getSpecific(Object o){if(o==null)return null;try{return Enum.valueOf(c,o instanceof Enum?((Enum<?>)o).name():String.valueOf(o));}catch(Exception e){return null;}}public Class<T> getSpecificType(){return c;}};}
+  @SuppressWarnings({"rawtypes","unchecked"}) private static EquivalentConverter enumConverterUnchecked(final Class c){return new EquivalentConverter(){public Object getGeneric(Object s){return s==null?null:(s instanceof Enum?((Enum)s).name():String.valueOf(s));} public Object getSpecific(Object o){if(o==null)return null;try{return c.isEnum()?Enum.valueOf(c,o instanceof Enum?((Enum)o).name():String.valueOf(o)):o;}catch(Exception e){return null;}} public Class getSpecificType(){return c;}};}
 }
