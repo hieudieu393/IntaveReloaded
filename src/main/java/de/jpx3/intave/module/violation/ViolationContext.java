@@ -149,7 +149,7 @@ public final class ViolationContext {
   ) {
     boolean fullMessage = /*enterprise && */type == ViolationPlaceholderContext.DetailScope.FULL;
     return new ViolationPlaceholderContext(
-      initialViolation.check().name(),
+      initialViolation.checkName(),
       initialViolation.message(),
       fullMessage ? initialViolation.details() : "",
       violationLevelBefore,
