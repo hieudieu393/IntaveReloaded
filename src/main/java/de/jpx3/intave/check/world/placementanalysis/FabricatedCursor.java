@@ -78,12 +78,12 @@ public final class FabricatedCursor extends CheckPart<PlacementAnalysis> {
     try {
       BlockShape shape = user.blockCache().outlineShapeAt(position);
       if (shape != null && !shape.isEmpty()) {
-        minX = saneMin(shape.min(Direction.Axis.X));
-        minY = saneMin(shape.min(Direction.Axis.Y));
-        minZ = saneMin(shape.min(Direction.Axis.Z));
-        maxX = saneMax(shape.max(Direction.Axis.X));
-        maxY = saneMax(shape.max(Direction.Axis.Y));
-        maxZ = saneMax(shape.max(Direction.Axis.Z));
+        minX = saneMin(shape.min(Direction.Axis.X_AXIS));
+        minY = saneMin(shape.min(Direction.Axis.Y_AXIS));
+        minZ = saneMin(shape.min(Direction.Axis.Z_AXIS));
+        maxX = saneMax(shape.max(Direction.Axis.X_AXIS));
+        maxY = saneMax(shape.max(Direction.Axis.Y_AXIS));
+        maxZ = saneMax(shape.max(Direction.Axis.Z_AXIS));
       }
     } catch (RuntimeException ignored) {
       // Unresolved compensated shape: strict vanilla cube is safer than inventing a larger shape.
