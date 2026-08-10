@@ -7,6 +7,9 @@ import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
+import de.jpx3.intave.packet.converter.PlayerAction;
+import de.jpx3.intave.packet.reader.PacketReaders;
+import de.jpx3.intave.packet.reader.PlayerActionReader;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 
@@ -82,10 +85,34 @@ public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPa
     }
 
     if (meta.sentMovement && isTrackedAction(type)) {
+      if (isExemptEntityAction(user, event)) {
+        return;
+      }
       if (meta.firstPostAction == null) {
         meta.firstPostAction = type.name().toLowerCase(Locale.ROOT).replace('_', ' ');
       }
       meta.postActions++;
+    }
+  }
+
+  private static boolean isExemptEntityAction(User user, PacketEvent event) {
+    PacketType type = event.getPacketType();
+    if (type == null || !"ENTITY_ACTION".equalsIgnoreCase(type.name())) {
+      return false;
+    }
+
+    // Modern clients/proxies can emit entity actions asynchronously while riding. Treat those as
+    // untrusted timing evidence rather than post-order violations.
+    if (user.meta().movement().isInVehicle()) {
+      return true;
+    }
+
+    PlayerActionReader reader = PacketReaders.readerOf(event.getPacket());
+    try {
+      // Leaving a bed is allowed outside the normal movement-tick packet order on modern clients.
+      return reader.playerAction() == PlayerAction.STOP_SLEEPING;
+    } finally {
+      reader.release();
     }
   }
 
