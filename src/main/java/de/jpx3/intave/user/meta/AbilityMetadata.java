@@ -33,7 +33,6 @@ public final class AbilityMetadata {
     !"662A6B8D-DA3E-4C1C-8813-96EA6097278D".equalsIgnoreCase(modifier.key().path()) && !"minecraft:sprinting".equalsIgnoreCase(modifier.key().fullKey())
     : !modifier.id().equals(SPEED_MODIFIER_SPRINTING_UUID);
 
-
   private final Player player;
   private boolean flying;
   private boolean allowFlying;
@@ -44,7 +43,7 @@ public final class AbilityMetadata {
 
   private float flySpeed = 0.05f;
 
-	private final AtomicReference<Map<String, Attribute>> attributes = new AtomicReference<>(new HashMap<>());
+  private final AtomicReference<Map<String, Attribute>> attributes = new AtomicReference<>(new HashMap<>());
   private final AtomicReference<Map<String, List<AttributeModifier>>> attributeModifiers = new AtomicReference<>(new HashMap<>());
   private double scaleCache;
   private boolean scaleCacheValid;
@@ -68,7 +67,7 @@ public final class AbilityMetadata {
       this.foodLevel = player.getFoodLevel();
       setupDefaultGameMode(player.getGameMode());
 
-	    this.flySpeed = player.getFlySpeed() / 2.0f;
+      this.flySpeed = player.getFlySpeed() / 2.0f;
 
       setupAttributes();
     } else {
@@ -103,6 +102,9 @@ public final class AbilityMetadata {
     }
     if (MinecraftVersions.VER1_21.atOrAbove()) {
       setupAttribute("generic.scale", 1.0D);
+      // Modern combat reach is an attribute. AttackRaytrace consumes this value once the server
+      // sends an UPDATE_ATTRIBUTES packet; 3.0 is the vanilla survival baseline.
+      setupAttribute("player.entity_interaction_range", 3.0D);
     }
   }
 
@@ -163,8 +165,7 @@ public final class AbilityMetadata {
     }
     double x = attribute.baseValue();
     double y = 0.0;
-    // ProtocolLib code pasted,
-    for(int phase = 0; phase < 3; ++phase) {
+    for (int phase = 0; phase < 3; ++phase) {
       for (AttributeModifier modifier : attributeModifiers) {
         if (!filter.test(modifier)) {
           continue;
@@ -270,6 +271,7 @@ public final class AbilityMetadata {
     modernRemap.put("zombie.spawnReinforcements", "spawn_reinforcements");
     modernRemap.put("generic.scale", "scale");
     modernRemap.put("player.sneaking_speed", "sneaking_speed");
+    modernRemap.put("player.entity_interaction_range", "entity_interaction_range");
     MODERN_WRAPPED_KEY_REMAP = ImmutableMap.copyOf(modernRemap);
   }
 
