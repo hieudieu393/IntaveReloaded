@@ -60,8 +60,6 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
       meta.swapsSincePop = 0;
       meta.timingSampleRecorded = false;
 
-      // Only start timing after the client has acknowledged traffic after the pop packet. This
-      // reuses Intave's own transaction/feedback system instead of guessing from raw ping.
       user.tickFeedback(() -> {
         AutoTotemMeta current = metaOf(user);
         if (current.popGeneration != generation) {
@@ -114,6 +112,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
           meta.sus = true;
           Violation violation = Violation.builderFor(InventoryClickAnalysis.class)
             .forPlayer(player)
+            .withCheckName("AutoTotem")
             .withMessage("might be using auto-totem")
             .withDetails(timeSincePickup + "ms delay")
             .withVL(meta.vl).build();
@@ -121,7 +120,6 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
           Synchronizer.synchronizeDelayed(() -> {
             PlayerInventory inventory = user.player().getInventory();
             int freeSlot = inventory.firstEmpty();
-            // move totem to free slot, if possible
             if (freeSlot >= 0) {
               ItemStack totem = inventory.getItemInOffHand();
               inventory.setItemInOffHand(null);
@@ -132,7 +130,6 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
               user.refreshSprintState(x -> {
                 Synchronizer.synchronizeDelayed(() -> {
                   PlayerInventory inventory2 = user.player().getInventory();
-                  // undo if not sus
                   if (!meta.sus) {
                     inventory2.setItem(OFFHAND_SLOT, totem);
                     inventory2.setItem(freeSlot, null);
@@ -209,10 +206,6 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
     }
 
     meta.swapsSincePop++;
-
-    // Same-tick sequence analysis intentionally counts every swap, but timing consistency must
-    // contribute at most one sample per pop. Otherwise a burst of swaps after one pop could fake
-    // a low standard deviation and over-inflate the timing buffers.
     if (meta.timingSampleRecorded) {
       return;
     }
@@ -269,6 +262,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
   private void flagPopAware(User user, String details, int vl) {
     Violation violation = Violation.builderFor(InventoryClickAnalysis.class)
       .forPlayer(user.player())
+      .withCheckName("AutoTotem")
       .withMessage("might be using auto-totem")
       .withDetails(details)
       .withVL(vl)
