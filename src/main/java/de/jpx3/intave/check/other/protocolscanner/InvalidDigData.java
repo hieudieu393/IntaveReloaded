@@ -10,14 +10,14 @@ import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.packet.reader.BlockDigReader;
 import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.user.User;
+import de.jpx3.intave.user.meta.ProtocolMetadata;
 
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.BLOCK_DIG;
 
 /**
  * Modern vanilla clients use the digging packet for several non-block actions (drop item,
  * release-use-item, offhand swap, etc). For those actions the block fields are placeholders:
- * origin position, DOWN face and sequence zero. Non-placeholder data is therefore a useful
- * protocol-invalid signal without overlapping Intave's actual block-break validation.
+ * origin position, DOWN face and, on native sequence-capable clients, sequence zero.
  */
 public final class InvalidDigData extends CheckPart<ProtocolScanner> {
   public InvalidDigData(ProtocolScanner parentCheck) {
@@ -38,14 +38,19 @@ public final class InvalidDigData extends CheckPart<ProtocolScanner> {
     EnumWrappers.Direction face = event.getPacket().getDirections().readSafely(0);
     Integer sequence = event.getPacket().getIntegers().readSafely(0);
 
-    // If the compatibility layer cannot expose one of these fields, leave the packet to the
-    // existing trackers rather than guessing a layout and risking a false positive.
-    if (position == null || face == null || sequence == null) {
+    // Do not guess fields the compatibility layer failed to expose.
+    if (position == null || face == null) {
+      return;
+    }
+
+    boolean nativeSequence = user.protocolVersion() >= ProtocolMetadata.VER_1_19_2;
+    if (nativeSequence && sequence == null) {
       return;
     }
 
     boolean origin = position.getX() == 0 && position.getY() == 0 && position.getZ() == 0;
-    boolean valid = origin && face == EnumWrappers.Direction.DOWN && sequence == 0;
+    boolean sequenceValid = !nativeSequence || sequence == 0;
+    boolean valid = origin && face == EnumWrappers.Direction.DOWN && sequenceValid;
     if (valid) {
       return;
     }
@@ -59,7 +64,8 @@ public final class InvalidDigData extends CheckPart<ProtocolScanner> {
     Violation violation = Violation.builderFor(ProtocolScanner.class)
       .forPlayer(user.player())
       .withMessage("sent impossible auxiliary dig data")
-      .withDetails(action.name() + " pos=" + position + ", face=" + face + ", sequence=" + sequence)
+      .withDetails(action.name() + " pos=" + position + ", face=" + face
+        + ", sequence=" + (nativeSequence ? String.valueOf(sequence) : "legacy-exempt"))
       .withVL(Math.max(1, vl))
       .build();
     Modules.violationProcessor().processViolation(violation);
