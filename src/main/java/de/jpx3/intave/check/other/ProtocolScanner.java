@@ -34,6 +34,7 @@ public final class ProtocolScanner extends Check {
       new DuplicateInputGuard(this),
       new RespawnStateGuard(this),
       new PostPacketOrder(this),
+      new ActionOrderGuard(this),
       new ExploitGuard(this),
       new BookEditGuard(this),
       new SequenceGuard(this),
