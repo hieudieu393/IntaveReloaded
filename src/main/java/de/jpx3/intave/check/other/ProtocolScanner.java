@@ -28,6 +28,8 @@ public final class ProtocolScanner extends Check {
       new SkinBlinker(this),
       new InvalidRelease(this),
       new InvalidNumericData(this),
+      new InvalidClientState(this),
+      new InvalidDigData(this),
       new PostPacketOrder(this),
       new ExploitGuard(this),
       new SequenceGuard(this)
