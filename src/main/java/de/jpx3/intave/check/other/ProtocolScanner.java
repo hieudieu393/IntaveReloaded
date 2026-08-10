@@ -32,7 +32,8 @@ public final class ProtocolScanner extends Check {
       new InvalidDigData(this),
       new PostPacketOrder(this),
       new ExploitGuard(this),
-      new SequenceGuard(this)
+      new SequenceGuard(this),
+      new ExtendedProtocolGuards(this)
 //      ,
 //      new PacketConstraint(this)
     );
