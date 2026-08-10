@@ -2,35 +2,30 @@ name: Self-tests
 
 on:
   push:
+    branches: [ "master" ]
   pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+concurrency:
+  group: self-tests-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
         version:
-          - "1.8.8"
-          - "1.9.4"
-          - "1.12.2"
-          - "1.14.4"
-          - "1.15.2"
-          - "1.16.5"
-          - "1.17.1"
-          - "1.18.2"
-          - "1.19.4"
-          - "1.20"
-          - "1.20.1"
-          - "1.20.2"
-          - "1.20.4"
           - "1.21.1"
           - "1.21.3"
           - "1.21.4"
           - "1.21.7"
           - "1.21.11"
           - "26.1.2"
+          - "26.2"
 
     steps:
       - uses: actions/checkout@v6
@@ -38,16 +33,19 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - uses: actions/setup-java@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
         with:
-          java-version: '16'
+          java-version: '21'
           distribution: 'temurin'
 
-      - uses: actions/setup-java@v4
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'temurin'
 
       - uses: gradle/actions/setup-gradle@v3
 
-      - run: ./gradlew test_${{ matrix.version }}
+      - name: Test Minecraft ${{ matrix.version }}
+        run: ./gradlew --no-daemon test_${{ matrix.version }}
