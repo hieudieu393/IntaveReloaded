@@ -41,6 +41,13 @@ exploits such as speed/fly cheats or reaching beyond the normal interaction rang
 Additionally, Intave provides heuristic checks for aimbot, auto-clicker, timer, placement, block breaking, inventory and other
 cheats that cannot be detected solely by simulating client logic.
 
+### Improved combat checks
+
+Combat detection has been expanded with stricter reach and hitbox validation, obstruction-aware attack analysis, detection for
+attacks delivered through closer entities, buffered freeze/blink attack analysis, and additional attack-correlated rotation
+checks. These improvements are integrated into the existing AttackRaytrace and Heuristics pipelines so they retain Intave's
+latency compensation, trust-factor handling and mitigation behavior.
+
 The original Intave check documentation remains useful for understanding the architecture and detection model.
 
 ## Development
