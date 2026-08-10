@@ -35,7 +35,7 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
     super(parentCheck, Meta.class);
   }
 
-  @PacketSubscription(priority = HIGH, packetsIn = {ATTACK_ENTITY, USE_ENTITY})
+  @PacketSubscription(priority = HIGH, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
   public void receiveAttackPacket(PacketEvent event) {
     EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
     try {
