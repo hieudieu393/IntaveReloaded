@@ -11,7 +11,7 @@ import de.jpx3.intave.access.IntaveInternalException;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
-/** Ensures the PacketEvents backend required by IntaveReloaded is available. */
+/** Ensures the runtime required by IntaveReloaded is available. */
 public final class ComponentLoader {
   private final IntavePlugin plugin;
 
@@ -24,6 +24,12 @@ public final class ComponentLoader {
   }
 
   public void loadComponents() {
+    if (!isSupportedServerVersion()) {
+      throw new IntaveInternalException(
+        "IntaveReloaded supports Minecraft 1.21 and newer only (server: " + Bukkit.getBukkitVersion() + ")"
+      );
+    }
+
     Plugin packetEvents = Bukkit.getPluginManager().getPlugin("packetevents");
     if (packetEvents == null) {
       throw new IntaveInternalException("PacketEvents is required to run IntaveReloaded");
@@ -33,6 +39,27 @@ public final class ComponentLoader {
     }
     if (PacketEvents.getAPI() == null || !PacketEvents.getAPI().isInitialized()) {
       throw new IntaveInternalException("PacketEvents must be initialized before IntaveReloaded");
+    }
+  }
+
+  private static boolean isSupportedServerVersion() {
+    String version = Bukkit.getBukkitVersion();
+    if (version == null || version.isEmpty()) {
+      return false;
+    }
+
+    String minecraftVersion = version.split("-", 2)[0];
+    String[] parts = minecraftVersion.split("\\.");
+    if (parts.length < 2) {
+      return false;
+    }
+
+    try {
+      int major = Integer.parseInt(parts[0]);
+      int minor = Integer.parseInt(parts[1]);
+      return major > 1 || (major == 1 && minor >= 21);
+    } catch (NumberFormatException ignored) {
+      return false;
     }
   }
 }
