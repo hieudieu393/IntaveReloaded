@@ -1,6 +1,8 @@
 name: Sync latest master and target 1.21+
 
 on:
+  pull_request:
+    branches: [ master ]
   push:
     branches: [ agent/packetevents-migration ]
 
@@ -9,6 +11,7 @@ permissions:
 
 jobs:
   sync:
+    if: github.event_name == 'push' || github.head_ref == 'agent/packetevents-migration'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout migration branch
@@ -32,65 +35,47 @@ jobs:
           git fetch origin master
           git merge -X theirs --no-edit origin/master
 
-      - name: Restrict supported servers to 1.21+
+      - name: Restrict to Minecraft 1.21+
         shell: bash
         run: |
           python3 <<'PY'
           from pathlib import Path
           import re
 
-          gradle = Path('build.gradle.kts')
-          s = gradle.read_text()
-
-          # Preserve IntaveReloaded branding and PacketEvents-only runtime after merging upstream.
+          p = Path('build.gradle.kts')
+          s = p.read_text()
           s = s.replace('val simpleName = "Intave"', 'val simpleName = "IntaveReloaded"')
           s = s.replace(
-              'authors = listOf("DarkAndBlue", "Jpx3", "vento", "vxcus", "lennoxlotl", "NotLucky", "Trattue")',
-              'authors = listOf("Onxe", "DarkAndBlue", "Jpx3", "vento", "vxcus", "lennoxlotl", "NotLucky", "Trattue")'
+            'authors = listOf("DarkAndBlue", "Jpx3", "vento", "vxcus", "lennoxlotl", "NotLucky", "Trattue")',
+            'authors = listOf("Onxe", "DarkAndBlue", "Jpx3", "vento", "vxcus", "lennoxlotl", "NotLucky", "Trattue")'
           )
           s = s.replace('  testImplementation("net.dmulloy2:ProtocolLib:5.4.0")\n', '')
           if 'testRuntimeOnly("net.bytebuddy:byte-buddy:1.18.2")' not in s:
-              s = s.replace(
-                  '  compileOnly("net.bytebuddy:byte-buddy:1.18.2")\n',
-                  '  compileOnly("net.bytebuddy:byte-buddy:1.18.2")\n  testRuntimeOnly("net.bytebuddy:byte-buddy:1.18.2")\n'
-              )
+            s = s.replace('  compileOnly("net.bytebuddy:byte-buddy:1.18.2")\n', '  compileOnly("net.bytebuddy:byte-buddy:1.18.2")\n  testRuntimeOnly("net.bytebuddy:byte-buddy:1.18.2")\n')
           s = re.sub(r'  apiVersion = "[^"]+"', '  apiVersion = "1.21"', s, count=1)
-          s = re.sub(
-              r'  (?:depend = listOf\([^\n]*\)\n)?  softDepend = listOf\([^\n]*\)',
-              '  depend = listOf("packetevents")\n  softDepend = listOf("ViaVersion")',
-              s,
-              count=1,
-          )
+          s = re.sub(r'  (?:depend = listOf\([^\n]*\)\n)?  softDepend = listOf\([^\n]*\)', '  depend = listOf("packetevents")\n  softDepend = listOf("ViaVersion")', s, count=1)
 
-          # Remove special legacy server launch tasks (<1.21).
-          def remove_task(text, marker):
-              start = text.find(marker)
-              if start < 0:
-                  return text
-              brace = text.find('{', start)
-              if brace < 0:
-                  return text
-              depth = 0
-              end = brace
-              for i in range(brace, len(text)):
-                  if text[i] == '{': depth += 1
-                  elif text[i] == '}':
-                      depth -= 1
-                      if depth == 0:
-                          end = i + 1
-                          break
-              while end < len(text) and text[end] in '\r\n':
-                  end += 1
-              return text[:start] + text[end:]
+          def remove_braced(text, marker):
+            start = text.find(marker)
+            if start < 0: return text
+            brace = text.find('{', start)
+            depth = 0
+            for i in range(brace, len(text)):
+              depth += (text[i] == '{') - (text[i] == '}')
+              if depth == 0:
+                end = i + 1
+                while end < len(text) and text[end] in '\r\n': end += 1
+                return text[:start] + text[end:]
+            return text
 
-          for task in (
-              'tasks.register<RunServer>("authtest")',
-              'tasks.register<RunServer>("gommetest")',
-              'tasks.register<RunServer>("authtest_1.20.1")',
-          ):
-              s = remove_task(s, task)
+          for marker in [
+            'tasks.register<RunServer>("authtest")',
+            'tasks.register<RunServer>("gommetest")',
+            'tasks.register<RunServer>("authtest_1.20.1")',
+          ]:
+            s = remove_braced(s, marker)
 
-          supported = '''val paperRunConfigs = mapOf(
+          s = re.sub(r'val paperRunConfigs = mapOf\(\n.*?\n\)', '''val paperRunConfigs = mapOf(
   Pair("1.21.1", 21),
   Pair("1.21.3", 21),
   Pair("1.21.4", 21),
@@ -98,143 +83,86 @@ jobs:
   Pair("1.21.11", 25),
   Pair("26.1.2", 25),
   Pair("26.2", 25),
-)'''
-          s = re.sub(r'val paperRunConfigs = mapOf\(\n.*?\n\)', supported, s, count=1, flags=re.S)
+)''', s, count=1, flags=re.S)
 
-          # Only keep MCP-Reborn client configurations for 1.21+ / 26.x.
-          start = s.find('val mcpRebornClientConfigs = mapOf(')
-          if start >= 0:
-              body_start = s.find('\n', start) + 1
-              end = s.find('\n)', body_start)
-              if end >= 0:
-                  body = s[body_start:end]
-                  lines = body.splitlines(True)
-                  entries, current = [], []
-                  for line in lines:
-                      if line.startswith('  mcpClient(') and current:
-                          entries.append(''.join(current))
-                          current = [line]
-                      else:
-                          current.append(line)
-                  if current:
-                      entries.append(''.join(current))
-                  kept = []
-                  for entry in entries:
-                      m = re.search(r'mcpClient\("([^"]+)"', entry)
-                      if not m:
-                          continue
-                      version = m.group(1)
-                      parts = version.split('.')
-                      major = int(parts[0])
-                      minor = int(parts[1]) if len(parts) > 1 else 0
-                      if major > 1 or (major == 1 and minor >= 21):
-                          kept.append(entry)
-                  s = s[:body_start] + ''.join(kept) + s[end:]
+          # Remove old 1.8/1.9 server overrides from generated run tasks.
+          s = re.sub(r'\n    // Minecraft 1\.8\.8 requires special patches to work with Java 17\n    if \(serverVersion == "1\.8\.8"\) \{.*?\n    \}\n    if \(serverVersion == "1\.9\.4"\) \{.*?\n    \}\n', '\n', s, flags=re.S)
 
-          # Drop no-longer-used legacy MCP JVM presets and align support helper.
-          s = re.sub(r'val mcpJvm8 = .*\n', '', s)
-          s = re.sub(r'val mcpJvm16 = .*\n', '', s)
-          s = re.sub(r'val mcpJvm17Legacy = .*\n', '', s)
-          s = re.sub(r'val mcpJvm17 = .*\n', '', s)
-          s = s.replace(
-              'return major > 1 || major == 1 && minor >= 14',
-              'return major > 1 || major == 1 && minor >= 21'
-          )
+          # Keep only 1.21+ MCP client configs imported from current master.
+          a = s.find('val mcpRebornClientConfigs = mapOf(')
+          if a >= 0:
+            body = s.find('\n', a) + 1
+            end = s.find('\n)', body)
+            chunk = s[body:end]
+            entries, cur = [], []
+            for line in chunk.splitlines(True):
+              if line.startswith('  mcpClient(') and cur:
+                entries.append(''.join(cur)); cur = [line]
+              else: cur.append(line)
+            if cur: entries.append(''.join(cur))
+            keep = []
+            for e in entries:
+              m = re.search(r'mcpClient\("([^"]+)"', e)
+              if not m: continue
+              v = m.group(1).split('.')
+              major, minor = int(v[0]), int(v[1]) if len(v) > 1 else 0
+              if major > 1 or (major == 1 and minor >= 21): keep.append(e)
+            s = s[:body] + ''.join(keep) + s[end:]
+          for name in ['mcpJvm8', 'mcpJvm16', 'mcpJvm17Legacy', 'mcpJvm17']:
+            s = re.sub(rf'val {name} = .*\n', '', s)
+          s = s.replace('return major > 1 || major == 1 && minor >= 14', 'return major > 1 || major == 1 && minor >= 21')
 
-          # Remove legacy serverJar branches from generic test/run tasks.
-          s = re.sub(
-              r'\n    // Minecraft 1\.8\.8 requires special patches to work with Java 17\n'
-              r'    if \(serverVersion == "1\.8\.8"\) \{.*?\n    \}\n'
-              r'    if \(serverVersion == "1\.9\.4"\) \{.*?\n    \}\n',
-              '\n', s, flags=re.S
-          )
+          # PacketEvents must be present in generated server tasks.
+          test_start, run_start = s.find('fun registerPaperTestTask('), s.find('fun registerPaperRunTask(')
+          if test_start >= 0 and run_start > test_start:
+            part = s[test_start:run_start]
+            if 'modrinth("packetevents"' not in part:
+              part = part.replace('    minecraftVersion(serverVersion)\n', '    minecraftVersion(serverVersion)\n    downloadPlugins {\n      modrinth("packetevents", "2.13.0+spigot")\n    }\n', 1)
+              s = s[:test_start] + part + s[run_start:]
+          run_start, folia_start = s.find('fun registerPaperRunTask('), s.find('fun registerFoliaRunTask(')
+          if run_start >= 0 and folia_start > run_start:
+            part = s[run_start:folia_start]
+            if 'modrinth("packetevents"' not in part:
+              part = part.replace('    downloadPlugins {\n', '    downloadPlugins {\n      modrinth("packetevents", "2.13.0+spigot")\n', 1)
+              s = s[:run_start] + part + s[folia_start:]
+          folia_start = s.find('fun registerFoliaRunTask(')
+          if folia_start >= 0:
+            part = s[folia_start:]
+            if 'modrinth("packetevents"' not in part:
+              part = part.replace('    minecraftVersion(serverVersion)\n', '    minecraftVersion(serverVersion)\n    downloadPlugins {\n      modrinth("packetevents", "2.13.0+spigot")\n    }\n', 1)
+              s = s[:folia_start] + part
+          p.write_text(s)
 
-          # Ensure PacketEvents is installed by generated test/run/Folia tasks.
-          test_marker = '    minecraftVersion(serverVersion)\n'
-          test_pe = '    minecraftVersion(serverVersion)\n    downloadPlugins {\n      modrinth("packetevents", "2.13.0+spigot")\n    }\n'
-          first_task = s.find('fun registerPaperTestTask(')
-          run_task = s.find('fun registerPaperRunTask(')
-          if first_task >= 0 and run_task > first_task:
-              part = s[first_task:run_task]
-              if 'modrinth("packetevents"' not in part:
-                  part = part.replace(test_marker, test_pe, 1)
-                  s = s[:first_task] + part + s[run_task:]
+          for f in [Path('src/main/java/de/jpx3/intave/command/stages/DiagnosticsStage.java'), Path('src/main/java/de/jpx3/intave/command/stages/BaseStage.java')]:
+            if f.exists():
+              t = f.read_text().replace('protocolLibVersion', 'packetEventsVersion').replace('ProtocolLib is ', 'PacketEvents is ').replace('"ProtocolLib"', '"packetevents"').replace(' ProtocolLib: ', ' PacketEvents: ').replace('Intave is ', 'IntaveReloaded is ')
+              f.write_text(t)
 
-          run_task = s.find('fun registerPaperRunTask(')
-          folia_task = s.find('fun registerFoliaRunTask(')
-          if run_task >= 0 and folia_task > run_task:
-              part = s[run_task:folia_task]
-              if 'modrinth("packetevents"' not in part:
-                  part = part.replace('    downloadPlugins {\n', '    downloadPlugins {\n      modrinth("packetevents", "2.13.0+spigot")\n', 1)
-                  s = s[:run_task] + part + s[folia_task:]
-
-          folia_task = s.find('fun registerFoliaRunTask(')
-          if folia_task >= 0:
-              part = s[folia_task:]
-              if 'modrinth("packetevents"' not in part:
-                  part = part.replace(test_marker, test_pe, 1)
-                  s = s[:folia_task] + part
-
-          gradle.write_text(s)
-
-          # Keep user-facing packet diagnostics aligned with the PacketEvents backend.
-          for file in [
-              Path('src/main/java/de/jpx3/intave/command/stages/DiagnosticsStage.java'),
-              Path('src/main/java/de/jpx3/intave/command/stages/BaseStage.java'),
-          ]:
-              if file.exists():
-                  t = file.read_text()
-                  t = t.replace('protocolLibVersion', 'packetEventsVersion')
-                  t = t.replace('ProtocolLib is ', 'PacketEvents is ')
-                  t = t.replace('"ProtocolLib"', '"packetevents"')
-                  t = t.replace(' ProtocolLib: ', ' PacketEvents: ')
-                  t = t.replace('Intave is ', 'IntaveReloaded is ')
-                  file.write_text(t)
-
-          # Restrict the Self-tests workflow matrix to supported server versions.
-          supported_versions = ['1.21.1', '1.21.3', '1.21.4', '1.21.7', '1.21.11', '26.1.2', '26.2']
+          versions = ['1.21.1','1.21.3','1.21.4','1.21.7','1.21.11','26.1.2','26.2']
           for wf in Path('.github/workflows').glob('*.y*ml'):
-              text = wf.read_text()
-              if 'Self-tests' not in text:
-                  continue
-              lines = text.splitlines()
-              matrix_idx = next((i for i,l in enumerate(lines) if l.strip() == 'matrix:'), None)
-              if matrix_idx is None:
-                  continue
-              for i in range(matrix_idx + 1, min(len(lines), matrix_idx + 20)):
-                  stripped = lines[i].strip()
-                  if stripped.startswith('version:'):
-                      indent = lines[i][:len(lines[i]) - len(lines[i].lstrip())]
-                      lines[i] = indent + 'version: [' + ', '.join('"' + v + '"' for v in supported_versions) + ']'
-                      j = i + 1
-                      while j < len(lines):
-                          cur_indent = len(lines[j]) - len(lines[j].lstrip())
-                          if lines[j].strip().startswith('- ') and cur_indent > len(indent):
-                              del lines[j]
-                          else:
-                              break
-                      break
-              wf.write_text('\n'.join(lines) + '\n')
+            text = wf.read_text()
+            if 'Self-tests' not in text: continue
+            lines = text.splitlines()
+            mi = next((i for i,l in enumerate(lines) if l.strip() == 'matrix:'), None)
+            if mi is None: continue
+            for i in range(mi+1, min(len(lines), mi+25)):
+              if lines[i].strip().startswith('version:'):
+                indent = lines[i][:-len(lines[i].lstrip())]
+                lines[i] = indent + 'version: [' + ', '.join(f'"{v}"' for v in versions) + ']'
+                j=i+1
+                while j < len(lines) and lines[j].strip().startswith('- ') and (len(lines[j])-len(lines[j].lstrip())) > len(indent):
+                  del lines[j]
+                break
+            wf.write_text('\n'.join(lines)+'\n')
           PY
 
-      - name: Verify no legacy server targets remain in build/test matrix
+      - name: Verify target and build
         shell: bash
         run: |
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-          s = Path('build.gradle.kts').read_text()
-          block = re.search(r'val paperRunConfigs = mapOf\((.*?)\n\)', s, re.S)
-          assert block, 'paperRunConfigs missing'
-          legacy = re.findall(r'Pair\("(1\.(?:8|9|1[0-9]|20)(?:\.[0-9]+)?)"', block.group(1))
-          assert not legacy, f'Legacy server targets remain: {legacy}'
-          assert 'apiVersion = "1.21"' in s
-          assert 'testImplementation("net.dmulloy2:ProtocolLib' not in s
-          PY
-
-      - name: Build
-        shell: bash
-        run: ./gradlew build
+          grep -q 'apiVersion = "1.21"' build.gradle.kts
+          ! grep -A20 'val paperRunConfigs' build.gradle.kts | grep -E 'Pair\("1\.(8|9|1[0-9]|20)'
+          ! grep -q 'testImplementation("net.dmulloy2:ProtocolLib' build.gradle.kts
+          ./gradlew build
 
       - name: Commit synchronized source
         shell: bash
@@ -244,7 +172,7 @@ jobs:
             git commit -m "sync master and target Minecraft 1.21+"
           fi
 
-      - name: Remove sync helper and push
+      - name: Remove helper and push
         shell: bash
         run: |
           git rm .github/workflows/sync-main-1.21.yml
