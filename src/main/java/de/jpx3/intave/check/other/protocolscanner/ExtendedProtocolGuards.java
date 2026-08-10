@@ -12,6 +12,7 @@ import com.comphenix.protocol.events.PacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
+import de.jpx3.intave.module.linker.packet.PacketId;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.tracker.entity.Entity;
 import de.jpx3.intave.module.tracker.entity.EntityTracker;
@@ -20,8 +21,10 @@ import de.jpx3.intave.share.BoundingBox;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 
-import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
-import static de.jpx3.intave.module.linker.packet.PacketId.Server.CLOSE_WINDOW;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.ENTITY_ACTION_IN;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.SETTINGS;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.USE_ENTITY;
+import static de.jpx3.intave.module.linker.packet.PacketId.Client.WINDOW_CLICK;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.OPEN_WINDOW;
 
 /**
@@ -30,7 +33,6 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Server.OPEN_WINDOW;
  * without hard-coded field indices or weakening the existing reader compatibility layer.
  */
 public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner, ExtendedProtocolGuards.Meta> {
-  // 1.21+ menu registry: lectern is type 17 (crafter occupies id 7).
   private static final int LECTERN_MENU_TYPE = 17;
   private static final double INTERACT_VECTOR_TOLERANCE = 0.05D;
 
@@ -49,7 +51,6 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
       return;
     }
 
-    // Vanilla clamps this to at least 2. Normalize it before the server consumes the packet.
     wrapper.setViewDistance(2);
     flag(userOf(event.getPlayer()), "client-settings", "view-distance=" + distance, 5.0);
   }
@@ -65,12 +66,12 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
     meta.lecternWindowId = wrapper.getType() == LECTERN_MENU_TYPE ? wrapper.getContainerId() : -1;
   }
 
-  @PacketSubscription(packetsOut = CLOSE_WINDOW, ignoreCancelled = false)
+  @PacketSubscription(packetsOut = PacketId.Server.CLOSE_WINDOW, ignoreCancelled = false)
   public void receiveServerClose(PacketEvent event) {
     metaOf(userOf(event.getPlayer())).lecternWindowId = -1;
   }
 
-  @PacketSubscription(packetsIn = CLOSE_WINDOW, ignoreCancelled = false)
+  @PacketSubscription(packetsIn = PacketId.Client.CLOSE_WINDOW, ignoreCancelled = false)
   public void receiveClientClose(PacketEvent event) {
     metaOf(userOf(event.getPlayer())).lecternWindowId = -1;
   }
