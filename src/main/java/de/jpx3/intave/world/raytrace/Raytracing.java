@@ -50,9 +50,6 @@ public final class Raytracing {
   public static float reachDistanceOf(MetadataBundle meta) {
     boolean creative = meta.abilities().inGameMode(GameMode.CREATIVE);
     float vanillaFallback = creative ? 5.0F : 3.0F;
-
-    // 1.17-1.20.4 clients connected through Via do not know the interaction-range attributes.
-    // They must keep the legacy client reach even though the 1.21+ server tracks the attributes.
     if (!meta.protocol().supportsInteractionRangeAttributes()) {
       return vanillaFallback;
     }
@@ -61,9 +58,6 @@ public final class Raytracing {
     if (!Double.isFinite(tracked) || tracked <= 0.0D) {
       return vanillaFallback;
     }
-
-    // Before the first compensated attribute update, creative retains Intave's legacy 5-block
-    // fallback rather than being reduced by the seeded survival baseline.
     if (creative && Math.abs(tracked - 3.0D) < 1.0E-6D) {
       return vanillaFallback;
     }
@@ -115,6 +109,7 @@ public final class Raytracing {
       expandHitbox
     );
     if (withoutMouseDelayFix && distanceOfResult.reach() > blockReachDistance && rotationYaw != lastRotationYaw) {
+      // normal
       distanceOfResult = blockConstraintEntityRaytrace(
         player,
         entity, alternativePositionY,
@@ -127,7 +122,9 @@ public final class Raytracing {
     return distanceOfResult;
   }
 
-  /** @param expandBoundingBox should be "0.1f" for a default hitbox */
+  /**
+   * @param expandBoundingBox should be "0.1f" for a default hitbox
+   */
   public static Raytrace blockConstraintEntityRaytrace(
     Player player, Entity entity,
     boolean useAlternativePositionY,
@@ -146,7 +143,9 @@ public final class Raytracing {
     );
   }
 
-  /** @param expandBoundingBox should be "0.1f" for a default hitbox */
+  /**
+   * @param expandBoundingBox should be "0.1f" for a default hitbox
+   */
   public static Raytrace blockIgnoringEntityRaytrace(
     Player player, Entity entity,
     boolean useAlternativePositionY,
@@ -165,6 +164,13 @@ public final class Raytracing {
     );
   }
 
+  /**
+   * Takes a entity and returns the range between the player and the entity. (Client side its called "getMouseOver" and
+   * is from EntityRenderer.java)
+   *
+   * @return distance the distance between the entity and the eyes of the player 0 means the player is inside of the
+   * entity -1 means the player hit outside the hitbox of the entity greater than 0 means the reach of the player
+   */
   public static Raytrace entityRaytrace(
     Player player,
     BoundingBox entityBoundingBox,
@@ -176,7 +182,7 @@ public final class Raytracing {
   ) {
     Timings.SERVICE_RAYTRACER_ENTITY.start();
     double attackReachDistance = reachDistanceOf(player);
-    double traceDistance = Math.max(6.0D, attackReachDistance + 0.5D);
+    double blockReachDistance = Math.max(6.0D, attackReachDistance + 0.5D);
     double lastReach = Math.max(10.0D, attackReachDistance + 1.0D);
     RawVector3d lastHitVec = null;
     RawVector3d lastEyeVector = null;
@@ -209,9 +215,9 @@ public final class Raytracing {
 
         RawVector3d interpolatedLookVec = wrappedVectorForRotation(pitch, prevYaw, fastMath);
         RawVector3d lookVector = eyeVector.addVector(
-          interpolatedLookVec.x() * traceDistance,
-          interpolatedLookVec.y() * traceDistance,
-          interpolatedLookVec.z() * traceDistance
+          interpolatedLookVec.x() * blockReachDistance,
+          interpolatedLookVec.y() * blockReachDistance,
+          interpolatedLookVec.z() * blockReachDistance
         );
         BoundingBox hitBox = entityBoundingBox.grow(boundingBoxExpansion, boundingBoxExpansion, boundingBoxExpansion);
         if (alternativeYDifference != 0) {
@@ -228,9 +234,8 @@ public final class Raytracing {
           boolean blockRaytrace = false;
           if (rayTraceBlocks == EntityRaytraceBlockConstraint.ACCEPT_BLOCKS) {
             MovingObjectPosition blockMovingPosition = Raytracing.blockRayTrace(player.getWorld(), player, eyeVector, lookVector);
-            double distanceToBlock = blockMovingPosition == null || blockMovingPosition.hitVec == null
-              ? traceDistance + 1.0D : eyeVector.distanceTo(blockMovingPosition.hitVec);
-            reach = distanceToBlock < distanceToEntity ? traceDistance + 1.0D : distanceToEntity;
+            double distanceToBlock = blockMovingPosition == null || blockMovingPosition.hitVec == null ? blockReachDistance + 1.0D : eyeVector.distanceTo(blockMovingPosition.hitVec);
+            reach = distanceToBlock < distanceToEntity ? blockReachDistance + 1.0D : distanceToEntity;
             blockRaytrace = true;
           } else {
             reach = distanceToEntity;
@@ -265,8 +270,7 @@ public final class Raytracing {
   }
 
   public static MovingObjectPosition blockRayTrace(Player player, Location playerLocation, Pose pose) {
-    User user = UserRepository.userOf(player);
-    double blockReachDistance = blockReachDistanceOf(user);
+    double blockReachDistance = blockReachDistanceOf(UserRepository.userOf(player));
     double eyeHeight = resolvePlayerEyeHeight(player, pose);
     return blockRayTrace(player, playerLocation, playerLocation, blockReachDistance, eyeHeight, 1.0f);
   }
@@ -288,34 +292,74 @@ public final class Raytracing {
         positions.add(position);
       }
       for (Position position : positions) {
-        Particles.displayBlockCrack(position, player, org.bukkit.Material.REDSTONE_BLOCK);
+        Particles.spawnVillagerHappyParticleAt(user, position);
       }
+      ActionBar.sendActionBar(
+        player,
+        eyeVector + " " + location.getY() + " " + user.meta().movement().rotationPitch
+      );
     }
-    return RAYTRACER.rayTraceBlock(player.getWorld(), player, eyeVector, targetVector);
+    return blockRayTrace(location.getWorld(), player, eyeVector, targetVector);
   }
 
   public static MovingObjectPosition blockRayTrace(World world, Player player, RawVector3d eyeVector, RawVector3d targetVector) {
-    return RAYTRACER.rayTraceBlock(world, player, eyeVector, targetVector);
+    try {
+      Timings.SERVICE_RAYTRACER_BLOCK.start();
+      MovingObjectPosition backup = Raytracing.RAYTRACER.raytrace(world, player, eyeVector, targetVector);
+      return backup;
+    } finally {
+      Timings.SERVICE_RAYTRACER_BLOCK.stop();
+    }
   }
 
-  private static RawVector3d resolvePositionEyes(Location location, Location prevLocation, double eyeHeight, float partialTicks) {
-    double d0 = prevLocation.getX() + (location.getX() - prevLocation.getX()) * partialTicks;
-    double d1 = prevLocation.getY() + (location.getY() - prevLocation.getY()) * partialTicks + eyeHeight;
-    double d2 = prevLocation.getZ() + (location.getZ() - prevLocation.getZ()) * partialTicks;
-    return new RawVector3d(d0, d1, d2);
+  public static RawVector3d resolvePositionEyes(Location location, Location prevLocation, double eyeHeight, float partialTicks) {
+    double posX = location.getX();
+    double posY = location.getY();
+    double posZ = location.getZ();
+    if (partialTicks == 1.0f) {
+      return new RawVector3d(posX, posY + eyeHeight, posZ);
+    }
+    double prevPosX = prevLocation.getX();
+    double prevPosY = prevLocation.getY();
+    double prevPosZ = prevLocation.getZ();
+    double d0 = prevPosX + (posX - prevPosX) * partialTicks;
+    double d2 = prevPosY + (posY - prevPosY) * partialTicks + eyeHeight;
+    double d3 = prevPosZ + (posZ - prevPosZ) * partialTicks;
+    return new RawVector3d(d0, d2, d3);
   }
 
   private static RawVector3d resolveLookVector(Location location, Location prevLocation, float partialTicks) {
-    float var1 = prevLocation.getPitch() + (location.getPitch() - prevLocation.getPitch()) * partialTicks;
-    float var2 = prevLocation.getYaw() + (location.getYaw() - prevLocation.getYaw()) * partialTicks;
-    float f = SinusCache.cos(-var2 * 0.017453292F - (float) Math.PI, false);
-    float f1 = SinusCache.sin(-var2 * 0.017453292F - (float) Math.PI, false);
-    float f2 = -SinusCache.cos(-var1 * 0.017453292F, false);
-    float f3 = SinusCache.sin(-var1 * 0.017453292F, false);
-    return new RawVector3d(f1 * f2, f3, f * f2);
+    float rotationYawHead = location.getYaw();
+    float rotationPitch = location.getPitch();
+    if (partialTicks == 1.0f) {
+      return resolveVectorForRotation(rotationPitch, rotationYawHead);
+    }
+    float prevRotationYawHead = prevLocation.getYaw();
+    float prevRotationPitch = prevLocation.getPitch();
+    float f = prevRotationPitch + (rotationPitch - prevRotationPitch) * partialTicks;
+    float f2 = prevRotationYawHead + (rotationYawHead - prevRotationYawHead) * partialTicks;
+    return resolveVectorForRotation(f, f2);
   }
 
-  private static double resolvePlayerEyeHeight(Player player, Pose pose) {
-    return pose.eyeHeight(UserRepository.userOf(player));
+  private static RawVector3d resolveVectorForRotation(float pitch, float yaw) {
+    float f = SinusCache.cos(-yaw * 0.017453292f - 3.1415927f, false);
+    float f2 = SinusCache.sin(-yaw * 0.017453292f - 3.1415927f, false);
+    float f3 = -SinusCache.cos(-pitch * 0.017453292f, false);
+    float f4 = SinusCache.sin(-pitch * 0.017453292f, false);
+    return new RawVector3d(f2 * f3, f4, f * f3);
+  }
+
+  public static double resolvePlayerEyeHeight(Player player) {
+    User user = UserRepository.userOf(player);
+    return user.meta().movement().eyeHeight();
+  }
+
+  public static double resolvePlayerEyeHeight(Player player, Pose pose) {
+    User user = UserRepository.userOf(player);
+    return user.meta().movement().eyeHeight(pose);
+  }
+
+  private static double resolveBlockReachDistance(GameMode gameMode) {
+    return (gameMode == GameMode.CREATIVE) ? 5.0 : 4.5;
   }
 }
