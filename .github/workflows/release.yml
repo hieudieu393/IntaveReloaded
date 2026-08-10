@@ -115,7 +115,8 @@ jobs:
           files: dist/IntaveReloaded.jar
           body: |
             Automated nightly build of IntaveReloaded.
-            Minecraft support: 1.21+
+            Server support: Minecraft 1.21+
+            Client protocol support: Minecraft 1.17+
             Packet backend: PacketEvents 2.13.0+
           prerelease: true
           make_latest: false
