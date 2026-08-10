@@ -24,11 +24,6 @@ import de.jpx3.intave.cleanup.ShutdownTasks;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * A {@link CheckService} initializes, holds and links implementation classes of class {@link Check}.
- * Every instance of the implementation class of class {@link Check} must be singleton throughout the entire
- * lifespan of our application - ensured with the use of class-keys.
- */
 @HighOrderService
 public final class CheckService {
   private final IntavePlugin plugin;
@@ -42,7 +37,6 @@ public final class CheckService {
     this.plugin = plugin;
   }
 
-  /** Load known checks, bake quick access, and link packet- and bukkit-subscriptions. */
   public void setup() {
     addCheck(Physics.class);
     addCheck(AirStuckGuard.class);
@@ -108,10 +102,10 @@ public final class CheckService {
       nameRequestCache.put(internal.toLowerCase(Locale.ROOT), check);
       nameRequestCache.putIfAbsent(canonical.toLowerCase(Locale.ROOT), check);
     }
-    // Virtual sub-check aliases resolve to the legacy parent that owns config/VL.
     putAlias("Aim", Heuristics.class);
     putAlias("NoSlow", Physics.class);
     putAlias("Phase", Physics.class);
+    putAlias("Sprint", Physics.class);
     putAlias("AutoTotem", InventoryClickAnalysis.class);
     putAlias("AutoSwap", InventoryClickAnalysis.class);
 
@@ -177,7 +171,6 @@ public final class CheckService {
     return checks;
   }
 
-  /** User-facing names while legacy aliases remain accepted by {@link #searchCheck(String)}. */
   public Collection<String> checkNames() {
     return checkNames;
   }
