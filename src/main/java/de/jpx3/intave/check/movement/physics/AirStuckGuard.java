@@ -2,8 +2,7 @@ package de.jpx3.intave.check.movement.physics;
 
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.PacketEvent;
-import de.jpx3.intave.check.MetaCheckPart;
-import de.jpx3.intave.check.movement.Physics;
+import de.jpx3.intave.check.MetaCheck;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
@@ -24,22 +23,27 @@ import static de.jpx3.intave.module.tracker.player.AbilityTracker.GameMode.SPECT
  * meaningful position updates in mid-air. It deliberately requires the last real movement to be
  * downward, avoiding broad "not moving in air" heuristics that are prone to false positives.
  */
-public final class AirStuckGuard extends MetaCheckPart<Physics, AirStuckGuard.Meta> {
+public final class AirStuckGuard extends MetaCheck<AirStuckGuard.Meta> {
   private static final double MIN_REAL_DISTANCE_SQ = 0.01 * 0.01;
-  private final boolean enabled;
+  private final boolean configuredEnabled;
   private final long maxGapMs;
   private final long flagCooldownMs;
 
-  public AirStuckGuard(Physics parentCheck) {
-    super(parentCheck, Meta.class);
-    this.enabled = parentCheck.configuration().settings().boolBy("air-stuck.enabled", true);
-    this.maxGapMs = parentCheck.configuration().settings().longInBoundsBy("air-stuck.max-gap-ms", 1500, 10000, 2500);
-    this.flagCooldownMs = parentCheck.configuration().settings().longInBoundsBy("air-stuck.flag-cooldown-ms", 1000, 15000, 4000);
+  public AirStuckGuard() {
+    super("AirStuckGuard", "airstuckguard", Meta.class);
+    this.configuredEnabled = configuration().settings().boolBy("enabled", true);
+    this.maxGapMs = configuration().settings().longInBoundsBy("max-gap-ms", 1500, 10000, 2500);
+    this.flagCooldownMs = configuration().settings().longInBoundsBy("flag-cooldown-ms", 1000, 15000, 4000);
   }
 
   @Override
   public boolean enabled() {
-    return super.enabled() && enabled;
+    return configuredEnabled;
+  }
+
+  @Override
+  public boolean performLinkage() {
+    return configuredEnabled;
   }
 
   @PacketSubscription(
@@ -116,7 +120,7 @@ public final class AirStuckGuard extends MetaCheckPart<Physics, AirStuckGuard.Me
       return;
     }
 
-    Violation violation = Violation.builderFor(Physics.class)
+    Violation violation = Violation.builderFor(AirStuckGuard.class)
       .forPlayer(user.player())
       .withMessage("withheld position updates while falling")
       .withDetails("gap=" + elapsed + "ms, dy=" + String.format("%.4f", meta.lastRealDeltaY))
