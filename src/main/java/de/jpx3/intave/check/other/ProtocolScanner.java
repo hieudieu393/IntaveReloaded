@@ -30,6 +30,7 @@ public final class ProtocolScanner extends Check {
       new InvalidNumericData(this),
       new InvalidClientState(this),
       new InvalidDigData(this),
+      new InvalidWindowClick(this),
       new PostPacketOrder(this),
       new ExploitGuard(this),
       new SequenceGuard(this),
