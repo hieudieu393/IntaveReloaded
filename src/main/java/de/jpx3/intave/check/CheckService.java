@@ -13,6 +13,7 @@ import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.check.movement.Timer;
 import de.jpx3.intave.check.movement.physics.AirStuckGuard;
 import de.jpx3.intave.check.movement.physics.GroundSpoofGuard;
+import de.jpx3.intave.check.movement.physics.MovementSignalGuard;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
@@ -46,6 +47,7 @@ public final class CheckService {
     addCheck(Physics.class);
     addCheck(AirStuckGuard.class);
     addCheck(GroundSpoofGuard.class);
+    addCheck(MovementSignalGuard.class);
     addCheck(InteractionRaytrace.class);
     addCheck(Heuristics.class);
     addCheck(AttackRaytrace.class);
@@ -106,10 +108,27 @@ public final class CheckService {
       nameRequestCache.put(internal.toLowerCase(Locale.ROOT), check);
       nameRequestCache.putIfAbsent(canonical.toLowerCase(Locale.ROOT), check);
     }
+    // Virtual sub-check aliases resolve to the legacy parent that owns config/VL.
+    putAlias("Aim", Heuristics.class);
+    putAlias("NoSlow", Physics.class);
+    putAlias("Phase", Physics.class);
+    putAlias("AutoTotem", InventoryClickAnalysis.class);
+    putAlias("AutoSwap", InventoryClickAnalysis.class);
+
     classRequestCache = ImmutableMap.copyOf(classRequestCache);
     nameRequestCache = ImmutableMap.copyOf(nameRequestCache);
     checkNames = ImmutableList.copyOf(checkNames);
     checks = ImmutableList.copyOf(checks);
+  }
+
+  private void putAlias(String alias, Class<? extends Check> owner) {
+    Check check = classRequestCache.get(owner);
+    if (check != null) {
+      nameRequestCache.put(alias.toLowerCase(Locale.ROOT), check);
+      if (!checkNames.contains(alias)) {
+        checkNames.add(alias);
+      }
+    }
   }
 
   private void resetQuickAccess() {
