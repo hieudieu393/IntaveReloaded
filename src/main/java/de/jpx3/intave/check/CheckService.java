@@ -26,20 +26,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * A {@link CheckService} initializes, holds and links implementation classes of class {@link Check}.
  * Every instance of the implementation class of class {@link Check} must be singleton throughout the entire
  * lifespan of our application - ensured with the use of class-keys.
- * <p>
- * It will instantiate all known implementations of class {@link Check} with {@link CheckService#setup()}, following
- * command linkage, to find and link any subscriptions within the instantiated {@link Check}.<br>
- * For the lifespan of the application, a {@link CheckService} will hold these checks, and
- * as the references are mostly immutable, pre-render different access caches allowing fast {@link Check} lookups
- * via {@link CheckService#searchCheck(String)} and {@link CheckService#searchCheck(Class)}.
- * Once {@link CheckService#reset()} is called (when the application terminates), it will terminate all subscriptions and
- * clear all check-references.
- *
- * @see CheckLinker
- * @see Check
- * @see CheckPart
- * @see MetaCheck
- * @see MetaCheckPart
  */
 @HighOrderService
 public final class CheckService {
@@ -54,9 +40,7 @@ public final class CheckService {
     this.plugin = plugin;
   }
 
-  /**
-   * Load known checks, bake quick access, and link packet- and bukkit-subscriptions
-   */
+  /** Load known checks, bake quick access, and link packet- and bukkit-subscriptions. */
   public void setup() {
     addCheck(Physics.class);
     addCheck(AirStuckGuard.class);
@@ -79,9 +63,6 @@ public final class CheckService {
     ShutdownTasks.addBeforeAll(this::reset);
   }
 
-  /**
-   * Remove packet- and bukkit-subscriptions, reset quick access, remove checks
-   */
   public void reset() {
     checkLinker.removeBukkitEventSubscriptions(checks);
     checkLinker.removePacketEventSubscriptions(checks);
@@ -116,9 +97,13 @@ public final class CheckService {
     nameRequestCache = new HashMap<>();
     checkNames = new ArrayList<>();
     for (Check check : checks) {
-      checkNames.add(check.name());
+      String internal = check.name();
+      String canonical = CheckNames.canonicalFor(check);
+      checkNames.add(canonical);
       classRequestCache.put(check.getClass(), check);
-      nameRequestCache.put(check.name().toLowerCase(Locale.ROOT), check);
+      // Preserve legacy lookup while also accepting the new user-facing name.
+      nameRequestCache.put(internal.toLowerCase(Locale.ROOT), check);
+      nameRequestCache.putIfAbsent(canonical.toLowerCase(Locale.ROOT), check);
     }
     classRequestCache = ImmutableMap.copyOf(classRequestCache);
     nameRequestCache = ImmutableMap.copyOf(nameRequestCache);
@@ -132,14 +117,6 @@ public final class CheckService {
     checkNames = new ArrayList<>();
   }
 
-  /**
-   * Lookup a {@link Check} by its intrinsically unique {@code class}.
-   *
-   * @param checkClass the corresponding check class
-   * @param <T>        the corresponding check type
-   * @return the check
-   * @throws IllegalStateException when the check could not be found
-   */
   public <T extends Check> T searchCheck(Class<T> checkClass) {
     Check check = classRequestCache.get(checkClass);
     if (check == null) {
@@ -156,19 +133,12 @@ public final class CheckService {
     return (T) check;
   }
 
-  /**
-   * Lookup a {@link Check} by its name.
-   *
-   * @param checkName the corresponding check name
-   * @param <T>       the corresponding check type
-   * @return the check
-   * @throws IllegalStateException when the check could not be found
-   */
   public <T extends Check> T searchCheck(String checkName) {
-    Check check = nameRequestCache.get(checkName.toLowerCase());
+    Check check = nameRequestCache.get(checkName.toLowerCase(Locale.ROOT));
     if (check == null) {
       for (Check intaveCheck : checks) {
-        if (intaveCheck.name().equalsIgnoreCase(checkName)) {
+        if (intaveCheck.name().equalsIgnoreCase(checkName)
+          || CheckNames.canonicalFor(intaveCheck).equalsIgnoreCase(checkName)) {
           //noinspection unchecked
           return (T) intaveCheck;
         }
@@ -179,22 +149,16 @@ public final class CheckService {
     return (T) check;
   }
 
-  /**
-   * Checks whether a check with the given name exists in cache.
-   *
-   * @param checkName the name of the check
-   * @return {@code true} if it contains the check, {@code false} if it doesn't
-   */
   public boolean hasCheck(String checkName) {
-    return nameRequestCache.containsKey(checkName.toLowerCase());
+    return nameRequestCache.containsKey(checkName.toLowerCase(Locale.ROOT));
   }
 
-  /**
-   * Retrieves a {@link Collection} of the instances of all implementations of the {@link Check} class.
-   *
-   * @return all checks
-   */
   public Collection<Check> checks() {
     return checks;
+  }
+
+  /** User-facing names while legacy aliases remain accepted by {@link #searchCheck(String)}. */
+  public Collection<String> checkNames() {
+    return checkNames;
   }
 }
