@@ -19,6 +19,7 @@ public final class CheckNames {
     names.put("movementsignalguard", "Simulate");
     names.put("airstuckguard", "NoFall");
     names.put("groundspoofguard", "NoFall");
+    names.put("elytrasignalguard", "Elytra");
     names.put("interactionraytrace", "Interact");
     names.put("heuristics", "KillAura");
     names.put("attackraytrace", "Reach");
