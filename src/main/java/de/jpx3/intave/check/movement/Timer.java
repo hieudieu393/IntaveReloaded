@@ -6,6 +6,7 @@ import de.jpx3.intave.check.CheckConfiguration.CheckSettings;
 import de.jpx3.intave.check.CheckViolationLevelDecrementer;
 import de.jpx3.intave.check.movement.timer.MicroBlink;
 import de.jpx3.intave.check.movement.timer.PlayerTime;
+import de.jpx3.intave.check.movement.timer.TickProtocolTimer;
 
 public final class Timer extends Check {
   private final CheckViolationLevelDecrementer decrementer;
@@ -26,11 +27,8 @@ public final class Timer extends Check {
     CheckSettings settings = configuration().settings();
 
     reverseBlink = settings.boolBy("reverse-blink", true);
-
-    // deprecated
     highToleranceMode = settings.boolBy("high-tolerance", false);
     lowTolerance = settings.boolBy("low-tolerance", false);
-    // reverse lag just sucks
     reverseLag = settings.boolBy("reverse-lag", false);
 
     blinkLimit = settings.intBy("blink-limit", (lowTolerance ? 100 : -1));
@@ -45,6 +43,8 @@ public final class Timer extends Check {
 
     this.microBlink = new MicroBlink(this);
     appendCheckPart(microBlink);
+
+    appendCheckPart(new TickProtocolTimer(this));
   }
 
   public void receiveMovement(PacketEvent event) {
