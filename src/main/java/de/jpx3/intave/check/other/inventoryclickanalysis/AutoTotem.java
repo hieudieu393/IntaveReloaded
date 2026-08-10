@@ -58,6 +58,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
       meta.popConfirmedAt = 0L;
       meta.flyingsSincePop = 0;
       meta.swapsSincePop = 0;
+      meta.timingSampleRecorded = false;
 
       // Only start timing after the client has acknowledged traffic after the pop packet. This
       // reuses Intave's own transaction/feedback system instead of guessing from raw ping.
@@ -70,6 +71,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
         current.popConfirmedAt = System.currentTimeMillis();
         current.flyingsSincePop = 0;
         current.swapsSincePop = 0;
+        current.timingSampleRecorded = false;
       });
     } finally {
       reader.release();
@@ -207,6 +209,15 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
     }
 
     meta.swapsSincePop++;
+
+    // Same-tick sequence analysis intentionally counts every swap, but timing consistency must
+    // contribute at most one sample per pop. Otherwise a burst of swaps after one pop could fake
+    // a low standard deviation and over-inflate the timing buffers.
+    if (meta.timingSampleRecorded) {
+      return;
+    }
+    meta.timingSampleRecorded = true;
+
     long delta = System.currentTimeMillis() - meta.popConfirmedAt;
     if (delta < 0 || delta > 5000) {
       resetPopWindow(meta);
@@ -270,6 +281,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
     meta.popConfirmedAt = 0L;
     meta.flyingsSincePop = 0;
     meta.swapsSincePop = 0;
+    meta.timingSampleRecorded = false;
   }
 
   public static class AutoTotemMeta extends CheckCustomMetadata {
@@ -283,6 +295,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
     private long popConfirmedAt;
     private int flyingsSincePop;
     private int swapsSincePop;
+    private boolean timingSampleRecorded;
     private double popTimingBuffer;
     private double consistencyBuffer;
     private double sameTickBuffer;
