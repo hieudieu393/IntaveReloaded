@@ -29,7 +29,8 @@ public final class ProtocolScanner extends Check {
       new InvalidRelease(this),
       new InvalidNumericData(this),
       new PostPacketOrder(this),
-      new ExploitGuard(this)
+      new ExploitGuard(this),
+      new SequenceGuard(this)
 //      ,
 //      new PacketConstraint(this)
     );
