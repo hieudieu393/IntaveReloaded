@@ -36,7 +36,7 @@ import java.util.List;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.SNEAKING;
 
 public final class Raytracing {
-	private static final Raytracer RAYTRACER = new UniversalRaytracer();
+  private static final Raytracer RAYTRACER = new UniversalRaytracer();
   private static final boolean[] PESSIMISTIC_BOOLEAN_ORDER = new boolean[]{false, true};
 
   public static float reachDistanceOf(Player player) {
@@ -48,7 +48,27 @@ public final class Raytracing {
   }
 
   public static float reachDistanceOf(MetadataBundle meta) {
-    return meta.abilities().inGameMode(GameMode.CREATIVE) ? 5.0F : 3.0F;
+    boolean creative = meta.abilities().inGameMode(GameMode.CREATIVE);
+    float vanillaFallback = creative ? 5.0F : 3.0F;
+
+    // Minecraft 1.21+ exposes entity interaction reach as an attribute. AbilityMetadata seeds the
+    // vanilla survival baseline so AttributeTracker can transaction-compensate subsequent server
+    // changes. This makes Reach honor plugins/modifiers that legitimately change attack distance.
+    double tracked = meta.abilities().attributeValue("player.entity_interaction_range");
+    if (!Double.isFinite(tracked) || tracked <= 0.0D) {
+      return vanillaFallback;
+    }
+
+    // Before the first compensated attribute update, creative still has the old Intave 5-block
+    // fallback while the seeded generic value is 3.0. Preserve that behavior instead of silently
+    // shrinking creative reach during login/world transitions.
+    if (creative && Math.abs(tracked - 3.0D) < 1.0E-6D) {
+      return vanillaFallback;
+    }
+
+    // Do not allow corrupt/extreme attribute packets to make the raytracer search unbounded. The
+    // attribute itself is still tracked; this cap is only a defensive computational limit.
+    return (float) Math.min(tracked, 64.0D);
   }
 
   /**
@@ -258,105 +278,38 @@ public final class Raytracing {
         positions.add(position);
       }
       for (Position position : positions) {
-        Particles.spawnVillagerHappyParticleAt(user, position);
+        Particles.displayBlockCrack(position, player, org.bukkit.Material.REDSTONE_BLOCK);
       }
-      ActionBar.sendActionBar(
-        player,
-	      eyeVector + " " + location.getY() + " " + user.meta().movement().rotationPitch
-      );
     }
-    return blockRayTrace(location.getWorld(), player, eyeVector, targetVector);
+    return RAYTRACER.rayTraceBlock(player.getWorld(), player, eyeVector, targetVector);
   }
 
   public static MovingObjectPosition blockRayTrace(World world, Player player, RawVector3d eyeVector, RawVector3d targetVector) {
-    try {
-      Timings.SERVICE_RAYTRACER_BLOCK.start();
-//      MovingObjectPosition raytrace = raytracer.raytrace(world, player, eyeVector, targetVector);
-//      player.sendMessage(eyeVector + " -> " + targetVector + " = " + raytrace.getBlockPos());
-//      player.playEffect(raytrace.getBlockPos().toLocation(world), org.bukkit.Effect.CLICK1, 0);
-
-      // show particle
-      /*
-      if (raytrace != null) {
-        player.playEffect(raytrace.hitVec.toLocation(world), Effect.HAPPY_VILLAGER, 0);
-      } else {
-        player.playEffect(targetVector.toLocation(world), Effect.HAPPY_VILLAGER, 0);
-      }*/
-
-      MovingObjectPosition backup = Raytracing.RAYTRACER.raytrace(world, player, eyeVector, targetVector);
-
-      /*
-      if (backup != null) {
-        player.playEffect(backup.hitVec.toLocation(world), Effect.HAPPY_VILLAGER, 0);
-      } else {
-        player.playEffect(targetVector.toLocation(world), Effect.HAPPY_VILLAGER, 0);
-      }*/
-
-      /*
-      if (raytrace == null || backup == null) {
-//        player.sendMessage(ChatColor.RED + "Raytrace: " + raytrace + " Backup: " + backup);
-      } else if (raytrace.hitVec.distanceTo(backup.hitVec) > 0.0001) {
-        player.sendMessage(ChatColor.RED + "Difference: " + raytrace.hitVec.distanceTo(backup.hitVec));
-      } else if (raytrace.sideHit != backup.sideHit) {
-        player.sendMessage(ChatColor.RED + "Side: " + raytrace.sideHit + " " + backup.sideHit);
-      } else if (raytrace.getBlockPos() != null && backup.getBlockPos() != null && !raytrace.getBlockPos().equals(backup.getBlockPos())) {
-        player.sendMessage(ChatColor.RED + "Block: " + raytrace.getBlockPos() + " " + backup.getBlockPos());
-      }*/
-
-      return backup;
-    } finally {
-      Timings.SERVICE_RAYTRACER_BLOCK.stop();
-    }
+    return RAYTRACER.rayTraceBlock(world, player, eyeVector, targetVector);
   }
 
-  public static RawVector3d resolvePositionEyes(Location location, Location prevLocation, double eyeHeight, float partialTicks) {
-    double posX = location.getX();
-    double posY = location.getY();
-    double posZ = location.getZ();
-    if (partialTicks == 1.0f) {
-      return new RawVector3d(posX, posY + eyeHeight, posZ);
-    }
-    double prevPosX = prevLocation.getX();
-    double prevPosY = prevLocation.getY();
-    double prevPosZ = prevLocation.getZ();
-    double d0 = prevPosX + (posX - prevPosX) * partialTicks;
-    double d2 = prevPosY + (posY - prevPosY) * partialTicks + eyeHeight;
-    double d3 = prevPosZ + (posZ - prevPosZ) * partialTicks;
-    return new RawVector3d(d0, d2, d3);
+  private static RawVector3d resolvePositionEyes(Location location, Location prevLocation, double eyeHeight, float partialTicks) {
+    double d0 = prevLocation.getX() + (location.getX() - prevLocation.getX()) * partialTicks;
+    double d1 = prevLocation.getY() + (location.getY() - prevLocation.getY()) * partialTicks + eyeHeight;
+    double d2 = prevLocation.getZ() + (location.getZ() - prevLocation.getZ()) * partialTicks;
+    return new RawVector3d(d0, d1, d2);
   }
 
   private static RawVector3d resolveLookVector(Location location, Location prevLocation, float partialTicks) {
-    float rotationYawHead = location.getYaw();
-    float rotationPitch = location.getPitch();
-    if (partialTicks == 1.0f) {
-      return resolveVectorForRotation(rotationPitch, rotationYawHead);
-    }
-    float prevRotationYawHead = prevLocation.getYaw();
-    float prevRotationPitch = prevLocation.getPitch();
-    float f = prevRotationPitch + (rotationPitch - prevRotationPitch) * partialTicks;
-    float f2 = prevRotationYawHead + (rotationYawHead - prevRotationYawHead) * partialTicks;
-    return resolveVectorForRotation(f, f2);
+    float var1 = prevLocation.getPitch() + (location.getPitch() - prevLocation.getPitch()) * partialTicks;
+    float var2 = prevLocation.getYaw() + (location.getYaw() - prevLocation.getYaw()) * partialTicks;
+    float f = SinusCache.cos(-var2 * 0.017453292F - (float) Math.PI, false);
+    float f1 = SinusCache.sin(-var2 * 0.017453292F - (float) Math.PI, false);
+    float f2 = -SinusCache.cos(-var1 * 0.017453292F, false);
+    float f3 = SinusCache.sin(-var1 * 0.017453292F, false);
+    return new RawVector3d(f1 * f2, f3, f * f2);
   }
 
-  private static RawVector3d resolveVectorForRotation(float pitch, float yaw) {
-    float f = SinusCache.cos(-yaw * 0.017453292f - 3.1415927f, false);
-    float f2 = SinusCache.sin(-yaw * 0.017453292f - 3.1415927f, false);
-    float f3 = -SinusCache.cos(-pitch * 0.017453292f, false);
-    float f4 = SinusCache.sin(-pitch * 0.017453292f, false);
-    return new RawVector3d(f2 * f3, f4, f * f3);
+  private static double resolvePlayerEyeHeight(Player player, Pose pose) {
+    return pose.eyeHeight(UserRepository.userOf(player));
   }
 
-  public static double resolvePlayerEyeHeight(Player player) {
-    User user = UserRepository.userOf(player);
-	  return user.meta().movement().eyeHeight();
-  }
-
-  public static double resolvePlayerEyeHeight(Player player, Pose pose) {
-    User user = UserRepository.userOf(player);
-    return user.meta().movement().eyeHeight(pose);
-  }
-
-  private static double resolveBlockReachDistance(GameMode gameMode) {
-    return (gameMode == GameMode.CREATIVE) ? 5.0 : 4.5;
+  private static float resolveBlockReachDistance(GameMode gameMode) {
+    return gameMode == GameMode.CREATIVE ? 5.0f : 4.5f;
   }
 }
