@@ -102,9 +102,10 @@ public final class AbilityMetadata {
     }
     if (MinecraftVersions.VER1_21.atOrAbove()) {
       setupAttribute("generic.scale", 1.0D);
-      // Modern combat reach is an attribute. AttackRaytrace consumes this value once the server
-      // sends an UPDATE_ATTRIBUTES packet; 3.0 is the vanilla survival baseline.
+      // Interaction ranges are server attributes on modern protocol. Seeding them makes
+      // AttributeTracker accept and transaction-compensate later UPDATE_ATTRIBUTES changes.
       setupAttribute("player.entity_interaction_range", 3.0D);
+      setupAttribute("player.block_interaction_range", 4.5D);
     }
   }
 
@@ -272,6 +273,7 @@ public final class AbilityMetadata {
     modernRemap.put("generic.scale", "scale");
     modernRemap.put("player.sneaking_speed", "sneaking_speed");
     modernRemap.put("player.entity_interaction_range", "entity_interaction_range");
+    modernRemap.put("player.block_interaction_range", "block_interaction_range");
     MODERN_WRAPPED_KEY_REMAP = ImmutableMap.copyOf(modernRemap);
   }
 
