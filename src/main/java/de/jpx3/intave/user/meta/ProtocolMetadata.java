@@ -138,6 +138,8 @@ public final class ProtocolMetadata {
   }
 
   public boolean emptyFlyingPacketsAreExplicitlySent() {
+    // flying packets are guaranteed in 1.8 and below, removed in 1.9
+    // but if the server is 1.9+, via version/backwards will drop them even for 1.8 clients
     return protocolVersion <= VER_1_8 && !MinecraftVersions.VER1_9_0.atOrAbove();
   }
 
@@ -221,20 +223,141 @@ public final class ProtocolMetadata {
     return protocolVersion >= VER_1_20_5;
   }
 
-  // The remaining protocol helpers are unchanged below this point.
-  // Kept in this source file by GitHub contents replacement; fetch/compile validates all references.
+  public boolean motionResetOnCollision() {
+    return protocolVersion < VER_1_14;
+  }
 
-  public boolean cavesAndCliffsUpdate() { return protocolVersion >= VER_1_17; }
-  public boolean combatUpdate() { return protocolVersion >= VER_1_9; }
-  public boolean aquaticUpdate() { return protocolVersion >= VER_1_13; }
-  public boolean netherUpdate() { return protocolVersion >= VER_1_16; }
-  public boolean outdatedClient() { return behind; }
+  public boolean cavesAndCliffsUpdate() {
+    return protocolVersion >= VER_1_17;
+  }
 
-  private boolean behind;
+  public boolean useItemMovementPacket() {
+    return protocolVersion >= VER_1_17 && protocolVersion <= VER_1_21_5;
+  }
 
-  public MinecraftVersion minecraftVersion() { return minecraftVersion; }
-  public String versionString() { return versionString; }
-  public String locale() { return locale; }
-  public void setLocale(String locale) { this.locale = locale; }
-  public int refreshes() { return refreshes; }
+  public boolean maskedMotionPossible() {
+    return protocolVersion >= VER_1_14 && protocolVersion <= VER_1_17;
+  }
+
+  public boolean beeUpdate() {
+    return protocolVersion >= VER_1_15;
+  }
+
+  public boolean sendsFacings() {
+    return protocolVersion <= VER_1_11_1;
+  }
+
+  public boolean aquaticUpdate() {
+    return protocolVersion >= VER_1_13;
+  }
+
+  public boolean combatUpdate() {
+    return protocolVersion >= VER_1_9;
+  }
+
+  public boolean trailsAndTailsUpdate() {
+    return protocolVersion >= VER_1_20;
+  }
+
+  public boolean clientSpeculativeBlocks() {
+    return protocolVersion >= VER_1_19_2;
+  }
+
+  public boolean selfAcknowledgePlacements() {
+    return protocolVersion >= VER_1_19_2 && !MinecraftVersions.VER1_19_2.atOrAbove();
+  }
+
+  public boolean supportsPacketBundles() {
+    return protocolVersion >= VER_1_19_4;
+  }
+
+  public double flyingPacketUncertaintyRadius() {
+    if (protocolVersion >= VER_1_18_2) {
+      return 0.0002 * 0.0002;
+    } else {
+      return 0.03;
+    }
+  }
+
+  public boolean flyingPacketsCausePositionUncertainty() {
+    return protocolVersion < VER_1_18_2;
+  }
+
+  public boolean newMotionClampLogic() {
+    return protocolVersion >= VER_1_21_5;
+  }
+
+  public boolean bubbleColumnSurfaceUsesCollisionAndFluid() {
+    return protocolVersion >= VER_1_21_5;
+  }
+
+  public boolean powderSnowInsideShapeUsesCollisionContext() {
+    return protocolVersion >= VER_1_21_5;
+  }
+
+  public boolean newBlockEntityIntersectionLogic() {
+    return protocolVersion >= VER_1_21_3;
+  }
+
+  public boolean oppositeBlockVectorBehavior() {
+    return protocolVersion >= VER_1_14;
+  }
+
+  public boolean noPingMask() {
+    return protocolVersion <= VER_1_17 && MinecraftVersions.VER1_17_0.atOrAbove();
+  }
+
+  public boolean sneakAsVehicleSteer() {
+    return MinecraftVersions.VER1_21.atOrAbove();
+  }
+
+  public boolean sendsClientTickEnd() {
+    return protocolVersion >= VER_1_20_2 && MinecraftVersions.VER1_20_2.atOrAbove();
+  }
+
+  public boolean sendsInputs() {
+    return protocolVersion >= VER_1_21_3 && MinecraftVersions.VER1_21_3.atOrAbove();
+  }
+
+  public void setLocale(String locale) {
+    this.locale = locale;
+  }
+
+  public String locale() {
+    return locale;
+  }
+
+  private Boolean behind;
+
+  public boolean outdatedClient() {
+    if (behind == null || refreshes < 2) {
+      MinecraftVersion server = MinecraftVersion.current();
+      MinecraftVersion client;
+      try {
+        client = new MinecraftVersion(versionAsString(protocolVersion));
+      } catch (Exception exception) {
+        client = MinecraftVersions.VER1_19_4;
+      }
+      behind = !client.isAtLeast(server);
+    }
+    return behind;
+  }
+
+  public String versionString() {
+    return versionString;
+  }
+
+  public MinecraftVersion minecraftVersion() {
+    return minecraftVersion;
+  }
+
+  public boolean swordBlockingPossible() {
+    return protocolVersion < VER_1_9 || (
+      protocolVersion >= VER_1_21_5 && !MinecraftVersions.VER1_9_0.atOrAbove()
+    );
+  }
+
+  public boolean viaVersionShieldBlockReplacement() {
+    return protocolVersion >= VER_1_9 && protocolVersion < VER_1_21_5 && !MinecraftVersions.VER1_9_0.atOrAbove();
+  }
 }
