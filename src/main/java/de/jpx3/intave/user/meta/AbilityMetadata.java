@@ -318,6 +318,10 @@ public final class AbilityMetadata {
     return flying || player.getAllowFlight();
   }
 
+  public boolean flying() {
+    return flying;
+  }
+
   public boolean allowFlying() {
     return allowFlying;
   }

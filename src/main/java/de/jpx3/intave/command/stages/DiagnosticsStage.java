@@ -37,7 +37,9 @@ import de.jpx3.intave.executor.Synchronizer;
 import de.jpx3.intave.math.MathHelper;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
+import de.jpx3.intave.module.nayoro.Classifier;
 import de.jpx3.intave.module.nayoro.Nayoro;
+import de.jpx3.intave.module.nayoro.OperationalMode;
 import de.jpx3.intave.module.nayoro.event.AttackEvent;
 import de.jpx3.intave.module.nayoro.event.BlockPlaceEvent;
 import de.jpx3.intave.module.nayoro.event.sink.EventSink;
@@ -954,5 +956,27 @@ public final class DiagnosticsStage extends CommandStage {
       return;
     }
     provider.openLootChestCommand(user.player());
+  }
+
+  @SubCommand(
+    selectors = "samplerecord",
+    usage = "",
+    description = "",
+    permission = "intave.command.diagnostics.performance"
+  )
+  public void sampleRecord(User user, @Optional Classifier classifier) {
+    Nayoro nayoro = Modules.nayoro();
+
+    if (nayoro.recordingActiveFor(user)) {
+      nayoro.disableRecordingFor(user);
+      user.player().sendMessage(IntavePlugin.prefix() + ChatColor.RED + "Stopped recording");
+    } else {
+      if (classifier == null) {
+        user.player().sendMessage(IntavePlugin.prefix() + ChatColor.RED + "Please specify a classifier");
+        return;
+      }
+      nayoro.enableRecordingFor(user, Classifier.UNKNOWN, OperationalMode.LOCAL_STORAGE);
+      user.player().sendMessage(IntavePlugin.prefix() + ChatColor.GREEN + "Started recording");
+    }
   }
 }

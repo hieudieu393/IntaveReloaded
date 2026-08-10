@@ -33,7 +33,6 @@ import de.jpx3.intave.block.variant.BlockVariant;
 import de.jpx3.intave.check.CheckService;
 import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.check.movement.Timer;
-import de.jpx3.intave.check.movement.physics.environment.Pose;
 import de.jpx3.intave.check.movement.physics.update.MotionAddUpdate;
 import de.jpx3.intave.check.movement.physics.update.MotionSetUpdate;
 import de.jpx3.intave.check.world.InteractionRaytrace;
@@ -1172,7 +1171,6 @@ public final class MovementDispatcher extends Module {
             if (IntaveControl.DEBUG_ELYTRA) {
               user.player().sendMessage(ChatColor.GREEN + "Activated elytra flying (START_FALL_FLYING)");
             }
-            movementData.manualPoseSet(Pose.FALL_FLYING);
           }
         }
         break;

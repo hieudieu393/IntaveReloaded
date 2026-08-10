@@ -52,6 +52,7 @@ public final class MockSimulationEnvironment implements SimulationEnvironment {
   private float gravity = 0.08F;
   private float stepHeight = 0.6F;
   private boolean inWater, inLava;
+  private double lavaDepth;
   private boolean sprinting, sneaking;
   private boolean lastSprinting, lastSneaking;
   private boolean collidedHorizontally, collidedVertically;
@@ -192,8 +193,25 @@ public final class MockSimulationEnvironment implements SimulationEnvironment {
     this.inWater = inWater;
   }
 
+  @Override
   public void setInLava(boolean inLava) {
     this.inLava = inLava;
+    if (!inLava) {
+      lavaDepth = 0.0;
+    }
+  }
+
+  @Override
+  public double lavaDepth() {
+    return lavaDepth;
+  }
+
+  @Override
+  public void setLavaDepth(double lavaDepth) {
+    this.lavaDepth = Math.max(0.0, lavaDepth);
+    if (this.lavaDepth > 0.0) {
+      inLava = true;
+    }
   }
 
   public void setSneaking(boolean sneaking) {
@@ -214,6 +232,7 @@ public final class MockSimulationEnvironment implements SimulationEnvironment {
   public void setSleeping(boolean sleeping) {
   }
 
+  @Override
   public void setInWeb(boolean inWeb) {
     this.inWeb = inWeb;
   }
@@ -867,7 +886,7 @@ public final class MockSimulationEnvironment implements SimulationEnvironment {
 
   @Override
   public void aquaticUpdateLavaReset() {
-
+    setInLava(false);
   }
 
   @Override

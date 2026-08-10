@@ -22,13 +22,17 @@ import de.jpx3.intave.user.User;
 import org.bukkit.Material;
 import org.bukkit.World;
 
+import java.lang.reflect.Method;
+
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.WATERFLOW_PUSH;
 import static de.jpx3.intave.share.ClientMath.ceil;
 import static de.jpx3.intave.share.ClientMath.floor;
 
-final class v13Waterflow implements FluidFlow {
+final class v13Fluidflow implements FluidFlow {
+  private static final Method IS_ULTRA_WARM = ultraWarmMethod();
+
   @Override
-  public boolean applyFlowTo(
+  public boolean applyWaterFlowTo(
     User user, SimulationEnvironment environment,
     Motion baseMotion, BoundingBox boundingBox
   ) {
@@ -89,6 +93,82 @@ final class v13Waterflow implements FluidFlow {
 	    environment.activeTick(WATERFLOW_PUSH);
     }
     return inWater;
+  }
+
+  @Override
+  public boolean applyLavaFlowTo(
+    User user, SimulationEnvironment environment,
+    Motion baseMotion, BoundingBox boundingBox
+  ) {
+    BoundingBox wrappedBoundingBox = boundingBox.shrink(0.001D);
+    int minX = floor(wrappedBoundingBox.minX);
+    int minY = floor(wrappedBoundingBox.minY);
+    int minZ = floor(wrappedBoundingBox.minZ);
+    int maxX = ceil(wrappedBoundingBox.maxX);
+    int maxY = ceil(wrappedBoundingBox.maxY);
+    int maxZ = ceil(wrappedBoundingBox.maxZ);
+
+    boolean doublePrecision = user.meta().protocol().fluidHeightUsesDoublePrecision();
+    double depthBaseY = user.meta().protocol().refreshesFluidStateAfterMove()
+      ? boundingBox.minY
+      : wrappedBoundingBox.minY;
+    double largestFluidDepth = 0.0D;
+    boolean inLava = false;
+    Motion lavaFlowTotal = null;
+    int countedLavaCollisions = 0;
+
+    for (int x = minX; x < maxX; ++x) {
+      for (int y = minY; y < maxY; ++y) {
+        for (int z = minZ; z < maxZ; ++z) {
+          Fluid fluid = VolatileBlockAccess.fluidAccess(user, x, y, z);
+          if (!fluid.isOfLava()) {
+            continue;
+          }
+
+          Fluid fluidAbove = VolatileBlockAccess.fluidAccess(user, x, y + 1, z);
+          float fluidHeight = fluid.similarTo(fluidAbove) ? 1.0F : fluid.height();
+          double fluidSurfaceY = doublePrecision
+            ? y + (double) fluidHeight
+            : (double) ((float) y + fluidHeight);
+          if (fluidSurfaceY < wrappedBoundingBox.minY) {
+            continue;
+          }
+
+          inLava = true;
+          largestFluidDepth = Math.max(fluidSurfaceY - depthBaseY, largestFluidDepth);
+          Motion pushMotion = pushMotionAt(user, x, y, z);
+          if (largestFluidDepth < 0.4D) {
+            pushMotion.multiply(largestFluidDepth);
+          }
+          if (lavaFlowTotal == null) {
+            lavaFlowTotal = new Motion();
+          }
+          lavaFlowTotal.add(pushMotion);
+          ++countedLavaCollisions;
+        }
+      }
+    }
+
+    if (inLava) {
+      environment.setLavaDepth(largestFluidDepth);
+    }
+
+    if (lavaFlowTotal != null && countedLavaCollisions > 0) {
+      boolean currentPresent = user.meta().protocol().refreshesFluidStateAfterMove()
+        ? lavaFlowTotal.lengthSquared() >= (double) 1.0E-5F
+        : lavaFlowTotal.length() > 0.0D;
+      if (currentPresent) {
+        lavaFlowTotal.multiply(1.0D / (double) countedLavaCollisions);
+        lavaFlowTotal.multiply(lavaFlowScale(user.player().getWorld()));
+        if (Math.abs(baseMotion.motionX) < 0.003D
+          && Math.abs(baseMotion.motionZ) < 0.003D
+          && lavaFlowTotal.length() < 0.0045000000000000005D) {
+          lavaFlowTotal.normalize().multiply(0.0045000000000000005D);
+        }
+        baseMotion.add(lavaFlowTotal);
+      }
+    }
+    return inLava;
   }
 
   @Override
@@ -180,5 +260,31 @@ final class v13Waterflow implements FluidFlow {
       return false;
     }
     return side == Direction.UP || (type != Material.ICE && MaterialMagic.blockSolid(type));
+  }
+
+  private static double lavaFlowScale(World world) {
+    if (IS_ULTRA_WARM != null) {
+      try {
+        if (Boolean.TRUE.equals(IS_ULTRA_WARM.invoke(world))) {
+          return 0.007D;
+        }
+      } catch (ReflectiveOperationException ignored) {
+      }
+    }
+    try {
+      if (world.getEnvironment() == World.Environment.NETHER) {
+        return 0.007D;
+      }
+    } catch (UnsupportedOperationException ignored) {
+    }
+    return 0.0023333333333333335D;
+  }
+
+  private static Method ultraWarmMethod() {
+    try {
+      return World.class.getMethod("isUltraWarm");
+    } catch (NoSuchMethodException ignored) {
+      return null;
+    }
   }
 }

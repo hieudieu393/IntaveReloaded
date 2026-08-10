@@ -66,7 +66,7 @@ final class FallbackUser implements User {
     this.permissionCache = ExpiringPermissionCache.withDefaultExpirationTime();
     this.blockStateAccess = BlockCaches.emptyCache();
     this.collider = Colliders.suitableComplexColliderProcessorFor(this);
-    this.fluidFlow = Fluids.suitableWaterflowFor(this);
+    this.fluidFlow = Fluids.suitableFluidflowFor(this);
     this.simpleCollider = Colliders.suitableSimpleColliderProcessorFor(this);
     this.poseSizes = Pose.AT_LEAST_1_8_POSE;
     this.metadata.setup();
@@ -208,7 +208,7 @@ final class FallbackUser implements User {
   }
 
   @Override
-  public FluidFlow waterflow() {
+  public FluidFlow fluidflow() {
     return fluidFlow;
   }
 

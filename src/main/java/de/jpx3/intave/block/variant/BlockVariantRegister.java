@@ -76,6 +76,13 @@ public final class BlockVariantRegister {
     return variant;
   }
 
+  public static void overrideVariants(
+    Map<Material, Map<Integer, BlockVariant>> variants
+  ) {
+    blockVariants.clear();
+    blockVariants.putAll(variants);
+  }
+
   private static Map<Integer, BlockVariant> translateFromServer(Material material) {
     Map<Integer, BlockVariant> map = BlockVariantConverter.translateVariants(material, blockDataRegister.get(material));
     if (IntaveControl.DEBUG_VARIANT_COMPILATION) {

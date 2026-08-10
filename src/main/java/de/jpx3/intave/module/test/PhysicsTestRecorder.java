@@ -75,7 +75,9 @@ public final class PhysicsTestRecorder extends Module {
 				boundingBox, input,
 				position, rotation,
 				user.blockCache(),
-				user.meta().abilities().attributeSnapshot()
+				user.meta().abilities().attributeSnapshot(),
+				movement.gliding,
+				movement.pose()
 			);
 
 			ActionBar.sendActionBar(

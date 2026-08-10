@@ -277,7 +277,11 @@ public interface SimulationEnvironment {
   boolean inWater();
   void setInWater(boolean inWater);
   boolean inLava();
+  void setInLava(boolean inLava);
+  double lavaDepth();
+  void setLavaDepth(double lavaDepth);
   boolean inWeb();
+  void setInWeb(boolean inWeb);
   void resetInWeb();
   boolean onGround();
 
@@ -466,14 +470,21 @@ public interface SimulationEnvironment {
   Fluid interactingFluid();
 
   default void updateEyesInWater() {
-    double yPos = positionY() + eyeHeight() - (double) 0.11111f;
+    ProtocolMetadata protocol = user().meta().protocol();
+    double yPos = positionY() + eyeHeight() - protocol.fluidOnEyesOffset();
     this.setEyesInWater(interactingFluid() != null && interactingFluid().isOfWater());
     this.setInteractingFluid(null);
 
-    Fluid fluid = VolatileBlockAccess.fluidAccess(user(), positionX(), yPos, positionZ());
+    int fluidBlockY = floor(yPos);
+    Fluid fluid = VolatileBlockAccess.fluidAccess(user(), positionX(), fluidBlockY, positionZ());
     if (fluid.isOfWater()) {
-      double d1 = (float) floor(yPos) + 1.0f;
-      if (d1 > yPos) {
+      Fluid fluidAbove = VolatileBlockAccess.fluidAccess(user(), positionX(), fluidBlockY + 1, positionZ());
+      float fluidHeight = fluid.similarTo(fluidAbove) ? 1.0F : fluid.height();
+      boolean surfaceIncludesEyes = protocol.fluidSurfaceIncludesEyes();
+      double fluidSurfaceY = surfaceIncludesEyes
+        ? fluidBlockY + (double) fluidHeight
+        : (double) ((float) fluidBlockY + fluidHeight);
+      if (surfaceIncludesEyes ? fluidSurfaceY >= yPos : fluidSurfaceY > yPos) {
         setInteractingFluid(fluid);
       }
     }

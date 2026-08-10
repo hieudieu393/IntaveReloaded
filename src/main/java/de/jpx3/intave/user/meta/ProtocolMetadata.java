@@ -151,6 +151,26 @@ public final class ProtocolMetadata {
     return protocolVersion >= VER_1_13;
   }
 
+  public double fluidOnEyesOffset() {
+    return protocolVersion >= VER_1_21 ? 0.0D : (double) 0.11111111F;
+  }
+
+  public boolean fluidSurfaceIncludesEyes() {
+    return protocolVersion >= VER_26_1_1;
+  }
+
+  public boolean fluidHeightBasedLavaMovement() {
+    return protocolVersion >= VER_1_16;
+  }
+
+  public boolean fluidHeightUsesDoublePrecision() {
+    return protocolVersion >= VER_26_1_1;
+  }
+
+  public boolean refreshesFluidStateAfterMove() {
+    return protocolVersion >= VER_26_1_1;
+  }
+
   public boolean canUseElytra() {
     return protocolVersion >= VER_1_9 && MinecraftVersions.VER1_9_0.atOrAbove();
   }

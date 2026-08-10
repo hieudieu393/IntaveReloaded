@@ -10,6 +10,20 @@ import java.math.RoundingMode;
 import java.util.List;
 
 public final class MathHelper {
+    private static final long[] POWERS_OF_TEN = {
+                 1L,
+                10L,
+               100L,
+             1_000L,
+            10_000L,
+           100_000L,
+         1_000_000L,
+        10_000_000L,
+       100_000_000L,
+     1_000_000_000L,
+    10_000_000_000L
+  };
+  
   public static double averageOf(List<? extends Number> data) {
     double sum = 0;
     for (Number element : data) {
@@ -28,7 +42,23 @@ public final class MathHelper {
     if (Double.isInfinite(value)) {
       return "Infinite";
     }
-    return new BigDecimal(value).setScale(digits, RoundingMode.HALF_UP).toPlainString();
+    if(digits > 10 || Math.abs(value) > 1000000.0) {
+      return BigDecimal.valueOf(value).setScale(digits, RoundingMode.HALF_UP).toPlainString(); // BigDecimal.valueOf is slightly faster than new BigDecimal(value)
+    }
+    double scaledValue = value * POWERS_OF_TEN[digits] + ((value < 0.0) ? -0.5 : 0.5); // -0.5, +0.5 for rounding
+    long num = (long)scaledValue;
+    int negative = num < 0 ? 1 : 0;
+    StringBuilder sb = new StringBuilder();
+    sb.append(num);
+    int len = sb.length() - negative;
+    if(len < digits+1) {
+      int leadingZero = digits+1-len;
+      sb.insert(negative, "00000000000", 0, leadingZero);
+    }
+    if(digits > 0) {
+      sb.insert(sb.length()-digits, ".");
+    }
+    return sb.toString();
   }
 
   public static String decimalPlacesOf(double value, int digits) {

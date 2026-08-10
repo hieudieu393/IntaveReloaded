@@ -14,11 +14,14 @@ package de.jpx3.intave.module.test.record;
 import de.jpx3.intave.access.player.trust.TrustFactor;
 import de.jpx3.intave.adapter.MinecraftVersion;
 import de.jpx3.intave.adapter.MinecraftVersions;
+import de.jpx3.intave.block.cache.MockFullBlockStaticPlane;
 import de.jpx3.intave.block.cache.PlaybackBlockCacheView;
 import de.jpx3.intave.block.fluid.Fluids;
 import de.jpx3.intave.block.physics.BlockPhysics;
 import de.jpx3.intave.block.shape.resolve.DenyShapeResolverPipeline;
 import de.jpx3.intave.block.shape.resolve.DrillResolver;
+import de.jpx3.intave.block.variant.BlockVariantRegister;
+import de.jpx3.intave.check.movement.physics.environment.Pose;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.check.movement.physics.search.SimulationSearch;
 import de.jpx3.intave.check.movement.physics.search.ThreeTickSimulationSearch;
@@ -57,12 +60,17 @@ import java.util.stream.Stream;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.*;
 import static de.jpx3.intave.check.movement.physics.search.PostTickMotionType.SENT_OFFSET_MOTION;
 import static de.jpx3.intave.math.MathHelper.formatDouble;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.fail;
+import static de.jpx3.intave.user.meta.ProtocolMetadata.VER_1_21_3;
+import static org.junit.jupiter.api.Assertions.*;
 
 final class MovementRecordingPhysicsTests {
 	private static final UUID EMPTY_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 	private static final double DIVERGED_MOTION_DISTANCE = 0.01;
+
+	@FunctionalInterface
+	interface MovementObserver {
+		void observe(int tick, Simulation simulation, Motion actualMotion);
+	}
 
 	@BeforeAll
 	static void setup() {
@@ -87,17 +95,95 @@ final class MovementRecordingPhysicsTests {
 		}
 	}
 
+	@Test
+	void recordedGlidingStateSelectsElytra() {
+		MovementRecording recording = MovementRecording.create(
+			VER_1_21_3,
+			MinecraftVersions.VER1_21_4
+		);
+		Position position = new Position(0, 50, 0);
+		Rotation rotation = Rotation.zero();
+		recording.insertFrame(
+			BoundingBox.empty(),
+			Input.none(),
+			position,
+			rotation,
+			new MockFullBlockStaticPlane(),
+			true
+		);
+		MoveFrame frame = recording.frames().get(0);
+		preparePhysicsTestRuntime(recording);
+
+		PlaybackBlockCacheView blockCache = new PlaybackBlockCacheView(recording);
+		blockCache.updateBlocks(frame.blocks());
+		World world = createReplayWorld();
+		AtomicReference<Location> currentLocation = new AtomicReference<>(
+			locationOf(world, position, rotation)
+		);
+		User user = createReplayUser(recording, blockCache, world, currentLocation);
+		MovementMetadata metadata = user.meta().movement();
+
+		metadata.gliding = frame.gliding();
+		seedInitialMovementState(user, metadata, position, rotation);
+
+		assertEquals(Pose.STANDING, metadata.pose());
+		assertSame(Simulators.ELYTRA, Simulators.selectFor(metadata));
+
+		metadata.tickComplete(true, true, true);
+
+		assertEquals(Pose.FALL_FLYING, metadata.pose());
+
+		metadata.gliding = false;
+		metadata.updateMovement(position, rotation);
+
+		assertEquals(Pose.FALL_FLYING, metadata.pose());
+		assertSame(Simulators.PLAYER, Simulators.selectFor(metadata));
+
+		metadata.tickComplete(true, true, true);
+
+		assertEquals(Pose.STANDING, metadata.pose());
+	}
+
+	@Test
+	void recordedPoseDistinguishesNormalAndRejectedElytraStops() {
+		MovementRecording recording = MovementRecording.loadFrom(
+			Resources.resourceFromJarOrTestBuild(
+				"physics_test_runs/pose/elytra/elytra_jump.ptr"
+			)
+		);
+
+		assertEquals(Pose.STANDING, recording.frames().get(47).physicalPose());
+		assertEquals(Pose.FALL_FLYING, recording.frames().get(169).physicalPose());
+	}
+
 	static void processRecordingResource(String resourcePath) throws IOException {
+		processRecordingResource(resourcePath, (tick, simulation, actualMotion) -> {
+		});
+	}
+
+	static void processRecordingResource(
+		String resourcePath,
+		MovementObserver observer
+	) throws IOException {
 		MovementRecording recording = MovementRecording.loadFrom(
 			Resources.resourceFromJarOrTestBuild(resourcePath)
 		);
 		preparePhysicsTestRuntime(recording);
-		processRecording(resourcePath, recording);
+		processRecording(resourcePath, recording, observer);
 	}
 
 	static void processRecording(
 		String resourcePath,
 		MovementRecording recording
+	) {
+		processRecording(resourcePath, recording, (tick, simulation, actualMotion) -> {
+		});
+	}
+
+	private static void processRecording(
+		String resourcePath,
+		MovementRecording recording,
+		MovementObserver observer
 	) {
 		System.out.print("\r[START] " + resourcePath + "...");
 		List<MoveFrame> frames = recording.frames();
@@ -121,10 +207,13 @@ final class MovementRecordingPhysicsTests {
 		User user = createReplayUser(recording, blockCache, world, currentLocation);
 		MovementMetadata metadata = user.meta().movement();
 		applyAttributesForTick(recording, user, firstPositionFrame);
+		metadata.gliding = firstFrame.gliding();
 		seedInitialMovementState(user, metadata, initialPosition, initialRotation);
+		if (firstFrame.physicalPose() != null) {
+			metadata.setPose(firstFrame.physicalPose());
+		}
 
 		SimulationSearch processor = new ThreeTickSimulationSearch(false, false);
-		Simulator simulator = Simulators.PLAYER;
 		List<String> lastMessages = new LinkedList<>();
 
 		for (int tick = firstPositionFrame + 1; tick < frames.size(); tick++) {
@@ -147,11 +236,16 @@ final class MovementRecordingPhysicsTests {
 
 			boolean hasMovement = position != null;
 			boolean hasRotation = rotation != null;
+			metadata.gliding = frame.gliding();
+			if (frame.physicalPose() != null) {
+				metadata.setPose(frame.physicalPose());
+			}
 			metadata.updateMovement(
 				location.getX(), location.getY(), location.getZ(),
 				location.getYaw(), location.getPitch(),
 				hasMovement, hasRotation
 			);
+			Simulator simulator = Simulators.selectFor(metadata);
 			metadata.setSimulator(simulator);
 			metadata.stepHeight = simulator.stepHeight();
 			metadata.treatThisFlyPacketAsMovePacket = false;
@@ -176,6 +270,7 @@ final class MovementRecordingPhysicsTests {
 
 			double loss = simulation.positionDifference(metadata.position());
 			double allowedLoss = DIVERGED_MOTION_DISTANCE;
+			observer.observe(tick, simulation, metadata.sentOffsetMotion());
 			String output = formatDouble(loss, 4) + " " + simulation.offsetMotion() + " [actual: " + metadata.sentOffsetMotion() + "] " + simulation.configuration() + (!simulation.blueDetails().isEmpty() ? " [" + simulation.blueDetails() + "]" : "");
 			lastMessages.add(formatSearchHistoryRow(tick, loss, simulation, metadata.sentOffsetMotion()));
 
@@ -266,6 +361,9 @@ final class MovementRecordingPhysicsTests {
 		diagnosticLine("Base motion", formatMotion(metadata.mutableBaseMotionCopy()));
 		diagnosticLine("Ground state", "current=" + metadata.onGround()
 			+ ", previous=" + metadata.lastOnGround());
+		diagnosticLine("Gliding", metadata.gliding);
+		diagnosticLine("Pose", metadata.pose());
+		diagnosticLine("Simulator", simulator.getClass().getSimpleName());
 		diagnosticLine("Sneaking", metadata.isSneaking());
 		diagnosticLine("Ability scale", formatDiagnosticDouble(user.meta().abilities().scale()));
 		diagnosticLine("Player bounds", formatBoundingBox(metadata.boundingBox()));
@@ -415,6 +513,7 @@ final class MovementRecordingPhysicsTests {
 		MinecraftVersion.setCurrent(serverVersion);
 		DrillResolver.manualInit(DenyShapeResolverPipeline.create());
 		Fluids.overrideFluids(recording.fluids());
+		BlockVariantRegister.overrideVariants(recording.blockVariants());
 		BlockPhysics.setup(serverVersion);
 	}
 
@@ -582,12 +681,14 @@ final class MovementRecordingPhysicsTests {
 			System.err.println(String.format(
 				Locale.ROOT,
 				"  %s tick %d  position=%s  input=%s%n"
-					+ "      rotation=%s  blockChanges=%d",
+					+ "      rotation=%s  gliding=%s  physicalPose=%s  blockChanges=%d",
 				tick == failingTick ? ">" : " ",
 				tick,
 				frame.moveTo() == null ? "-" : formatPosition(frame.moveTo()),
 				formatInput(frame.input()),
 				frame.rotateTo() == null ? "-" : formatRotation(frame.rotateTo()),
+				frame.gliding(),
+				frame.physicalPose() == null ? "-" : frame.physicalPose(),
 				frame.blocks().size()
 			));
 		}

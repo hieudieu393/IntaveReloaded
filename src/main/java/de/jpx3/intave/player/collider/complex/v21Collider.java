@@ -145,9 +145,9 @@ public final class v21Collider implements Collider {
     boolean yChangeAndFalling = yChange && motion.motionY < 0.0D;
     if (environment.stepHeight() > 0.0F && (yChangeAndFalling || environment.onGround()) && (xChange || zChange)) {
       BoundingBox box2 = yChangeAndFalling ? box.offset(0, firstCollision.motionY, 0) : box;
-      BoundingBox box3 = box2.offset(motion.motionX, environment.stepHeight(), motion.motionZ);
+      BoundingBox box3 = box2.expand(motion.motionX, environment.stepHeight(), motion.motionZ);
       if (!yChangeAndFalling) {
-        box3 = box3.offset(0, -0.00001f, 0);
+        box3 = box3.expand(0, -0.00001f, 0);
       }
       BlockShape newCollisionShape = Collision.shape(user, environment, box3);
       BlockShape combinedShape = BlockShapes.merge(collisionShape, newCollisionShape);

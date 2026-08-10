@@ -19,7 +19,6 @@ import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.access.check.MitigationStrategy;
 import de.jpx3.intave.access.player.trust.TrustFactor;
 import de.jpx3.intave.adapter.MinecraftVersion;
-import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.annotate.DispatchTarget;
 import de.jpx3.intave.block.access.VolatileBlockAccess;
 import de.jpx3.intave.block.cache.BlockCache;
@@ -54,9 +53,7 @@ import de.jpx3.intave.diagnostic.timings.Timings;
 import de.jpx3.intave.executor.Synchronizer;
 import de.jpx3.intave.math.MathHelper;
 import de.jpx3.intave.module.Modules;
-import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscription;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
-import de.jpx3.intave.module.tracker.entity.Entity;
 import de.jpx3.intave.module.tracker.player.PacketLogging;
 import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.module.violation.ViolationContext;
@@ -71,7 +68,6 @@ import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.share.Position;
 import de.jpx3.intave.user.MessageChannel;
 import de.jpx3.intave.user.User;
-import de.jpx3.intave.user.UserRepository;
 import de.jpx3.intave.user.meta.*;
 import de.jpx3.intave.user.storage.ViolationBufferStorage;
 import org.bukkit.ChatColor;
@@ -80,7 +76,6 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerTeleportEvent;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -91,7 +86,6 @@ import static de.jpx3.intave.diagnostic.message.MessageCategory.SIMFLT;
 import static de.jpx3.intave.diagnostic.message.MessageCategory.SIMFUL;
 import static de.jpx3.intave.math.MathHelper.*;
 import static de.jpx3.intave.share.ClientMath.floor;
-import static org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.ENDER_PEARL;
 
 public final class Physics extends Check {
   private static final double VL_DECREMENT_PER_VALID_MOVE = 0.08;
@@ -156,7 +150,7 @@ public final class Physics extends Check {
   public void receiveMovement(User user, boolean withMovement, boolean withRotation) {
     MetadataBundle meta = user.meta();
     MovementMetadata movementData = meta.movement();
-	  Simulator simulator = selectSimulator(user);
+	  Simulator simulator = Simulators.selectFor(movementData);
     movementData.setSimulator(simulator);
     movementData.setStepHeight(simulator.stepHeight());
 
@@ -247,24 +241,6 @@ public final class Physics extends Check {
       movementData.highestLocalRiptideLevel = 0;
     }
     movementData.inactiveTick(RIPTIDE_SPIN);
-  }
-
-  private Simulator selectSimulator(User user) {
-    MovementMetadata movementData = user.meta().movement();
-    ProtocolMetadata protocol = user.meta().protocol();
-    boolean clientVehicleMovement = MinecraftVersions.VER1_9_0.atOrAbove() && protocol.combatUpdate();
-
-    if (movementData.isInVehicle() && clientVehicleMovement) {
-      Entity entity = movementData.ridingEntity();
-      return entity.typeData().isBoat() ? Simulators.BOAT : Simulators.HORSE;
-    } else {
-      boolean inLava = movementData.inLava();
-      boolean inWater = movementData.inWater();
-      if (movementData.gliding && !inWater && !inLava) {
-        return Simulators.ELYTRA;
-      }
-    }
-    return Simulators.PLAYER;
   }
 
   @DispatchTarget
@@ -578,7 +554,7 @@ public final class Physics extends Check {
     if (distance > 0.001) {
       movementData.suspiciousMovement = true;
 
-      Simulator simulator = selectSimulator(user);
+      Simulator simulator = Simulators.selectFor(movementData);
       Motion motion = movementData.mutableBaseMotionCopy();
       MovementConfiguration config = MovementConfiguration.blank();
       if (IntaveControl.SETBACK_WITH_PRESSED_KEYS) {
@@ -1340,20 +1316,6 @@ public final class Physics extends Check {
       key += " ";
     }
     return key;
-  }
-
-  @BukkitEventSubscription
-  public void onEnderpearlTeleport(PlayerTeleportEvent teleport) {
-    Player player = teleport.getPlayer();
-    User user = UserRepository.userOf(player);
-    MovementMetadata movementData = user.meta().movement();
-    if (teleport.getCause() == ENDER_PEARL) {
-      Synchronizer.synchronize(() -> {
-        movementData.dealCustomFallDamage = true;
-//        fallDamageApplier.dealFallDamage(player, 8);
-        movementData.dealCustomFallDamage = false;
-      });
-    }
   }
 
   private void performMovementSanityChecks(User user, double receivedMotionX, double receivedMotionY, double receivedMotionZ) {

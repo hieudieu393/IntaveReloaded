@@ -84,7 +84,7 @@ final class TestUser implements User {
     meta.movement().setupDefaults();
 
     this.collider = Colliders.suitableComplexColliderProcessorFor(this);
-    this.fluidFlow = Fluids.suitableWaterflowFor(this);
+    this.fluidFlow = Fluids.suitableFluidflowFor(this);
     this.simpleCollider = Colliders.suitableSimpleColliderProcessorFor(this);
   }
 
@@ -239,7 +239,7 @@ final class TestUser implements User {
   }
 
   @Override
-  public FluidFlow waterflow() {
+  public FluidFlow fluidflow() {
     FluidFlow fluidFlow = (FluidFlow) callback.apply(this, "waterflow");
     return fluidFlow == null ? this.fluidFlow : fluidFlow;
   }

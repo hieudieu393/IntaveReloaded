@@ -1,3 +1,14 @@
+/*
+ * Copyright 2026 Intave
+ *
+ * This software is licensed under the PolyForm Perimeter License 1.0.0.
+ * You may use this software for any purpose, except for providing to
+ * others any product that competes with the software.
+ *
+ * A copy of the license is available at:
+ *   https://polyformproject.org/licenses/perimeter/1.0.0/
+ */
+
 package de.jpx3.intave.module.nayoro;
 
 import de.jpx3.intave.module.nayoro.event.*;
@@ -16,8 +27,7 @@ import static de.jpx3.intave.module.nayoro.SampleFlags.*;
 
 class RecordEventSink extends EventSink {
   private long last = System.currentTimeMillis();
-  private long lastDebug = System.currentTimeMillis();
-  private final Environment environment;
+	private final Environment environment;
   private final DataOutput dataOutput;
   private final Set<Integer> entities = new HashSet<>();
   private final Map<Integer, Map<Integer, Inventory.Item>> windowItems = new HashMap<>();
@@ -141,11 +151,6 @@ class RecordEventSink extends EventSink {
       dataOutput.writeShort(duration);
       dataOutput.writeByte(EventRegistry.idOf(event));
       event.serialize(environment, dataOutput);
-//      System.out.print(event.getClass().getName());
-//      if (System.currentTimeMillis() - lastDebug > 1000) {
-//        lastDebug = System.currentTimeMillis();
-//        System.out.println();
-//      }
       if (checkFullEventRead) {
         dataOutput.writeByte(0xa);
       }

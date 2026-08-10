@@ -35,8 +35,8 @@ import static de.jpx3.intave.adapter.MinecraftVersions.*;
 
 public final class Fluids {
   private static final Map<Material, Map<Integer, Fluid>> liquidData = new EnumMap<>(Material.class);
-	private static final FluidFlow v8Waterflow = new v8Waterflow();
-  private static final FluidFlow v13Waterflow = new v13Waterflow();
+	private static final FluidFlow v8Fluidflow = new v8Fluidflow();
+  private static final FluidFlow v13Fluidflow = new v13Fluidflow();
 
   public static void setup() {
     String className;
@@ -95,12 +95,12 @@ public final class Fluids {
     liquidData.putAll(newFluids);
   }
 
-  public static FluidFlow suitableWaterflowFor(User user) {
-    return user.meta().protocol().aquaticUpdate() ? v13Waterflow : v8Waterflow;
+  public static FluidFlow suitableFluidflowFor(User user) {
+    return user.meta().protocol().aquaticUpdate() ? v13Fluidflow : v8Fluidflow;
   }
 
   public static FluidFlow anyWaterflow() {
-    return v8Waterflow;
+    return v8Fluidflow;
   }
 
   public static boolean canContainFluid(Material material) {

@@ -57,6 +57,7 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 	private final boolean sneaking, sprinting, hasSprintSpeed, sprintingAllowed;
 	private final boolean lastSprinting;
 	private final boolean inWater, inLava, inWeb;
+	private final double lavaDepth;
 	private final boolean onGround, lastOnGround, collidedHorizontally, collidedVertically;
 	private final boolean collidedWithBoat;
 	private final double frictionPosSubtraction;
@@ -152,6 +153,7 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 		this.sprintingAllowed = source.sprintingAllowed();
 		this.inWater = source.inWater();
 		this.inLava = source.inLava();
+		this.lavaDepth = source.lavaDepth();
 		this.inWeb = source.inWeb();
 		this.onGround = source.onGround();
 		this.lastOnGround = source.lastOnGround();
@@ -568,8 +570,28 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 	}
 
 	@Override
+	public void setInLava(boolean inLava) {
+		throw immutableCopyException();
+	}
+
+	@Override
+	public double lavaDepth() {
+		return lavaDepth;
+	}
+
+	@Override
+	public void setLavaDepth(double lavaDepth) {
+		throw immutableCopyException();
+	}
+
+	@Override
 	public boolean inWeb() {
 		return inWeb;
+	}
+
+	@Override
+	public void setInWeb(boolean inWeb) {
+		throw immutableCopyException();
 	}
 
 	@Override
@@ -1086,12 +1108,9 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 		}
 		other.setJumpMotion(jumpMotion);
 		other.setInWater(inWater);
-		if (!inLava) {
-			other.aquaticUpdateLavaReset();
-		}
-		if (!inWeb) {
-			other.resetInWeb();
-		}
+		other.setInLava(inLava);
+		other.setLavaDepth(lavaDepth);
+		other.setInWeb(inWeb);
 		other.setLastOnGround(lastOnGround);
 		applyFallDistanceTo(other);
 		other.setPushedByEntity(pushedByEntity);

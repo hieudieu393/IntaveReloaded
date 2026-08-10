@@ -340,7 +340,7 @@ public interface User {
    * Retrieve the {@link User}-associated {@link FluidFlow}
    * @return
    */
-  FluidFlow waterflow();
+  FluidFlow fluidflow();
 
   /**
    * Retrieve the {@link User}-associated {@link SimpleCollider}

@@ -313,14 +313,325 @@ val foliaRunConfigs = mapOf(
   Pair("26.1.2", 25)
 )
 
+data class McpRebornJvm(
+  val gradleJava: Int,
+  val minecraftJava: Int = gradleJava,
+  val gradleHeap: String? = null,
+  val compilerHeap: String? = null,
+)
+
+data class McpRebornClientConfig(
+  val branch: String,
+  val revision: String,
+  val mcpVersion: String,
+  val mappingsChannel: String,
+  val mappingsVersion: String,
+  val jvm: McpRebornJvm,
+)
+
+val mcpJvm8 = McpRebornJvm(8, gradleHeap = "2G")
+val mcpJvm16 = McpRebornJvm(16, gradleHeap = "3G")
+val mcpJvm17Legacy = McpRebornJvm(17, gradleHeap = "4G")
+val mcpJvm17 = McpRebornJvm(17)
+val mcpJvm21 = McpRebornJvm(21)
+val mcpJvm25 = McpRebornJvm(21, 25, compilerHeap = "8G")
+
+fun mcpClient(
+  version: String,
+  revision: String,
+  mcpVersion: String,
+  jvm: McpRebornJvm,
+  snapshotMappings: String? = null,
+) = version to McpRebornClientConfig(
+  branch = version.split(".").take(2).joinToString("."),
+  revision = revision,
+  mcpVersion = mcpVersion,
+  mappingsChannel = if (snapshotMappings == null) "official" else "snapshot",
+  mappingsVersion = snapshotMappings ?: version,
+  jvm = jvm,
+)
+
+val mcpRebornClientConfigs = mapOf(
+  mcpClient("1.14.4", "b4356e384655b0a1f57a480f7481a1895c866f85", "20190829.143755", mcpJvm8,
+    snapshotMappings = "20190719-1.14.3"),
+  mcpClient("1.15.2", "61643b5d7e8d7e85e631fa3f23b9a900121ebfd8", "20200515.085601", mcpJvm8,
+    snapshotMappings = "20200622-1.15.1"),
+  mcpClient("1.16.5", "1e71be5bd4c49bc4d6ab0ee559c31b298b7697a3", "20210115.111550", mcpJvm8,
+    snapshotMappings = "20201028-1.16.3"),
+  mcpClient("1.17.1", "68da7f9f96fbba6ecd3e8f8a0429640264484e43", "20210706.113038", mcpJvm16),
+  mcpClient("1.18.2", "46fa56a19fbe8238382e08c653505fcada09cf7d", "20220228.144236", mcpJvm17Legacy),
+  mcpClient("1.19.4", "03720bf536cc102f57ba6ce843991a4d93654ff4", "20230314.122934", mcpJvm17Legacy),
+  mcpClient("1.20", "0dc201b21e6285038a6644a987ddca69c44c1682", "20230608.053357", mcpJvm17Legacy),
+  mcpClient("1.20.1", "fced317528ef365b3030363f7e7e01085fec5605", "20230612.114412", mcpJvm17),
+  mcpClient("1.20.2", "6520faec73a73bc86912951194878f16b2bdc35a", "20230921.100330", mcpJvm17),
+  mcpClient("1.20.4", "6520faec73a73bc86912951194878f16b2bdc35a", "20231207.112700", mcpJvm17),
+  mcpClient("1.21.1", "f862df254fc3b29b0404ddbd97ee5ee94d92b7b6", "20240808.132146", mcpJvm21),
+  mcpClient("1.21.2", "f862df254fc3b29b0404ddbd97ee5ee94d92b7b6", "20241025.104818", mcpJvm21),
+  mcpClient("1.21.3", "f862df254fc3b29b0404ddbd97ee5ee94d92b7b6", "20241025.112443", mcpJvm21),
+  mcpClient("1.21.4", "f862df254fc3b29b0404ddbd97ee5ee94d92b7b6", "20241203.143248", mcpJvm21),
+  mcpClient("1.21.5", "870a6f02c0edc70a94646d6799a2e9f5fc825ac6", "20250325.155543", mcpJvm21),
+  mcpClient("1.21.6", "887cf0bcff3b7d8d5384b99d45611de25d3780f8", "20250618.020446", mcpJvm21),
+  mcpClient("1.21.7", "7f2d312ff0de57d4404667f42e765fd9460749c2", "20250630.104312", mcpJvm21),
+  mcpClient("1.21.8", "763bd65d34646a1b9625f5b9705aa7aad2ba2688", "20250717.105350", mcpJvm21),
+  mcpClient("1.21.9", "d38cf27335ab04f8585d0c9a5e09f9fdce0be999", "20250930.103108", mcpJvm21),
+  mcpClient("1.21.10", "fe0756535e9b317dcc77a4101cefa181d3f20977", "20251007.101210", mcpJvm21),
+  mcpClient("1.21.11", "96335c336964e51c7c4392afb33790b045630078", "20251209.095502", mcpJvm21),
+  mcpClient("26.1.2", "84820b4daefaf79ec6238840e4be9fb736196398", "20260409.101008", mcpJvm25),
+  mcpClient("26.2", "727d72ffc66bcdf1a8c16ee92b120db2eaa46e26", "20260616.103818", mcpJvm25),
+)
+
 run {
-  paperRunConfigs.forEach { server, java ->
+  val clientVersions = paperRunConfigs.keys.filter(::supportsMcpRebornClient)
+  val missingClientConfigs = clientVersions.filterNot(mcpRebornClientConfigs::containsKey)
+  check(missingClientConfigs.isEmpty()) {
+    "Missing MCP-Reborn client configuration for: ${missingClientConfigs.joinToString()}"
+  }
+
+  paperRunConfigs.forEach { (server, java) ->
     registerPaperTestTask(server, java)
     registerPaperRunTask(server, java)
   }
-  foliaRunConfigs.forEach { server, java ->
+  foliaRunConfigs.forEach { (server, java) ->
     registerFoliaRunTask(server, java)
   }
+  mcpRebornClientConfigs.forEach { (client, config) ->
+    run {
+      registerMcpRebornClientTasks(client, config)
+    }
+  }
+
+  tasks.register("build_all_clients") {
+    group = simpleName
+    description = "Builds every explicitly configured MCP-Reborn client"
+    dependsOn(mcpRebornClientConfigs.keys.map { "build_${it}_client" })
+  }
+}
+
+fun supportsMcpRebornClient(minecraftVersion: String): Boolean {
+  val (major, minor) = minecraftVersion.split(".").map { it.toInt() }
+  return major > 1 || major == 1 && minor >= 14
+}
+
+fun registerMcpRebornClientTasks(
+  minecraftVersion: String,
+  clientConfig: McpRebornClientConfig,
+) {
+  val taskSuffix = minecraftVersion.replace(".", "_").replace("-", "_")
+  val clientDirectory = layout.projectDirectory.dir("client/$minecraftVersion").asFile
+  val clientBuildFile = clientDirectory.resolve("build.gradle")
+  val clientGitDirectory = clientDirectory.resolve(".git")
+  val generatedSourcesDirectory = clientDirectory.resolve("src/main/java")
+
+  val cloneTask = tasks.register<Exec>("cloneMcpRebornClient_$taskSuffix") {
+    description = "Clones MCP-Reborn $minecraftVersion into client/$minecraftVersion"
+    workingDir(layout.projectDirectory.asFile)
+    commandLine(
+      "git", "clone", "--no-checkout", "--single-branch", "--branch", clientConfig.branch,
+      "https://github.com/Hexeption/MCP-Reborn.git", clientDirectory.absolutePath,
+    )
+    onlyIf { !clientGitDirectory.isDirectory }
+    doFirst {
+      if (clientDirectory.exists() && !clientDirectory.isDirectory) {
+        throw GradleException("$clientDirectory exists but is not a directory")
+      }
+      if (clientDirectory.isDirectory && !clientGitDirectory.isDirectory &&
+        !clientDirectory.list().isNullOrEmpty()
+      ) {
+        throw GradleException("$clientDirectory is not empty and is not a Git checkout")
+      }
+      clientDirectory.parentFile.mkdirs()
+    }
+  }
+
+  val checkoutTask = tasks.register<Exec>("checkoutMcpRebornClient_$taskSuffix") {
+    description = "Checks out the pinned MCP-Reborn source template for $minecraftVersion"
+    dependsOn(cloneTask)
+    workingDir(clientDirectory)
+    commandLine("git", "checkout", "--detach", clientConfig.revision)
+    onlyIf { !clientBuildFile.isFile }
+    doFirst {
+      if (!clientGitDirectory.isDirectory) {
+        throw GradleException(
+          "Missing MCP-Reborn Git checkout at $clientDirectory; remove an incomplete " +
+            "directory and retry"
+        )
+      }
+    }
+  }
+
+  val configureTask = tasks.register("configureMcpRebornClient_$taskSuffix") {
+    description = "Configures MCP-Reborn for Minecraft $minecraftVersion"
+    dependsOn(checkoutTask)
+    doLast {
+      val wrapper = mcpRebornGradleWrapper(clientDirectory)
+      if (!clientGitDirectory.isDirectory || !clientBuildFile.isFile || !wrapper.isFile) {
+        throw GradleException("$clientDirectory is not a complete MCP-Reborn checkout")
+      }
+      val origin = providers.exec {
+        workingDir(clientDirectory)
+        commandLine("git", "remote", "get-url", "origin")
+      }.standardOutput.asText.get().trim()
+      if (!isMcpRebornOrigin(origin)) {
+        throw GradleException(
+          "$clientDirectory has unexpected Git origin '$origin'; expected Hexeption/MCP-Reborn"
+        )
+      }
+      val containsPinnedRevision = providers.exec {
+        workingDir(clientDirectory)
+        commandLine("git", "merge-base", "--is-ancestor", clientConfig.revision, "HEAD")
+        isIgnoreExitValue = true
+      }.result.get().exitValue == 0
+      if (!containsPinnedRevision) {
+        throw GradleException(
+          "$clientDirectory is not based on the pinned MCP-Reborn revision " +
+            clientConfig.revision
+        )
+      }
+      configureMcpRebornBuild(clientBuildFile, minecraftVersion, clientConfig)
+    }
+  }
+
+  val setupTask = registerMcpRebornGradleTask(
+    "setupMcpRebornClient_$taskSuffix", "Generates Minecraft $minecraftVersion sources",
+    configureTask, clientDirectory, clientConfig, "setup",
+  ) {
+    onlyIf("decompiled client sources do not exist yet") {
+      !generatedSourcesDirectory
+        .walkTopDown()
+        .any { sourceFile -> sourceFile.isFile && sourceFile.extension == "java" }
+    }
+  }
+
+  val buildTask = registerMcpRebornGradleTask(
+    "build_${minecraftVersion}_client", "Builds the Minecraft $minecraftVersion client",
+    setupTask, clientDirectory, clientConfig, "build",
+  ) {
+    group = simpleName
+  }
+
+  registerMcpRebornGradleTask(
+    "run_${minecraftVersion}_client", "Runs the Minecraft $minecraftVersion client",
+    buildTask, clientDirectory, clientConfig, "runclient",
+  ) {
+    group = simpleName
+  }
+}
+
+fun registerMcpRebornGradleTask(
+  name: String,
+  description: String,
+  dependency: Any,
+  clientDirectory: File,
+  clientConfig: McpRebornClientConfig,
+  nestedTask: String,
+  taskConfiguration: Exec.() -> Unit,
+) = tasks.register<Exec>(name) {
+  this.description = description
+  dependsOn(dependency)
+  configureMcpRebornGradleExec(clientDirectory, clientConfig, nestedTask)
+  taskConfiguration()
+}
+
+fun Exec.configureMcpRebornGradleExec(
+  clientDirectory: File,
+  clientConfig: McpRebornClientConfig,
+  vararg nestedTasks: String,
+) {
+  val gradleJavaLauncher = project.javaToolchains.launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(clientConfig.jvm.gradleJava))
+  }
+  val minecraftJavaLauncher = project.javaToolchains.launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(clientConfig.jvm.minecraftJava))
+  }
+
+  workingDir(clientDirectory)
+  doFirst {
+    val wrapper = mcpRebornGradleWrapper(clientDirectory)
+    val gradleJavaHome = gradleJavaLauncher.get().metadata.installationPath.asFile.absolutePath
+    val minecraftJavaHome = minecraftJavaLauncher.get().metadata.installationPath.asFile.absolutePath
+    val gradleArguments = mutableListOf(
+      "--no-daemon",
+      "-Dorg.gradle.java.installations.paths=$minecraftJavaHome",
+    )
+    clientConfig.jvm.gradleHeap?.let { gradleHeap ->
+      gradleArguments += "-Dorg.gradle.jvmargs=-Xmx$gradleHeap"
+    }
+    gradleArguments += nestedTasks
+
+    environment("JAVA_HOME", gradleJavaHome)
+    val command = if (isWindows()) listOf("cmd.exe", "/d", "/c") else listOf("sh")
+    commandLine(command + wrapper.absolutePath + gradleArguments)
+  }
+}
+
+fun configureMcpRebornBuild(
+  buildFile: File,
+  minecraftVersion: String,
+  clientConfig: McpRebornClientConfig,
+) {
+  val originalSource = buildFile.readText()
+  var configuredSource = originalSource
+  mapOf(
+    "minecraft_version" to minecraftVersion,
+    "mcp_version" to clientConfig.mcpVersion,
+    "mappings_channel" to clientConfig.mappingsChannel,
+    "mappings_version" to clientConfig.mappingsVersion,
+  ).forEach { (name, value) ->
+    val assignment = Regex("""(?m)^(\s*${Regex.escape(name)}\s*=\s*)(['"])[^'"]*\2""")
+    val matches = assignment.findAll(configuredSource).toList()
+    if (matches.size != 1) {
+      throw GradleException(
+        "Expected exactly one $name assignment in $buildFile, found ${matches.size}"
+      )
+    }
+    val match = matches.single()
+    val quote = match.groupValues[2]
+    configuredSource = configuredSource.replaceRange(
+      match.range,
+      "${match.groupValues[1]}$quote$value$quote",
+    )
+  }
+
+  clientConfig.jvm.compilerHeap?.let { maxHeap ->
+    val startMarker = "// openintave-client-compiler-memory-start"
+    val endMarker = "// openintave-client-compiler-memory-end"
+    val managedBlock = """
+      $startMarker
+      tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach {
+          options.fork = true
+          options.forkOptions.memoryMaximumSize = '$maxHeap'
+      }
+      $endMarker
+    """.trimIndent()
+    val existingBlock = Regex(
+      """(?s)\r?\n?${Regex.escape(startMarker)}.*?${Regex.escape(endMarker)}"""
+    ).find(configuredSource)
+    configuredSource = if (existingBlock == null) {
+      "${configuredSource.trimEnd()}\n\n$managedBlock\n"
+    } else {
+      configuredSource.replaceRange(existingBlock.range, "\n\n$managedBlock")
+    }
+  }
+
+  if (configuredSource != originalSource) {
+    buildFile.writeText(configuredSource)
+  }
+}
+
+fun isWindows(): Boolean =
+  System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+
+fun mcpRebornGradleWrapper(clientDirectory: File): File =
+  clientDirectory.resolve(if (isWindows()) "gradlew.bat" else "gradlew")
+
+fun isMcpRebornOrigin(origin: String): Boolean {
+  val normalizedOrigin = origin
+    .trim()
+    .trimEnd('/')
+    .removeSuffix(".git")
+    .lowercase()
+  return normalizedOrigin.endsWith("github.com/hexeption/mcp-reborn") ||
+    normalizedOrigin.endsWith("github.com:hexeption/mcp-reborn")
 }
 
 fun registerPaperTestTask(serverVersion: String, javaVersion: Int) {

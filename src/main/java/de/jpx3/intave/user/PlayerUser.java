@@ -97,7 +97,7 @@ final class PlayerUser implements User {
   private final Lock storageSubscriptionLock = new ReentrantLock();
   private final Queue<Reference<Runnable>> storageSubscriptionQueue = new ArrayDeque<>();
   private Collider collider;
-  private FluidFlow waterflow;
+  private FluidFlow fluidFlow;
   private SimpleCollider simpleCollider;
   private Map<Pose, HitboxSize> poseSizes;
   private boolean ignoreNextInboundPacket;
@@ -117,7 +117,7 @@ final class PlayerUser implements User {
     this.permissionCache = ExpiringPermissionCache.withDefaultExpirationTime();
     this.blockStateAccess = BlockCaches.cacheForPlayer(player);
     this.collider = Colliders.suitableComplexColliderProcessorFor(this);
-    this.waterflow = Fluids.suitableWaterflowFor(this);
+    this.fluidFlow = Fluids.suitableFluidflowFor(this);
     this.simpleCollider = Colliders.suitableSimpleColliderProcessorFor(this);
     Synchronizer.synchronize(this::setDefaultMessagingChannel);
     this.playerContext = PlayerContext.of(player);
@@ -146,7 +146,7 @@ final class PlayerUser implements User {
 
   @Override
   public void applyNewProtocolVersion() {
-    this.waterflow = Fluids.suitableWaterflowFor(this);
+    this.fluidFlow = Fluids.suitableFluidflowFor(this);
     this.collider = Colliders.suitableComplexColliderProcessorFor(this);
     this.simpleCollider = Colliders.suitableSimpleColliderProcessorFor(this);
     this.poseSizes = Pose.poseSizesByVersion(metadata.protocol().protocolVersion());
@@ -334,8 +334,8 @@ final class PlayerUser implements User {
   }
 
   @Override
-  public FluidFlow waterflow() {
-    return waterflow;
+  public FluidFlow fluidflow() {
+    return fluidFlow;
   }
 
   @Override

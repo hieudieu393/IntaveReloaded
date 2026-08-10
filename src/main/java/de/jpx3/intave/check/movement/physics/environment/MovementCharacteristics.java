@@ -76,13 +76,6 @@ public final class MovementCharacteristics {
   }
 
   public static boolean isOffsetPositionInLiquid(
-    User user, BoundingBox entityBoundingBox,
-    double x, double y, double z
-  ) {
-    return isOffsetPositionInLiquid(user, user.meta().movement(), entityBoundingBox, x, y, z);
-  }
-
-  public static boolean isOffsetPositionInLiquid(
     User user, SimulationEnvironment environment,
     BoundingBox entityBoundingBox,
     double x, double y, double z

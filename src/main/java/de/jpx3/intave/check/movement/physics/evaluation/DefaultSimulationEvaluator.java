@@ -286,7 +286,7 @@ public final class DefaultSimulationEvaluator implements SimulationEvaluator {
           liquidMotionY = motionY + 0.3f;
         }
         boolean offsetPositionInLiquid = MovementCharacteristics.isOffsetPositionInLiquid(
-          user, movement.boundingBox(), motionX, liquidMotionY, motionZ
+          user, movement, movement.boundingBox(), motionX, liquidMotionY, motionZ
         );
         boolean maybeCollidedHorizontally = Collision.nearSolidBlock(user, movement.boundingBox().grow(0.2, 0.5, 0.2));
         boolean targetMotion = abs(motionY - 0.3) < 0.001 || abs(motionY - 0.34) < 0.001 || abs(motionY - 0.2470) < 0.001;
@@ -316,22 +316,6 @@ public final class DefaultSimulationEvaluator implements SimulationEvaluator {
       }
 
       // rethink me
-      if (pose == Pose.FALL_FLYING) {
-        if (!movement.inWater() && movement.ticksPast(IN_WATER) <= 2 && abs(motionY) < 0.1) {
-          verticalMultiplier *= 0.01;
-        } else if (movement.isJumping() && (movement.onGround() || movement.lastOnGround()) && motionY < movement.jumpMotion() && motionY >= 0) {
-//          verticalMultiplier *= 0.001;
-          abuseVertically = 0;
-        }
-        tags.add(EvaluationTag.ELYTRA);
-      } else if (movement.ticksPast(ELYTRA_FLYING) < 4 && motionY < movement.jumpMotion()) {
-        boolean anythingNear = Collision.present(user, movement, movement.boundingBox().grow(1));
-        if (anythingNear) {
-          verticalMultiplier *= 0.1;
-          tags.add(EvaluationTag.ELYTRA);
-        }
-      }
-
       if (criticalWeb) {
 //      verticalMultiplier *= 40;
       }
@@ -633,26 +617,10 @@ public final class DefaultSimulationEvaluator implements SimulationEvaluator {
         tags.add(EvaluationTag.WATERFLOW);
       }
 
-      boolean flewWithElytra = movement.ticksPast(ELYTRA_FLYING) <= 3;
-
-      if (pose == Pose.FALL_FLYING) {
-        if (!movement.inWater() && movement.ticksPast(IN_WATER) <= 2 && horizontalDistance < 0.3) {
-          abuseHorizontally *= 0.2;
-        } else if (motionY >= 0 && movement.onGround()) {
-          abuseHorizontally *= 0.3;
-        } else {
-          abuseHorizontally *= 0.6;
-        }
-        tags.add(EvaluationTag.ELYTRA);
-      } else if (flewWithElytra) {
-        abuseHorizontally *= 0.1;
-        tags.add(EvaluationTag.ELYTRA);
-      }
 
       double stackMultiplier = Math.exp(-Math.min(violationLevelData.physicsInvalidMovementsInRow, 4) / 2);
 
-      boolean movedTooQuicklyCheckable = (distanceMoved > 0.125 * stackMultiplier || violationLevelData.physicsInvalidMovementsInRow >= 8)
-        && !flewWithElytra;
+      boolean movedTooQuicklyCheckable = (distanceMoved > 0.125 * stackMultiplier || violationLevelData.physicsInvalidMovementsInRow >= 8);
 
       boolean noCollisions = Collision.nonePresent(user, movement, BoundingBox.fromPosition(user, movement, movement.positionX(), movement.positionY(), movement.positionZ()).grow(0.1));
       if (movedTooQuickly && movedTooQuicklyCheckable && !movement.receivedFlyingPacketIn(3)) {

@@ -72,6 +72,8 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   private boolean hasJumpedInTick;
   private boolean inWaterOverridden, inWater;
   private boolean inLavaOverridden, inLava;
+  private boolean lavaDepthOverridden;
+  private double lavaDepth;
   private boolean inWebOverridden, inWeb;
   private boolean onGroundOverridden, onGround;
   private boolean lastOnGroundOverridden, lastOnGround;
@@ -142,6 +144,10 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
     poseOverridden = true;
     this.pose = pose;
     updateSize();
+    if (user() != null) {
+      boundingBoxOverridden = true;
+      boundingBox = BoundingBox.fromPosition(user(), this, position());
+    }
     deferredMutations.add(environment -> environment.setPose(pose));
   }
 
@@ -171,9 +177,6 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
         positionY() - verifiedLastPositionY(),
         positionZ() - verifiedLastPositionZ()
       );
-      if (user() != null) {
-        updatePose();
-      }
     }
     deferredMutations.add(environment -> environment.updateMovement(
       newPositionX, newPositionY, newPositionZ,
@@ -552,15 +555,47 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   }
 
   @Override
+  public void setInLava(boolean inLava) {
+    inLavaOverridden = true;
+    this.inLava = inLava;
+    if (!inLava) {
+      lavaDepthOverridden = true;
+      lavaDepth = 0.0;
+    }
+    deferredMutations.add(environment -> environment.setInLava(inLava));
+  }
+
+  @Override
+  public double lavaDepth() {
+    return lavaDepthOverridden ? lavaDepth : delegate.lavaDepth();
+  }
+
+  @Override
+  public void setLavaDepth(double lavaDepth) {
+    lavaDepthOverridden = true;
+    this.lavaDepth = Math.max(0.0, lavaDepth);
+    if (this.lavaDepth > 0.0) {
+      inLavaOverridden = true;
+      inLava = true;
+    }
+    deferredMutations.add(environment -> environment.setLavaDepth(lavaDepth));
+  }
+
+  @Override
   public boolean inWeb() {
     return inWebOverridden ? inWeb : delegate.inWeb();
   }
 
   @Override
-  public void resetInWeb() {
+  public void setInWeb(boolean inWeb) {
     inWebOverridden = true;
-    inWeb = false;
-    deferredMutations.add(SimulationEnvironment::resetInWeb);
+    this.inWeb = inWeb;
+    deferredMutations.add(environment -> environment.setInWeb(inWeb));
+  }
+
+  @Override
+  public void resetInWeb() {
+    setInWeb(false);
   }
 
   @Override
@@ -992,6 +1027,8 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void aquaticUpdateLavaReset() {
     inLavaOverridden = true;
     inLava = false;
+    lavaDepthOverridden = true;
+    lavaDepth = 0.0;
     deferredMutations.add(SimulationEnvironment::aquaticUpdateLavaReset);
   }
 
@@ -1066,6 +1103,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
     if (hasMovement || hasRotation) {
       inactiveTickOverride(MoveMetric.EXTERNAL_VELOCITY);
     }
+    updatePose();
     deferredMutations.add(environment -> environment.tickComplete(hasMovement, hasRotation, true));
   }
 
@@ -1266,11 +1304,14 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
     if (inWaterOverridden) {
       other.setInWater(inWater);
     }
-    if (inLavaOverridden && !inLava) {
-      other.aquaticUpdateLavaReset();
+    if (inLavaOverridden) {
+      other.setInLava(inLava);
     }
-    if (inWebOverridden && !inWeb) {
-      other.resetInWeb();
+    if (lavaDepthOverridden) {
+      other.setLavaDepth(lavaDepth);
+    }
+    if (inWebOverridden) {
+      other.setInWeb(inWeb);
     }
     if (fallDistanceOverridden && fallDistance == 0.0) {
       other.resetFallDistance();

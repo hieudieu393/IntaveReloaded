@@ -12,7 +12,10 @@
 package de.jpx3.intave.module.tracker.player;
 
 import com.comphenix.protocol.events.PacketEvent;
+import com.comphenix.protocol.wrappers.EnumWrappers.EntityPose;
+import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.annotate.Nullable;
+import de.jpx3.intave.check.movement.physics.environment.Pose;
 import de.jpx3.intave.module.Module;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.packet.reader.EntityMetadataReader;
@@ -39,6 +42,7 @@ public final class MetadataTracker extends Module {
 		}
 		@Nullable BlockPosition sleepingBedPosition = sleepingBedPosition(reader);
 		@Nullable Boolean newGliding = newGlidingStatus(user, reader);
+		@Nullable Pose newPose = newPoseStatus(user, reader);
 
 		user.packetTickFeedback(event, () -> {
 			MovementMetadata movement = user.meta().movement();
@@ -50,6 +54,9 @@ public final class MetadataTracker extends Module {
 			}
 			if (newGliding != null) {
 				movement.gliding = newGliding;
+			}
+			if (newPose != null) {
+				movement.setPose(newPose);
 			}
 		});
 	}
@@ -76,5 +83,37 @@ public final class MetadataTracker extends Module {
 		}
 		byte data = (byte) elytraObject;
 		return (data & 1 << 7) != 0;
+	}
+
+	private @Nullable Pose newPoseStatus(User user, EntityMetadataReader reader) {
+		if (!MinecraftVersions.VER1_14_0.atOrAbove() || !user.meta().protocol().applyModernCollider()
+		) {
+			return null;
+		}
+		Object rawPose = reader.fetchRaw(6);
+		if (rawPose == null) {
+			return null;
+		}
+		try {
+			EntityPose entityPose = rawPose instanceof EntityPose
+				? (EntityPose) rawPose
+				: EntityPose.fromNms(rawPose);
+			switch (entityPose) {
+				case STANDING:
+					return Pose.STANDING;
+				case FALL_FLYING:
+					return Pose.FALL_FLYING;
+				case SLEEPING:
+					return Pose.SLEEPING;
+				case SWIMMING:
+					return Pose.SWIMMING;
+				case CROUCHING:
+					return Pose.CROUCHING;
+				default:
+					return null;
+			}
+		} catch (RuntimeException ignored) {
+			return null;
+		}
 	}
 }

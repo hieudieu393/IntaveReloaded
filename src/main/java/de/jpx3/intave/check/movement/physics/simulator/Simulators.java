@@ -11,6 +11,11 @@
 
 package de.jpx3.intave.check.movement.physics.simulator;
 
+import de.jpx3.intave.adapter.MinecraftVersions;
+import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
+import de.jpx3.intave.module.tracker.entity.Entity;
+import de.jpx3.intave.user.meta.ProtocolMetadata;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -24,5 +29,21 @@ public final class Simulators {
 
   public static List<Simulator> simulators() {
     return ALL_SIMULATORS;
+  }
+
+  public static Simulator selectFor(SimulationEnvironment environment) {
+    ProtocolMetadata protocol = environment.user().meta().protocol();
+    boolean clientVehicleMovement = MinecraftVersions.VER1_9_0.atOrAbove() && protocol.combatUpdate();
+    if (environment.isInVehicle() && clientVehicleMovement) {
+      Entity vehicle = environment.vehicle();
+      return vehicle.typeData().isBoat() ? BOAT : HORSE;
+    }
+    boolean elytraMovement = environment.shouldHaveFallFlyingPose()
+      && !environment.inWater()
+      && !environment.inLava();
+    if (elytraMovement) {
+      return ELYTRA;
+    }
+    return PLAYER;
   }
 }

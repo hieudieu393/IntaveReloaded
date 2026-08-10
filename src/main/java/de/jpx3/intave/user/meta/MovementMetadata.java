@@ -122,6 +122,7 @@ public final class MovementMetadata implements SimulationEnvironment {
   public int reduceTicks = 0;
   public boolean onLadderLast;
   public boolean aquaticUpdateInLava;
+  public double aquaticUpdateLavaDepth;
   public AtomicInteger pendingVelocityPackets = new AtomicInteger();
   public int physicsPacketRelinkFlyVL; // In Air
   public boolean invalidMovement, suspiciousMovement;
@@ -362,9 +363,6 @@ public final class MovementMetadata implements SimulationEnvironment {
     }
 
     recheckWebStateFromLastTick();
-    if (hasMovement || hasRotation) {
-      updatePose();
-    }
   }
 
   @Override
@@ -460,15 +458,13 @@ public final class MovementMetadata implements SimulationEnvironment {
     return clientData.canUseElytra();
   }
 
-  public void manualPoseSet(Pose pose) {
-    this.pose = pose;
-    updatePose();
-  }
-
   @Override
   public void setPose(Pose pose) {
     this.pose = pose;
     updateSize();
+    if (boundingBoxSetup) {
+      boundingBox = BoundingBox.fromPosition(user, this, position());
+    }
   }
 
   private float jumpUpwardsMotion() {
@@ -594,8 +590,13 @@ public final class MovementMetadata implements SimulationEnvironment {
     if (sneaking && !protocol.canSprintWhileSneaking()) {
       sprintingAllowed = false;
     }
-    boolean preventWaterSprint = protocol.aquaticUpdate() && inWater() && !shouldHaveSwimmingPose();
-    if (inventoryData.inventoryOpen() || abilities.foodLevel <= 6 || preventWaterSprint) {
+    // Swim sprint can start underwater and continue after only the eyes leave the water.
+    boolean preventWaterSprint = protocol.aquaticUpdate()
+      && inWater()
+      && !shouldHaveSwimmingPose()
+      && !areEyesInWater()
+      && ticksPast(SPRINT_CHANGE) > 2;
+    if (inventoryData.inventoryOpen() || abilities.foodLevel <= 6) {
       sprintingAllowed = false;
     }
   }
@@ -615,8 +616,34 @@ public final class MovementMetadata implements SimulationEnvironment {
   }
 
   @Override
+  public void setInLava(boolean inLava) {
+    aquaticUpdateInLava = inLava;
+    if (!inLava) {
+      aquaticUpdateLavaDepth = 0.0;
+    }
+  }
+
+  @Override
+  public double lavaDepth() {
+    return aquaticUpdateLavaDepth;
+  }
+
+  @Override
+  public void setLavaDepth(double lavaDepth) {
+    aquaticUpdateLavaDepth = Math.max(0.0, lavaDepth);
+    if (aquaticUpdateLavaDepth > 0.0) {
+      aquaticUpdateInLava = true;
+    }
+  }
+
+  @Override
   public boolean inWeb() {
     return inWeb;
+  }
+
+  @Override
+  public void setInWeb(boolean inWeb) {
+    this.inWeb = inWeb;
   }
 
   @Override
@@ -757,7 +784,7 @@ public final class MovementMetadata implements SimulationEnvironment {
 
   @Override
   public void aquaticUpdateLavaReset() {
-    aquaticUpdateInLava = false;
+    setInLava(false);
   }
 
   @Override
@@ -931,7 +958,7 @@ public final class MovementMetadata implements SimulationEnvironment {
       inactiveTick(EXTERNAL_VELOCITY);
     }
 
-    updateSize();
+    updatePose();
 
     // misc
     if (ticks(SNEAKING) > 1) {

@@ -75,6 +75,8 @@ final class ImmutableSimulationEnvironmentCopyTest {
     assertThrows(UnsupportedOperationException.class, () -> copy.setBaseMotion(1.0, 2.0, 3.0));
     assertThrows(UnsupportedOperationException.class, () -> copy.activeTick(MoveMetric.ALIVE));
     assertThrows(UnsupportedOperationException.class, () -> copy.updateMovement(1.0, 2.0, 3.0, 0.0F, 0.0F, true, false));
+    assertThrows(UnsupportedOperationException.class, () -> copy.setInLava(true));
+    assertThrows(UnsupportedOperationException.class, () -> copy.setLavaDepth(0.35));
   }
 
   @Test
@@ -148,7 +150,7 @@ final class ImmutableSimulationEnvironmentCopyTest {
     source.setMotionMultiplier(new Vector(0.8, 0.75, 0.8));
     source.setBoundingBox(BoundingBox.fromBounds(1.0, 2.0, 3.0, 4.0, 5.0, 6.0));
     source.setInWater(true);
-    source.setInLava(true);
+    source.setLavaDepth(0.35);
     source.setInWeb(true);
     source.setOnGround(true);
     source.addFallDistance(4.0);
@@ -173,6 +175,9 @@ final class ImmutableSimulationEnvironmentCopyTest {
     assertEquals(0.2, target.baseMotionY(), 0.0);
     assertEquals(new Vector(0.8, 0.75, 0.8), target.motionMultiplier());
     assertTrue(target.inWater());
+    assertTrue(target.inLava());
+    assertTrue(target.inWeb());
+    assertEquals(0.35, target.lavaDepth(), 0.0);
     assertEquals(4.0, target.fallDistance(), 0.0);
     assertEquals(1, target.ticks(MoveMetric.ALIVE));
     assertEquals(0, target.ticksPast(MoveMetric.ALIVE));

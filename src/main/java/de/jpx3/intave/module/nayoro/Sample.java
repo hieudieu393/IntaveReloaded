@@ -1,3 +1,14 @@
+/*
+ * Copyright 2026 Intave
+ *
+ * This software is licensed under the PolyForm Perimeter License 1.0.0.
+ * You may use this software for any purpose, except for providing to
+ * others any product that competes with the software.
+ *
+ * A copy of the license is available at:
+ *   https://polyformproject.org/licenses/perimeter/1.0.0/
+ */
+
 package de.jpx3.intave.module.nayoro;
 
 import de.jpx3.intave.IntavePlugin;
@@ -90,10 +101,16 @@ public final class Sample {
 
   @Deprecated
   private Resource writableSampleResource() {
-    File dataFolder = sampleFolder();
+    File dataFolder = new File(IntavePlugin.singletonInstance().dataFolder(), "samples");
+    if (!dataFolder.exists()) {
+      if (!dataFolder.mkdirs()) {
+        throw new IntaveInternalException("Unable to create sample folder " + dataFolder);
+      }
+    }
     File sampleFile;
     do {
-      sampleFile = new File(dataFolder, (id = randomId()) + ".sample");
+      String datetime = String.valueOf(System.currentTimeMillis());
+      sampleFile = new File(dataFolder, (id = randomId()) + "." + datetime + ".sample");
     } while (sampleFile.exists());
     return Resources.resourceFromFile(sampleFile)/*.compressed()*/.locked(sampleFile);
   }

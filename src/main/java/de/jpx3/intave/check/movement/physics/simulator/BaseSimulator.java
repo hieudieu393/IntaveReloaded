@@ -57,9 +57,9 @@ class BaseSimulator extends Simulator {
     SimulationEnvironment environment
   ) {
     baseMotion = baseMotion.copy();
+    updateAquatics(user, baseMotion, environment, false);
     moveOutOfBlocks(user, baseMotion, environment);
     handleSneakInWater(user, baseMotion, environment);
-    updateAquatics(user, baseMotion, environment);
     simulateMotionClamp(user, baseMotion, environment);
     return baseMotion;
   }
@@ -137,14 +137,20 @@ class BaseSimulator extends Simulator {
 
   private void handleSneakInWater(User user, Motion motion, SimulationEnvironment environment) {
     ProtocolMetadata protocol = user.meta().protocol();
-    if (protocol.aquaticUpdate() && environment.isSneaking() && environment.inWater()) {
+    boolean affectedByFluids = protocol.protocolVersion() < ProtocolMetadata.VER_1_17 || !user.meta().abilities().flying();
+    boolean sneakingAndInWater = environment.isSneaking() && environment.inWater();
+    if (protocol.aquaticUpdate() && affectedByFluids && sneakingAndInWater) {
       motion.motionY -= 0.04F;
     }
   }
 
-  private void updateAquatics(User user, Motion baseMotion, SimulationEnvironment environment) {
+  private void updateAquatics(
+    User user, Motion baseMotion,
+    SimulationEnvironment environment,
+    boolean afterMove
+  ) {
     updateInWater(user, baseMotion, environment);
-    updateInLava(environment);
+    updateInLava(user, baseMotion, environment, afterMove);
     environment.updateEyesInWater();
   }
 
@@ -156,10 +162,22 @@ class BaseSimulator extends Simulator {
       boundingBox = boundingBox.grow(0.0D, -0.4000000059604645D, 0.0D);
     }
     boundingBox = boundingBox.shrink(0.001D);
-    environment.setInWater(user.waterflow().applyFlowTo(user, environment, baseMotion, boundingBox));
+    environment.setInWater(user.fluidflow().applyWaterFlowTo(user, environment, baseMotion, boundingBox));
   }
 
-  private void updateInLava(SimulationEnvironment environment) {
+  private void updateInLava(
+    User user, Motion baseMotion,
+    SimulationEnvironment environment,
+    boolean afterMove
+  ) {
+    ProtocolMetadata protocol = user.meta().protocol();
+    if (protocol.fluidHeightBasedLavaMovement()
+      && (!afterMove || protocol.refreshesFluidStateAfterMove())) {
+      environment.aquaticUpdateLavaReset();
+      user.fluidflow().applyLavaFlowTo(
+        user, environment, baseMotion, environment.boundingBox()
+      );
+    }
     if (environment.inLava()) {
       environment.activeTick(IN_LAVA);
     }
@@ -189,6 +207,46 @@ class BaseSimulator extends Simulator {
 
     if (Math.abs(baseMotion.motionY) < resetMotion) {
       baseMotion.motionY = 0.0;
+    }
+  }
+
+  protected final void simulateJump(
+    User user,
+    Motion motion,
+    SimulationEnvironment environment,
+    MovementConfiguration configuration
+  ) {
+    if (!configuration.isJumping()) {
+      return;
+    }
+
+    ProtocolMetadata protocol = user.meta().protocol();
+    boolean inWater = environment.inWater();
+    boolean allowJumpInLiquid = false;
+    if (
+      protocol.aquaticUpdate() && inWater &&
+      environment.onGround() && environment.pose().height(user, environment) >= 0.4
+    ) {
+      Position lastPosition = environment.lastPosition();
+      double fluidDepth = user.fluidflow().fluidDepthAt(
+        user, BoundingBox.fromPosition(user, environment, lastPosition)
+      );
+      boolean fluidStateEmpty = !Fluids.fluidPresentAt(user, lastPosition);
+      allowJumpInLiquid = fluidStateEmpty || fluidDepth <= 0.4;
+    }
+    if (inWater && !allowJumpInLiquid) {
+      motion.motionY += 0.04F;
+    } else if (environment.inLava()) {
+      // #handleJumpLava
+      motion.motionY += 0.04F;
+    } else if (environment.lastOnGround()) {
+      motion.motionY = user.protocolVersion() >= 768 ?
+        Math.max(environment.jumpMotion(), environment.baseMotionY()) :
+        environment.jumpMotion();
+      if (configuration.isSprinting()) {
+        motion.motionX -= environment.yawSine() * 0.2F;
+        motion.motionZ += environment.yawCosine() * 0.2F;
+      }
     }
   }
 
@@ -223,11 +281,15 @@ class BaseSimulator extends Simulator {
     boolean inLava = environment.inLava();
 	  boolean swimming = environment.shouldHaveSwimmingPose();
     boolean crouching = pose == Pose.CROUCHING;
+    boolean visuallyCrawling = protocol.applyModernCollider()
+      && !inWater
+      && !environment.shouldHaveFallFlyingPose()
+      && pose == Pose.FALL_FLYING;
     boolean waterUpdate = protocol.aquaticUpdate();
 
     motion = motion.copy();
 
-    if (crouching || (!protocol.beeUpdate() && environment.isSneaking())) {
+    if (crouching || visuallyCrawling || (!protocol.beeUpdate() && environment.isSneaking())) {
       double sneakingSpeed = user.meta().abilities().attributeValue("player.sneaking_speed");
       if (Double.isNaN(sneakingSpeed)) {
         sneakingSpeed = 0.3 + Enchantments.resolveSwiftSpeedModifier(user.player()) * 0.15f;
@@ -261,34 +323,7 @@ class BaseSimulator extends Simulator {
       }
     }
 
-    if (jumped) {
-      boolean allowJumpInLiquid = false;
-      if (
-        protocol.aquaticUpdate() && inWater &&
-        environment.onGround() && environment.pose().height(user, environment) >= 0.4
-      ) {
-        Position lastPosition = environment.lastPosition();
-        double fluidDepth = user.waterflow().fluidDepthAt(
-          user, BoundingBox.fromPosition(user, environment, lastPosition)
-        );
-        boolean fluidStateEmpty = !Fluids.fluidPresentAt(user, lastPosition);
-        allowJumpInLiquid = fluidStateEmpty || fluidDepth <= 0.4;
-      }
-      if (inWater && !allowJumpInLiquid) {
-        motion.motionY += 0.04F;
-      } else if (inLava) {
-        // #handleJumpLava
-        motion.motionY += 0.04F;
-      } else if (environment.lastOnGround()) {
-        motion.motionY = user.protocolVersion() >= 768 ?
-          Math.max(environment.jumpMotion(), environment.baseMotionY()) :
-          environment.jumpMotion();
-        if (sprinting) {
-          motion.motionX -= yawSine * 0.2F;
-          motion.motionZ += yawCosine * 0.2F;
-        }
-      }
-    }
+    simulateJump(user, motion, environment, configuration);
     if (waterUpdate && swimming) {
       double d3 = environment.lookVector().getY();
       double d4 = d3 < -0.2D ? 0.085D : 0.06D;
@@ -413,6 +448,10 @@ class BaseSimulator extends Simulator {
     Position position, Motion motion
   ) {
     motion = motion.copy();
+    SimulationResult result = environment.simulationResult();
+    Motion actualMoveMotion = result == null ? null : result.actualMotion();
+    double motionYBeforeMove = actualMoveMotion == null ? motion.motionY : actualMoveMotion.motionY;
+    boolean fallingBeforeMove = motionYBeforeMove <= 0.0D;
 //    SimulationResult beforeMoveCollider = environment.result();
 //    Motion actualMotion = beforeMoveCollider == null ? null : beforeMoveCollider.actualMotion();
 //    if (actualMotion != null) {
@@ -429,9 +468,10 @@ class BaseSimulator extends Simulator {
       environment.resetMotionMultiplier();
     }
 
-    boolean elytraFlying = pose == Pose.FALL_FLYING;
+    boolean elytraFlying = environment.shouldHaveFallFlyingPose();
     boolean inWater = environment.inWater();
     boolean inLava = environment.inLava();
+    double lavaDepthBeforeMove = environment.lavaDepth();
 	  double gravity = environment.gravity();
     double slipperiness;
 
@@ -452,14 +492,6 @@ class BaseSimulator extends Simulator {
       environment.resetInWeb();
     }
 
-    if (environment.motionXReset()) {
-      motion.setMotionX(0.0);
-    }
-    if (environment.motionZReset()) {
-      motion.setMotionZ(0.0);
-    }
-
-    SimulationResult result = environment.simulationResult();
     if (result != null && result.offsetMotionDiffersFromActualMotionInXZ()) {
       Motion actualMotion = result.actualMotion();
       if (actualMotion != null && configuration.overrideEndMotionToActualMotion()) {
@@ -480,12 +512,23 @@ class BaseSimulator extends Simulator {
     }
 
     updateFallStateAfter(user, environment, motion, environment.onGround());
+
+    if (environment.motionXReset()) {
+      motion.setMotionX(0.0);
+    }
+    if (environment.motionZReset()) {
+      motion.setMotionZ(0.0);
+    }
+
     simulateMovementOfCollidedBlocksAfter(user, environment, motion, boundingBox);
 
     if (inWater) {
       simulateWaterAfter(user, environment, configuration, motion, gravity);
     } else if (inLava) {
-      simulateLavaAfter(user, environment, motion);
+      simulateLavaAfter(
+        user, environment, configuration, motion, gravity,
+        fallingBeforeMove, lavaDepthBeforeMove
+      );
     } else if (!elytraFlying) {
       simulateNormalAfter(user, environment, configuration, motion, gravity, slipperiness);
     }
@@ -507,7 +550,7 @@ class BaseSimulator extends Simulator {
     Motion motion, boolean onGround
   ) {
     if (!environment.inWater()) {
-      updateAquatics(user, motion, environment);
+      updateAquatics(user, motion, environment, true);
     }
     if (onGround) {
       environment.resetFallDistance();
@@ -686,8 +729,7 @@ class BaseSimulator extends Simulator {
     if (!protocol.aquaticUpdate()) {
       motion.motionY -= 0.02D;
     }
-    // todo check if it is not movementconfig sprinting
-    if (protocol.aquaticUpdate() && environment.pose() != Pose.SWIMMING && !configuration.isSprinting()) {
+    if (protocol.aquaticUpdate() && !configuration.isSprinting()) {
       if (motion.motionY <= 0.0D
         && Math.abs(motion.motionY - 0.005D) >= 0.003D
         && Math.abs(motion.motionY - gravity / 16.0D) < 0.003D
@@ -706,7 +748,7 @@ class BaseSimulator extends Simulator {
         liquidMotionY = motion.motionY + 0.3f;
       }
       boolean offsetPositionInLiquid = MovementCharacteristics.isOffsetPositionInLiquid(
-        user, environment.boundingBox(), motion.motionX, liquidMotionY, motion.motionZ
+        user, environment, environment.boundingBox(), motion.motionX, liquidMotionY, motion.motionZ
       );
       if (offsetPositionInLiquid) {
         motion.motionY = 0.30000001192092896D;
@@ -715,26 +757,56 @@ class BaseSimulator extends Simulator {
   }
 
   private void simulateLavaAfter(
-    User user, SimulationEnvironment environment,
-    Motion context
+    User user,
+    SimulationEnvironment environment,
+    MovementConfiguration configuration,
+    Motion motion,
+    double gravity,
+    boolean fallingBeforeMove,
+    double lavaDepthBeforeMove
   ) {
-    context.motionX *= 0.5D;
-    context.motionY *= 0.5D;
-    context.motionZ *= 0.5D;
-    context.motionY -= 0.02D;
+    ProtocolMetadata protocol = user.meta().protocol();
+
+    if (protocol.fluidHeightBasedLavaMovement()) {
+      double lavaDepth = protocol.refreshesFluidStateAfterMove()
+        ? environment.lavaDepth()
+        : lavaDepthBeforeMove;
+      double lavaJumpThreshold = environment.eyeHeight() < 0.4D ? 0.0D : 0.4D;
+      if (lavaDepth <= lavaJumpThreshold) {
+        motion.motionX *= 0.5D;
+        motion.motionY *= 0.8F;
+        motion.motionZ *= 0.5D;
+
+        if (gravity != 0.0D && !configuration.isSprinting()) {
+          if (fallingBeforeMove
+            && Math.abs(motion.motionY - 0.005D) >= 0.003D
+            && Math.abs(motion.motionY - gravity / 16.0D) < 0.003D) {
+            motion.motionY = -0.003D;
+          } else {
+            motion.motionY -= gravity / 16.0D;
+          }
+        }
+      } else {
+        motion.multiply(0.5D);
+      }
+    } else {
+      motion.multiply(0.5D);
+    }
+
+    motion.motionY -= protocol.aquaticUpdate() ? gravity / 4.0D : 0.02D;
 
     if (environment.collidedHorizontally()) {
       double liquidMotionY;
-      if (user.meta().protocol().aquaticUpdate()) {
-        liquidMotionY = context.motionY + 0.6f - environment.positionY() + environment.verifiedLastPositionY();
+      if (protocol.aquaticUpdate()) {
+        liquidMotionY = motion.motionY + 0.6f - environment.positionY() + environment.verifiedLastPositionY();
       } else {
-        liquidMotionY = context.motionY + 0.3f;
+        liquidMotionY = motion.motionY + 0.3f;
       }
       boolean offsetPositionInLiquid = MovementCharacteristics.isOffsetPositionInLiquid(
-        user, environment.boundingBox(), context.motionX, liquidMotionY, context.motionZ
+        user, environment, environment.boundingBox(), motion.motionX, liquidMotionY, motion.motionZ
       );
       if (offsetPositionInLiquid) {
-        context.motionY = 0.30000001192092896D;
+        motion.motionY = 0.30000001192092896D;
       }
     }
   }

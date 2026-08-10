@@ -424,8 +424,28 @@ public final class ImmutableSimulationEnvironmentView implements SimulationEnvir
 	}
 
 	@Override
+	public void setInLava(boolean inLava) {
+		throw new UnsupportedOperationException("Cannot modify unmodifiable view");
+	}
+
+	@Override
+	public double lavaDepth() {
+		return delegate.lavaDepth();
+	}
+
+	@Override
+	public void setLavaDepth(double lavaDepth) {
+		throw new UnsupportedOperationException("Cannot modify unmodifiable view");
+	}
+
+	@Override
 	public boolean inWeb() {
 		return delegate.inWeb();
+	}
+
+	@Override
+	public void setInWeb(boolean inWeb) {
+		throw new UnsupportedOperationException("Cannot modify unmodifiable view");
 	}
 
 	@Override

@@ -34,6 +34,8 @@ final class ElytraSimulator extends BaseSimulator {
     motion = motion.copy();
     Timings.CHECK_PHYSICS_SIMULATOR.start();
     Timings.CHECK_PHYSICS_SIMULATOR_ELYTRA.start();
+    simulateJump(user, motion, environment, configuration);
+
     float rotationPitch = environment.rotationPitch();
     Vector lookVector = environment.lookVector();
 

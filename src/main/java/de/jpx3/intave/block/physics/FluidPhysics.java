@@ -16,9 +16,9 @@ import de.jpx3.intave.adapter.MinecraftVersion;
 import de.jpx3.intave.block.access.VolatileBlockAccess;
 import de.jpx3.intave.block.fluid.Fluid;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
+import de.jpx3.intave.share.BoundingBox;
 import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.user.User;
-import de.jpx3.intave.user.meta.MovementMetadata;
 import de.jpx3.intave.user.meta.ProtocolMetadata;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -42,15 +42,54 @@ final class FluidPhysics implements BlockPhysic {
 
   @Override
   public Motion entityInside(User user, SimulationEnvironment environment, Location location, Location from, double motionX, double motionY, double motionZ) {
-    ProtocolMetadata clientData = user.meta().protocol();
-    if (clientData.aquaticUpdate()) {
-      MovementMetadata movementData = user.meta().movement();
+    ProtocolMetadata protocol = user.meta().protocol();
+    if (protocol.aquaticUpdate()) {
       Fluid fluid = VolatileBlockAccess.fluidAccess(user, location);
       if (fluid.isOfLava()) {
-        movementData.aquaticUpdateInLava = true;
+        if (protocol.fluidHeightBasedLavaMovement()) {
+          updateLavaDepth(user, environment, protocol, location, fluid);
+        } else {
+          environment.setInLava(true);
+        }
       }
     }
     return null;
+  }
+
+  private void updateLavaDepth(
+    User user,
+    SimulationEnvironment environment,
+    ProtocolMetadata protocol,
+    Location location,
+    Fluid fluid
+  ) {
+    BoundingBox entityBox = environment.boundingBox();
+    BoundingBox interactionBox = entityBox.shrink(0.001D);
+    int blockX = location.getBlockX();
+    int blockY = location.getBlockY();
+    int blockZ = location.getBlockZ();
+    if (interactionBox.maxX <= blockX || interactionBox.minX >= blockX + 1.0D
+      || interactionBox.maxY <= blockY || interactionBox.minY >= blockY + 1.0D
+      || interactionBox.maxZ <= blockZ || interactionBox.minZ >= blockZ + 1.0D) {
+      return;
+    }
+
+    Fluid fluidAbove = VolatileBlockAccess.fluidAccess(user, blockX, blockY + 1, blockZ);
+    float fluidHeight = fluid.similarTo(fluidAbove) ? 1.0F : fluid.height();
+    double fluidSurfaceY = protocol.fluidHeightUsesDoublePrecision()
+      ? blockY + (double) fluidHeight
+      : (double) ((float) blockY + fluidHeight);
+    if (fluidSurfaceY < interactionBox.minY) {
+      return;
+    }
+
+    double depthBaseY = protocol.refreshesFluidStateAfterMove()
+      ? entityBox.minY
+      : interactionBox.minY;
+    double lavaDepth = fluidSurfaceY - depthBaseY;
+    if (lavaDepth > environment.lavaDepth()) {
+      environment.setLavaDepth(lavaDepth);
+    }
   }
 
   @Override

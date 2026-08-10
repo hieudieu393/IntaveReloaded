@@ -257,19 +257,19 @@ public final class TeleportController implements PacketEventSubscriber {
         Synchronizer.synchronize(() -> {
 //          Vector randomVelocity = new Vector(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
 //          player.setVelocity(new Vector(3, 0.4, 0.3));
-//          Vector randomVelocity = player.getLocation().getDirection().clone();
-//          randomVelocity.setY(0.4);
-          Vector randomVelocity = new Vector(0, 0.01, 0);
+          Vector randomVelocity = player.getLocation().getDirection().clone();
+          randomVelocity.setY(0.4);
+//          Vector randomVelocity = new Vector(0, 0.01, 0);
           player.setVelocity(randomVelocity);
           player.setFallDistance(0.0f);
           if (user.receives(MessageChannel.DEBUG_TELEPORT)) {
             player.sendMessage(IntavePlugin.prefix() + "Set random velocity " + randomVelocity.getX() + " " + randomVelocity.getY() + " " + randomVelocity.getZ() + " as " + ChatColor.RED + " it was command-requested");
           }
 
-          Synchronizer.synchronizeDelayed(() -> {
-            // send explosion packet
-            sendExplosion(player, player.getLocation(), 4.0f, new Vector(0, -1, 0));
-          }, 2);
+//          Synchronizer.synchronizeDelayed(() -> {
+//            // send explosion packet
+//            sendExplosion(player, player.getLocation(), 4.0f, new Vector(0, -1, 0));
+//          }, 2);
         });
       }
     }

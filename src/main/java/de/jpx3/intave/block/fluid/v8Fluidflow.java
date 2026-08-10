@@ -22,9 +22,9 @@ import org.bukkit.entity.Player;
 
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.WATERFLOW_PUSH;
 
-final class v8Waterflow implements FluidFlow {
+final class v8Fluidflow implements FluidFlow {
   @Override
-  public boolean applyFlowTo(
+  public boolean applyWaterFlowTo(
     User user, SimulationEnvironment environment,
     Motion baseMotion, BoundingBox boundingBox
   ) {
@@ -67,6 +67,14 @@ final class v8Waterflow implements FluidFlow {
       environment.activeTick(WATERFLOW_PUSH);
     }
     return inWater;
+  }
+
+  @Override
+  public boolean applyLavaFlowTo(
+    User user, SimulationEnvironment environment,
+    Motion baseMotion, BoundingBox boundingBox
+  ) {
+    return false;
   }
 
   @Override
