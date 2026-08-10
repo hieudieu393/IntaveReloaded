@@ -49,6 +49,7 @@ public final class PlacementAnalysis extends Check {
     appendCheckPart(new PlacementPacketConsistency(this));
     appendCheckPart(new FabricatedCursor(this));
     appendCheckPart(new FarPlaceEnvelope(this));
+    appendCheckPart(new PlaceProtocolGuard(this));
     appendPlayerCheckPart(RoundedRotation.class);
 
     appendPlayerCheckPart(AngleSnap.class);
