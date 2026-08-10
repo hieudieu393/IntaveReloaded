@@ -23,11 +23,14 @@ Original Intave developers, retained with full credit:
 - NotLucky
 - Trattue
 
-## Requirements
+## Requirements & compatibility
 
-- A supported Bukkit/Spigot/Paper/Folia server version
-- **PacketEvents 2.13.0 or newer**
-- ViaVersion is optional and remains supported
+- **Server:** Minecraft **1.21 or newer** on a supported Bukkit/Spigot/Paper/Folia implementation
+- **Client protocol:** Minecraft **1.17 or newer**
+- **PacketEvents 2.13.0 or newer** is required
+- ViaVersion/ViaBackwards remain optional for native-version clients, but are required when the server needs protocol translation for older supported clients (for example, a 1.17 client joining a 1.21+ server)
+
+IntaveReloaded's server runtime support and client protocol support are intentionally separate: the plugin itself only runs on 1.21+ servers, while its movement and packet compatibility logic supports clients from 1.17 upward.
 
 ## General
 
@@ -47,11 +50,13 @@ The original Intave check documentation remains useful for understanding the arc
 1. Clone this repository: `git clone https://github.com/hieudieu393/IntaveReloaded.git`.
 2. Open the project as a Gradle project and allow IntelliJ/Gradle to finish indexing and resolving dependencies.
 3. Install PacketEvents 2.13.0+ on any server where you run the built plugin.
+4. Use a Minecraft 1.21+ server. Add ViaVersion/ViaBackwards when testing older supported clients.
 
 ### Testing
 
-Choose one of the `intave/run_X.X.X` or test tasks corresponding to the Minecraft server version you want to test.
-The development run/test configuration installs the required PacketEvents dependency for the server task.
+Server run/self-test tasks below Minecraft 1.21 are disabled because they are outside the supported server range.
+MCP-Reborn client tasks are supported from Minecraft 1.17 upward; client targets below 1.17 are disabled.
+The development run/test configuration installs the required PacketEvents dependency for server tasks.
 
 Breakpoints and hotswapping are supported. The original project recommends the IntelliJ
 [Single Hotswap](https://plugins.jetbrains.com/plugin/14832-single-hotswap) plugin for efficient method-body hotswapping.
