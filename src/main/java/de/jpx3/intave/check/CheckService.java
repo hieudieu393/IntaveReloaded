@@ -12,6 +12,7 @@ import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.check.movement.Timer;
 import de.jpx3.intave.check.movement.physics.AirStuckGuard;
+import de.jpx3.intave.check.movement.physics.ElytraSignalGuard;
 import de.jpx3.intave.check.movement.physics.GroundSpoofGuard;
 import de.jpx3.intave.check.movement.physics.MovementSignalGuard;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
@@ -42,6 +43,7 @@ public final class CheckService {
     addCheck(AirStuckGuard.class);
     addCheck(GroundSpoofGuard.class);
     addCheck(MovementSignalGuard.class);
+    addCheck(ElytraSignalGuard.class);
     addCheck(InteractionRaytrace.class);
     addCheck(Heuristics.class);
     addCheck(AttackRaytrace.class);
