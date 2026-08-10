@@ -11,6 +11,7 @@
 
 package de.jpx3.intave.check.movement.physics.search;
 
+import de.jpx3.intave.check.movement.physics.environment.PostTickSimulation;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.check.movement.physics.evaluation.EvaluationTag;
 import de.jpx3.intave.check.movement.physics.evaluation.SimulationEvaluator;
@@ -77,7 +78,7 @@ public final class RedoSimulationSearch implements SimulationSearch {
 	}
 
 	@Override
-	public List<Motion> afterTickMotionCandidates(User user, SimulationEnvironment environment, Simulator simulator, Position newPosition, PostTickMotionType motionType) {
+	public List<PostTickSimulation> afterTickMotionCandidates(User user, SimulationEnvironment environment, Simulator simulator, Position newPosition, PostTickMotionType motionType) {
 		return delegate.afterTickMotionCandidates(user, environment, simulator, newPosition, motionType);
 	}
 

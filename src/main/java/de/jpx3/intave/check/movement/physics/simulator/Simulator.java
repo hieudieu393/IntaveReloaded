@@ -35,10 +35,14 @@ public abstract class Simulator {
     Motion lastMotion = environment.mutableBaseMotionCopy();
     Motion afterPreTickMotion = simulatePreTick(user, lastMotion, environment);
 
+    Simulator tickSimulator = Simulators.selectFor(environment);
+    environment.setSimulator(tickSimulator);
+    environment.setStepHeight(tickSimulator.stepHeight());
+
     /*
      * Tick
      */
-    Simulation simulation = simulateTick(
+    Simulation simulation = tickSimulator.simulateTick(
       user, afterPreTickMotion.copy(), environment.immutableView(), config
     );
     environment.assumeOccurred(simulation);
@@ -50,7 +54,7 @@ public abstract class Simulator {
     /*
      * Post-tick
      */
-    Motion afterPostTickMotion = simulateAfterTick(
+    Motion afterPostTickMotion = tickSimulator.simulateAfterTick(
       user, environment,
       config,
       environment.position(), simulation.actualMotion()
@@ -64,7 +68,7 @@ public abstract class Simulator {
     );
   }
 
-  public void simulateAround(
+  public Simulator simulateAround(
     User user, SimulationEnvironment environment,
     Simulation simulation,
     Position sentPosition, Rotation sentRotation
@@ -97,6 +101,11 @@ public abstract class Simulator {
     environment.setStepHeight(stepHeight());
     Motion afterPreTick = simulatePreTick(user, environment.mutableBaseMotionCopy(), environment);
     environment.setBaseMotion(afterPreTick);
+
+    Simulator nextSimulator = Simulators.selectFor(environment);
+    environment.setSimulator(nextSimulator);
+    environment.setStepHeight(nextSimulator.stepHeight());
+    return nextSimulator;
   }
 
   /**

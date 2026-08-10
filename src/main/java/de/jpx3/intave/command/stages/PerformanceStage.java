@@ -1,3 +1,14 @@
+/*
+ * Copyright 2026 Intave
+ *
+ * This software is licensed under the PolyForm Perimeter License 1.0.0.
+ * You may use this software for any purpose, except for providing to
+ * others any product that competes with the software.
+ *
+ * A copy of the license is available at:
+ *   https://polyformproject.org/licenses/perimeter/1.0.0/
+ */
+
 package de.jpx3.intave.command.stages;
 
 import de.jpx3.intave.IntavePlugin;
@@ -10,7 +21,6 @@ import de.jpx3.intave.user.User;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
-import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -49,19 +59,21 @@ public final class PerformanceStage extends CommandStage {
       boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
       String message;
       ChatColor outputColor = suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN;
+      ChatColor p99Color = timing.p99CallDurationInMillis() > 1.5d ? ChatColor.RED : ChatColor.GREEN;
       message = String.format(
-        "%s: %s::%s%s (%s&f %s/c)",
+        "%s: %s::%s%s (%s&f %s/c, %s&f ns p99)",
         timing.coloredName(),
         timing.recordedCalls(),
         formatDouble(timing.totalDurationMillis() / 1000d, 2),
         "s",
-        outputColor + "" + largeNumberFormat((long) timing.averageCallDurationInNanos()),
-        "ns"
+        outputColor + largeNumberFormat((long) timing.averageCallDurationInNanos()),
+        "ns",
+        p99Color + largeNumberFormat(timing.p99CallDurationInNanos())
       );
       if (!fullSpecifier.isEmpty() && !"ns".equals(fullSpecifier) && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
         message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
       }
-      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+      TimingChatOutput.sendSelectableTiming(player, timing, message, "/intave performance histogram ");
     });
   }
 
@@ -84,18 +96,19 @@ public final class PerformanceStage extends CommandStage {
       boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
       boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
       String message = String.format(
-        "%s: %s::%sms (%s ms/c)",
+        "%s: %s::%sms (%s ms/c, p99 %sms)",
         timing.coloredName(),
         timing.recordedCalls(),
         formatDouble(timing.totalDurationMillis(), 4),
         (suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN) + "" +
           formatDouble(timing.averageCallDurationInMillis(), 8)
-          + ChatColor.WHITE
+          + ChatColor.WHITE,
+        formatDouble(timing.p99CallDurationInMillis(), 8)
       );
       if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
         message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
       }
-      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+      TimingChatOutput.sendSelectableTiming(player, timing, message, "/intave performance histogram ");
     });
 
   }
@@ -120,25 +133,35 @@ public final class PerformanceStage extends CommandStage {
       boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;
       boolean dumping = timing.averageCallDurationInMillis() > 1.5d;
       String message = String.format(
-        "%s: %s::%sms (%s&f ms/c)",
+        "%s: %s::%sms (%s&f ms/c, p99 %sms)",
         timing.coloredName(),
         timing.recordedCalls(),
         formatDouble(timing.totalDurationMillis(), 4),
         (suspicious ? (dumping ? ChatColor.RED : ChatColor.YELLOW) : ChatColor.GREEN) + "" +
-          formatDouble(timing.averageCallDurationInMillis(), 8)
+          formatDouble(timing.averageCallDurationInMillis(), 8),
+        formatDouble(timing.p99CallDurationInMillis(), 8)
       );
       if (!fullSpecifier.isEmpty() && !timing.name().toLowerCase(Locale.ROOT).contains(fullSpecifier)) {
         message = IntavePlugin.defaultColor() + ChatColor.stripColor(message);
       }
-      player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+      TimingChatOutput.sendSelectableTiming(player, timing, message, "/intave performance histogram ");
     });
 
   }
 
+  @SubCommand(
+    selectors = "histogram",
+    usage = "<timing>",
+    description = "Output the duration histogram for a timing",
+    permission = "intave.command.diagnostics",
+    hideInHelp = true
+  )
+  public void histogramCommand(User user, String[] timingName) {
+    TimingChatOutput.sendHistogram(user.player(), timingName);
+  }
 
   public static String largeNumberFormat(double value) {
-    DecimalFormat df = new DecimalFormat("###,###,###");
-    return df.format(value);
+    return RootStage.largeNumberFormat(value);
   }
 
   public static PerformanceStage singletonInstance() {

@@ -148,7 +148,10 @@ public final class Collision {
 
           if (CollisionModifiers.isModified(material)) {
             // this should not happen too often
-            resolve = CollisionModifiers.modified(user, playerBox, material, x, y, z, resolve, CollisionOrigin.MOTION_CALCULATION);
+            resolve = CollisionModifiers.modified(
+              user, environment, playerBox, material, x, y, z,
+              resolve, CollisionOrigin.MOTION_CALCULATION
+            );
           }
 
           if (resolve.intersectsWith(playerBox)) {
@@ -309,7 +312,7 @@ public final class Collision {
                 Material material = stateAccess.typeAt(x, y, z);
                 if (CollisionModifiers.isModified(material)) {
                   blockShape = CollisionModifiers.modified(
-                    user, playerBoundingBox, material, x, y, z,
+                    user, movementData, playerBoundingBox, material, x, y, z,
                     blockShape, CollisionOrigin.INTERSECTION_CHECK
                   );
                 }
@@ -359,10 +362,14 @@ public final class Collision {
   }
 
   public static boolean playerInImaginaryBlock(
-    User user, World world, int posX, int posY, int posZ, Material type, int variant) {
+    User user, SimulationEnvironment environment, World world,
+    int posX, int posY, int posZ, Material type, int variant
+  ) {
     BlockShape boundingBoxes = SHAPE_RESOLVER.collisionShapeOf(world, user.player(), type, variant, posX, posY, posZ);
     if (CollisionModifiers.isModified(type)) {
-      BlockShape customShape = CollisionModifiers.imaginaryBlockShape(type, user, posX, posY, posZ, variant);
+      BlockShape customShape = CollisionModifiers.imaginaryBlockShape(
+        type, user, environment, posX, posY, posZ, variant
+      );
       if (customShape != null) {
         boundingBoxes = customShape;
       }
@@ -370,7 +377,7 @@ public final class Collision {
     if (boundingBoxes == null || boundingBoxes.isEmpty()) {
       return false;
     }
-    BoundingBox playerBox = user.meta().movement().boundingBox();
+    BoundingBox playerBox = environment.boundingBox();
     playerBox = playerBox.shrink(0.05); // hmm
     return boundingBoxes.intersectsWith(playerBox);
   }

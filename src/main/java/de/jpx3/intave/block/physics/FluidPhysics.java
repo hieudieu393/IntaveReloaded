@@ -16,11 +16,12 @@ import de.jpx3.intave.adapter.MinecraftVersion;
 import de.jpx3.intave.block.access.VolatileBlockAccess;
 import de.jpx3.intave.block.fluid.Fluid;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
+import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.share.BoundingBox;
 import de.jpx3.intave.share.Motion;
+import de.jpx3.intave.share.Position;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.ProtocolMetadata;
-import org.bukkit.Location;
 import org.bukkit.Material;
 
 import java.util.ArrayList;
@@ -41,7 +42,7 @@ final class FluidPhysics implements BlockPhysic {
   }
 
   @Override
-  public Motion entityInside(User user, SimulationEnvironment environment, Location location, Location from, double motionX, double motionY, double motionZ) {
+  public Motion entityInside(User user, SimulationEnvironment environment, BlockPosition location, Position from, Motion motion, boolean insideBlockOrTooFast) {
     ProtocolMetadata protocol = user.meta().protocol();
     if (protocol.aquaticUpdate()) {
       Fluid fluid = VolatileBlockAccess.fluidAccess(user, location);
@@ -60,14 +61,14 @@ final class FluidPhysics implements BlockPhysic {
     User user,
     SimulationEnvironment environment,
     ProtocolMetadata protocol,
-    Location location,
+    BlockPosition location,
     Fluid fluid
   ) {
     BoundingBox entityBox = environment.boundingBox();
     BoundingBox interactionBox = entityBox.shrink(0.001D);
-    int blockX = location.getBlockX();
-    int blockY = location.getBlockY();
-    int blockZ = location.getBlockZ();
+    int blockX = location.getX();
+    int blockY = location.getY();
+    int blockZ = location.getZ();
     if (interactionBox.maxX <= blockX || interactionBox.minX >= blockX + 1.0D
       || interactionBox.maxY <= blockY || interactionBox.minY >= blockY + 1.0D
       || interactionBox.maxZ <= blockZ || interactionBox.minZ >= blockZ + 1.0D) {

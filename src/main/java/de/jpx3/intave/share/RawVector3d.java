@@ -13,7 +13,6 @@ package de.jpx3.intave.share;
 
 import de.jpx3.intave.klass.Lookup;
 import de.jpx3.intave.math.MathHelper;
-import de.jpx3.intave.share.link.WrapperConverter;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.util.Vector;
@@ -22,7 +21,10 @@ import java.lang.reflect.InvocationTargetException;
 
 public class RawVector3d {
   public static final RawVector3d ZERO = new RawVector3d(0.0D, 0.0D, 0.0D);
-  final double x, y, z;
+	public static final RawVector3d X_AXIS = new RawVector3d(1.0D, 0.0D, 0.0D);
+  public static final RawVector3d Y_AXIS = new RawVector3d(0.0D, 1.0D, 0.0D);
+  public static final RawVector3d Z_AXIS = new RawVector3d(0.0D, 0.0D, 1.0D);
+	final double x, y, z;
 
   public RawVector3d(double x, double y, double z) {
     if (x == -0.0D) {
@@ -198,6 +200,10 @@ public class RawVector3d {
     }
   }
 
+  public double dot(RawVector3d other) {
+    return this.x * other.x + this.y * other.y + this.z * other.z;
+  }
+
   /**
    * Returns a new vector with z value equal to the second parameter, along the line between this vector and the passed
    * in vector, or null if not possible.
@@ -234,8 +240,12 @@ public class RawVector3d {
     return z;
   }
 
-  public static RawVector3d fromNative(Object vec3d) {
-    return WrapperConverter.vectorFromVec3D(vec3d);
+  public double lengthSqr() {
+    return this.x * this.x + this.y * this.y + this.z * this.z;
+  }
+
+  public static RawVector3d fromBukkit(Vector subtract) {
+    return new RawVector3d(subtract.getX(), subtract.getY(), subtract.getZ());
   }
 
   public String toString() {

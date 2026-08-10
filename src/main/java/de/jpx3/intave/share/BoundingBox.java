@@ -24,12 +24,11 @@ import de.jpx3.intave.share.link.WrapperConverter;
 import de.jpx3.intave.user.User;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.doubles.DoubleSet;
+import net.minecraft.world.phys.Vec3;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import static de.jpx3.intave.codec.JsonStreamCodecs.*;
 import static de.jpx3.intave.share.ClientMath.floor;
@@ -278,6 +277,10 @@ public final class BoundingBox extends MemoryTraced implements BlockShape {
     return x >= this.minX && x < this.maxX && y >= this.minY && y < this.maxY && z >= this.minZ && z < this.maxZ;
   }
 
+  public boolean contains(Position position) {
+    return contains(position.getX(), position.getY(), position.getZ());
+  }
+
   /**
    * Returns a bounding box expanded by the specified vector (if negative numbers are given it will shrink). Args: x, y,
    * z
@@ -302,6 +305,10 @@ public final class BoundingBox extends MemoryTraced implements BlockShape {
 
   public BoundingBox growHorizontally(double value) {
     return grow(value, 0, value);
+  }
+
+  public BoundingBox growVertically(double v) {
+    return grow(0, v, 0);
   }
 
   public BoundingBox shrink(double value) {
@@ -453,6 +460,13 @@ public final class BoundingBox extends MemoryTraced implements BlockShape {
       maxZ > this.minZ && minZ < this.maxZ;
   }
 
+  public boolean intersects(MutableBlockPosition position) {
+    return intersectsWith(
+      position.x(), position.y(), position.z(),
+      position.x() + 1, position.y() + 1, position.z() + 1
+    );
+  }
+
   /**
    * Returns if the supplied Vec3D is completely inside the bounding box
    */
@@ -472,6 +486,22 @@ public final class BoundingBox extends MemoryTraced implements BlockShape {
     return (minZ + maxZ) / 2.0;
   }
 
+  public Position center() {
+    return new Position(centerX(), centerY(), centerZ());
+  }
+
+  public double sizeX() {
+    return maxX - minX;
+  }
+
+  public double sizeY() {
+    return maxY - minY;
+  }
+
+  public double sizeZ() {
+    return maxZ - minZ;
+  }
+
   /**
    * Returns the average length of the edges of the bounding box.
    */
@@ -481,11 +511,6 @@ public final class BoundingBox extends MemoryTraced implements BlockShape {
     double d2 = this.maxZ - this.minZ;
     return (d0 + d1 + d2) / 3.0D;
   }
-
-  // position
-//  public String toString() {
-//    return "" + (minX + (maxX - minX) / 2d) + "," + (minY + (maxY - minY) / 2d) + "," + (minZ + (maxZ - minZ) / 2d);
-//  }
 
   // width and height
   public String toString() {
@@ -733,6 +758,69 @@ public final class BoundingBox extends MemoryTraced implements BlockShape {
     }
   }
 
+  public Optional<Position> clip(Position from, Position to) {
+    return clip(minX, minY, minZ, maxX, maxY, maxZ, from, to);
+  }
+
+  public static Optional<Position> clip(
+    double minX, double minY, double minZ,
+    double maxX, double maxY, double maxZ,
+    Position from, Position to
+  ) {
+    double[] t = new double[]{1.0};
+    double dX = to.getX() - from.getX();
+    double dY = to.getY() - from.getY();
+    double dZ = to.getZ() - from.getZ();
+    Direction direction = getDirection(minX, minY, minZ, maxX, maxY, maxZ, from, t, null, dX, dY, dZ);
+    if (direction == null) {
+      return Optional.empty();
+    } else {
+      double scale = t[0];
+      return Optional.of(from.add(dX * scale, dY * scale, dZ * scale));
+    }
+  }
+
+  private static Direction getDirection(
+    double minX, double minY, double minZ,
+    double maxX, double maxY, double maxZ,
+    Position from, double[] t, Direction direction, double dX, double dY, double dZ
+  ) {
+    if (dX > 0.0000001) {
+      direction = clipPoint(t, direction, dX, dY, dZ, minX, minY, maxY, minZ, maxZ, Direction.WEST, from.getX(), from.getY(), from.getZ());
+    } else if (dX < -0.0000001) {
+      direction = clipPoint(t, direction, dX, dY, dZ, maxX, minY, maxY, minZ, maxZ, Direction.EAST, from.getX(), from.getY(), from.getZ());
+    }
+
+    if (dY > 0.0000001) {
+      direction = clipPoint(t, direction, dY, dZ, dX, minY, minZ, maxZ, minX, maxX, Direction.DOWN, from.getY(), from.getZ(), from.getX());
+    } else if (dY < -0.0000001) {
+      direction = clipPoint(t, direction, dY, dZ, dX, maxY, minZ, maxZ, minX, maxX, Direction.UP, from.getY(), from.getZ(), from.getX());
+    }
+
+    if (dZ > 0.0000001) {
+      direction = clipPoint(t, direction, dZ, dX, dY, minZ, minX, maxX, minY, maxY, Direction.NORTH, from.getZ(), from.getX(), from.getY());
+    } else if (dZ < -0.0000001) {
+      direction = clipPoint(t, direction, dZ, dX, dY, maxZ, minX, maxX, minY, maxY, Direction.SOUTH, from.getZ(), from.getX(), from.getY());
+    }
+    return direction;
+  }
+
+  private static Direction clipPoint(
+    double[] t, Direction direction, double d0, double d1, double d2,
+    double minA, double minB, double maxB, double minC, double maxC,
+    Direction faceDirection, double vecAComp, double vecBComp, double vecCComp
+  ) {
+    double scale = (minA - vecAComp) / d0;
+    double newB = vecBComp + scale * d1;
+    double newC = vecCComp + scale * d2;
+    if (0.0 < scale && scale < t[0] && minB - 0.0000001 < newB && newB < maxB + 0.0000001 && minC - 0.0000001 < newC && newC < maxC + 0.0000001) {
+      t[0] = scale;
+      return faceDirection;
+    } else {
+      return direction;
+    }
+  }
+
   public double nearestDistanceTo(RawVector3d fieldPoint) {
     RawVector3d rawVector3D = nearestPointTo(fieldPoint);
     return rawVector3D.distanceTo(fieldPoint);
@@ -750,6 +838,176 @@ public final class BoundingBox extends MemoryTraced implements BlockShape {
 
   public BoundingBox addJustMaxY(double expansionY) {
     return new BoundingBox(minX, minY, minZ, maxX, this.maxY + expansionY, maxZ);
+  }
+
+  public BlockPositions blockPositionsBetween() {
+    return blockPositionBetween(
+//      Math.min(minX, maxX), Math.min(minY, maxY), Math.min(minZ, maxZ),
+//      Math.max(minX, maxX), Math.max(minY, maxY), Math.max(minZ, maxZ)
+      minX, minY, minZ,
+      maxX, maxY, maxZ
+    );
+  }
+
+  public static BlockPositions blockPositionBetween(
+    double myMinX, double myMinY, double myMinZ,
+    double myMaxX, double myMaxY, double myMaxZ
+  ) {
+    int minX = floor(myMinX);
+    int minY = floor(myMinY);
+    int minZ = floor(myMinZ);
+    int maxX = floor(myMaxX);
+    int maxY = floor(myMaxY);
+    int maxZ = floor(myMaxZ);
+
+    return () -> new Iterator<MutableBlockPosition>() {
+      private final MutableBlockPosition cursor = new MutableBlockPosition(0, 0, 0);
+      private int xIndex;
+      private int yIndex;
+      private int zIndex;
+      private boolean end;
+
+      @Override
+      public boolean hasNext() {
+        return !end;
+      }
+
+      @Override
+      public MutableBlockPosition next() {
+        if (!hasNext()) {
+          throw new NoSuchElementException();
+        }
+        cursor.set(minX + xIndex, minY + yIndex, minZ + zIndex);
+        if (zIndex < maxZ - minZ) {
+          zIndex++;
+        } else if (yIndex < maxY - minY) {
+          yIndex++;
+          zIndex = 0;
+        } else if (xIndex < maxX - minX) {
+          xIndex++;
+          yIndex = 0;
+          zIndex = 0;
+        } else {
+          end = true;
+        }
+        return cursor;
+      }
+    };
+  }
+
+  public BlockPositions blockPositionsBetweenDirectional(Motion motion) {
+    return blockPositionBetweenDirectional(minX, minY, minZ, maxX, maxY, maxZ, motion);
+  }
+
+  public static BlockPositions blockPositionBetweenDirectional(
+    double myMinX, double myMinY, double myMinZ,
+    double myMaxX, double myMaxY, double myMaxZ,
+    Motion motion
+  ) {
+    int firstX = floor(myMinX);
+    int firstY = floor(myMinY);
+    int firstZ = floor(myMinZ);
+    int secondX = floor(myMaxX);
+    int secondY = floor(myMaxY);
+    int secondZ = floor(myMaxZ);
+    int minX = Math.min(firstX, secondX);
+    int minY = Math.min(firstY, secondY);
+    int minZ = Math.min(firstZ, secondZ);
+    int maxX = Math.max(firstX, secondX);
+    int maxY = Math.max(firstY, secondY);
+    int maxZ = Math.max(firstZ, secondZ);
+
+    int shortSizeX = maxX - minX;
+    int shortSizeY = maxY - minY;
+    int shortSizeZ = maxZ - minZ;
+
+    int dominantX = motion.motionX >= 0.0 ? minX : maxX;
+    int dominantY = motion.motionY >= 0.0 ? minY : maxY;
+    int dominantZ = motion.motionZ >= 0.0 ? minZ : maxZ;
+
+    List<Direction.Axis> axisStepOrder = Direction.axisStepOrder(motion);
+    Direction.Axis firstAxis = axisStepOrder.get(0);
+    Direction.Axis secondAxis = axisStepOrder.get(1);
+    Direction.Axis thirdAxis = axisStepOrder.get(2);
+
+    Direction firstAxisDirection = motion.partialMotionIn(firstAxis) >= 0.0 ? firstAxis.positive() : firstAxis.negative();
+    Direction secondAxisDirection = motion.partialMotionIn(secondAxis) >= 0.0 ? secondAxis.positive() : secondAxis.negative();
+    Direction thirdAxisDirection = motion.partialMotionIn(thirdAxis) >= 0.0 ? thirdAxis.positive() : thirdAxis.negative();
+
+    int sizeFirstAxis = firstAxis.select(shortSizeX, shortSizeY, shortSizeZ);
+    int sizeSecondAxis = secondAxis.select(shortSizeX, shortSizeY, shortSizeZ);
+    int sizeThirdAxis = thirdAxis.select(shortSizeX, shortSizeY, shortSizeZ);
+
+    return () -> new Iterator<MutableBlockPosition>() {
+      private final MutableBlockPosition cursor = new MutableBlockPosition(0, 0, 0);
+      private int firstIndex;
+      private int secondIndex;
+      private int thirdIndex;
+      private boolean end;
+      private final int firstDirX = firstAxisDirection.normalX();
+      private final int firstDirY = firstAxisDirection.normalY();
+      private final int firstDirZ = firstAxisDirection.normalZ();
+      private final int secondDirX = secondAxisDirection.normalX();
+      private final int secondDirY = secondAxisDirection.normalY();
+      private final int secondDirZ = secondAxisDirection.normalZ();
+      private final int thirdDirX = thirdAxisDirection.normalX();
+      private final int thirdDirY = thirdAxisDirection.normalY();
+      private final int thirdDirZ = thirdAxisDirection.normalZ();
+
+      @Override
+      public boolean hasNext() {
+        return !end;
+      }
+
+      @Override
+      public MutableBlockPosition next() {
+        if (!hasNext()) {
+          throw new NoSuchElementException();
+        }
+
+        int currentX = dominantX + firstIndex * firstDirX + secondIndex * secondDirX + thirdIndex * thirdDirX;
+        int currentY = dominantY + firstIndex * firstDirY + secondIndex * secondDirY + thirdIndex * thirdDirY;
+        int currentZ = dominantZ + firstIndex * firstDirZ + secondIndex * secondDirZ + thirdIndex * thirdDirZ;
+
+        cursor.set(currentX, currentY, currentZ);
+
+        if (thirdIndex < sizeThirdAxis) {
+          thirdIndex++;
+        } else if (secondIndex < sizeSecondAxis) {
+          secondIndex++;
+          thirdIndex = 0;
+        } else if (firstIndex < sizeFirstAxis) {
+          firstIndex++;
+          thirdIndex = 0;
+          secondIndex = 0;
+        } else {
+          end = true;
+        }
+        return cursor;
+      }
+    };
+  }
+
+  public boolean intersectsWithCubeAt(MutableBlockPosition position) {
+    return intersectsWith(
+      position.x(), position.y(), position.z(),
+      position.x() + 1, position.y() + 1, position.z() + 1
+    );
+  }
+
+  public static Optional<Vec3> clip(
+    double minX, double minY, double minZ,
+    double maxX, double maxY, double maxZ,
+    Vec3 from, Vec3 to
+  ) {
+    Position fromPosition = Position.of(from.x, from.y, from.z);
+    Position toPosition = Position.of(to.x, to.y, to.z);
+    return clip(
+      minX, minY, minZ, maxX, maxY, maxZ,
+      fromPosition, toPosition
+    ).map(position -> new Vec3(
+      position.getX(), position.getY(), position.getZ()
+    ));
   }
 
   public BoundingBox move(Motion motion) {
@@ -785,7 +1043,7 @@ public final class BoundingBox extends MemoryTraced implements BlockShape {
     return MathHelper.formatDouble(this.minX, 3) + ", " + MathHelper.formatDouble(this.minY, 3) + ", " + MathHelper.formatDouble(this.minZ, 3) + " -> " + MathHelper.formatDouble(this.maxX, 3) + ", " + MathHelper.formatDouble(this.maxY, 3) + ", " + MathHelper.formatDouble(this.maxZ, 3);
   }
 
-  public boolean func_181656_b() {
+  public boolean isAnyNaN() {
     return Double.isNaN(this.minX) || Double.isNaN(this.minY) || Double.isNaN(this.minZ) || Double.isNaN(this.maxX) || Double.isNaN(this.maxY) || Double.isNaN(this.maxZ);
   }
 
@@ -803,6 +1061,43 @@ public final class BoundingBox extends MemoryTraced implements BlockShape {
 
   public void makeOriginBox() {
     this.originBox = true;
+  }
+
+  /*
+
+    public boolean collidedAlongVector(Vec3 p_367135_, List<AABB> p_368156_) {
+        Vec3 vec3 = this.getCenter();
+        Vec3 vec31 = vec3.add(p_367135_);
+
+        for (AABB aabb : p_368156_) {
+            AABB aabb1 = aabb.inflate(this.getXsize() * 0.5 - 1.0E-7, this.getYsize() * 0.5 - 1.0E-7, this.getZsize() * 0.5 - 1.0E-7);
+            if (aabb1.contains(vec31) || aabb1.contains(vec3)) {
+                return true;
+            }
+
+            if (aabb1.clip(vec3, vec31).isPresent()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+   */
+
+  public boolean collidedAlongVector(Motion move, BlockShape collisionShape) {
+    Position vec3 = center();
+    Position vec31 = vec3.add(move);
+    for (BoundingBox boundingBox : collisionShape.elementaryBoxes()) {
+      BoundingBox inflatedBox = boundingBox.grow(sizeX() * 0.5 - 1.0E-7, sizeY() * 0.5 - 1.0E-7, sizeZ() * 0.5 - 1.0E-7);
+      if (inflatedBox.contains(vec31) || inflatedBox.contains(vec3)) {
+        return true;
+      }
+      if (inflatedBox.clip(vec3, vec31).isPresent()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public BoundingBox copy() {
@@ -829,19 +1124,12 @@ public final class BoundingBox extends MemoryTraced implements BlockShape {
   @Override
   public int hashCode() {
     int result;
-    long temp;
-    temp = Double.doubleToLongBits(minX);
-    result = (int) (temp ^ (temp >>> 32));
-    temp = Double.doubleToLongBits(minY);
-    result = 31 * result + (int) (temp ^ (temp >>> 32));
-    temp = Double.doubleToLongBits(minZ);
-    result = 31 * result + (int) (temp ^ (temp >>> 32));
-    temp = Double.doubleToLongBits(maxX);
-    result = 31 * result + (int) (temp ^ (temp >>> 32));
-    temp = Double.doubleToLongBits(maxY);
-    result = 31 * result + (int) (temp ^ (temp >>> 32));
-    temp = Double.doubleToLongBits(maxZ);
-    result = 31 * result + (int) (temp ^ (temp >>> 32));
+	  result = Double.hashCode(minX);
+	  result = 31 * result + Double.hashCode(minY);
+	  result = 31 * result + Double.hashCode(minZ);
+	  result = 31 * result + Double.hashCode(maxX);
+	  result = 31 * result + Double.hashCode(maxY);
+	  result = 31 * result + Double.hashCode(maxZ);
     return result;
   }
 }

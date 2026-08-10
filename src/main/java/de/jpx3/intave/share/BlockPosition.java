@@ -217,6 +217,10 @@ public final class BlockPosition extends RawVector3d {
     return new BlockPosition(this.x + facing.offsetX() * n, this.y + facing.offsetY() * n, this.z + facing.offsetZ() * n);
   }
 
+  public BlockPosition above() {
+    return move(Direction.UP, 1);
+  }
+
   /**
    * Offsets this BlockPos n blocks in the given direction
    */

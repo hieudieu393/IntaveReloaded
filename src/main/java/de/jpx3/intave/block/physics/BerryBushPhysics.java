@@ -13,9 +13,10 @@ package de.jpx3.intave.block.physics;
 
 import de.jpx3.intave.adapter.MinecraftVersion;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
+import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.share.Motion;
+import de.jpx3.intave.share.Position;
 import de.jpx3.intave.user.User;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.util.Vector;
 
@@ -36,8 +37,8 @@ final class BerryBushPhysics implements BlockPhysic {
   @Override
   public Motion entityInside(
     User user, SimulationEnvironment environment,
-    Location location, Location from,
-    double motionX, double motionY, double motionZ
+    BlockPosition location, Position from,
+    Motion motion, boolean insideBlockOrTooFast
   ) {
     environment.setMotionMultiplier(new Vector(0.8f, 0.75, 0.8f));
     return null;

@@ -11,6 +11,7 @@
 
 package de.jpx3.intave.check.movement.physics.search;
 
+import de.jpx3.intave.check.movement.physics.environment.PostTickSimulation;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.check.movement.physics.evaluation.EvaluationTag;
 import de.jpx3.intave.check.movement.physics.evaluation.SimulationEvaluator;
@@ -70,7 +71,7 @@ public final class RollbackSimulationSearch implements SimulationSearch {
 				continue;
 			}
 			SimulationEnvironment firstTickEnvironment = simulation.environment().mutableView();
-			simulator.simulateAround(
+			Simulator nextSimulator = simulator.simulateAround(
 				user, firstTickEnvironment, simulation,
 				currentEnvironment.position(), currentEnvironment.rotation()
 			);
@@ -80,7 +81,7 @@ public final class RollbackSimulationSearch implements SimulationSearch {
 			}
 			bestOffsetMotions.add(outputMotion);
 			Simulation nextSimulation = delegate.tickSearch(
-				user, firstTickEnvironment, simulator, options
+				user, firstTickEnvironment, nextSimulator, options
 			);
 			bestSimulation = nextSimulation.select(bestSimulation);
 			if (bestSimulation.offsetDifference() < 0.0005) {
@@ -105,7 +106,7 @@ public final class RollbackSimulationSearch implements SimulationSearch {
 	}
 
 	@Override
-	public List<Motion> afterTickMotionCandidates(User user, SimulationEnvironment environment, Simulator simulator, Position newPosition, PostTickMotionType motionType) {
+	public List<PostTickSimulation> afterTickMotionCandidates(User user, SimulationEnvironment environment, Simulator simulator, Position newPosition, PostTickMotionType motionType) {
 		return delegate.afterTickMotionCandidates(user, environment, simulator, newPosition, motionType);
 	}
 

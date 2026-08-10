@@ -19,7 +19,7 @@ import de.jpx3.intave.user.meta.InventoryMetadata;
 import de.jpx3.intave.user.meta.MovementMetadata;
 import de.jpx3.intave.user.meta.ProtocolMetadata;
 
-import java.util.List;
+import java.util.Collection;
 
 final class KeypressBrancher extends MovementSearchBrancher {
   private static final int[][] KEYS_USAGE_ORDERED = {
@@ -35,7 +35,7 @@ final class KeypressBrancher extends MovementSearchBrancher {
   };
 
   @Override
-  public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, List<MovementSearchBranch> outputBranches) {
+  public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, Collection<MovementSearchBranch> outputBranches) {
     User user = input.user();
     ProtocolMetadata protocol = user.meta().protocol();
     MovementMetadata movement = user.meta().movement();

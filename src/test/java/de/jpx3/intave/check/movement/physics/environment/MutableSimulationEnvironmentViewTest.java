@@ -13,13 +13,51 @@ package de.jpx3.intave.check.movement.physics.environment;
 
 import de.jpx3.intave.check.movement.physics.simulator.BoatSimulator.Status;
 import de.jpx3.intave.share.BoundingBox;
+import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.share.Position;
 import org.bukkit.util.Vector;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 final class MutableSimulationEnvironmentViewTest {
+	@Test
+	void postTickCandidatesAreIsolatedAndCommitted() {
+		MockSimulationEnvironment delegate = new MockSimulationEnvironment();
+		SimulationEnvironment view = delegate.mutableView();
+		List<PostTickSimulation> candidates = new ArrayList<>();
+		candidates.add(new PostTickSimulation(new Motion(0.1, 0.2, 0.3), true));
+
+		view.setPostTickMotionCandidates(candidates);
+		candidates.clear();
+
+		assertTrue(delegate.postTickMotionCandidates().isEmpty());
+		assertEquals(1, view.postTickMotionCandidates().size());
+
+		view.commitTo(delegate);
+
+		assertEquals(1, delegate.postTickMotionCandidates().size());
+		assertTrue(delegate.postTickMotionCandidates().get(0).priorSprinting());
+	}
+
+  @Test
+  void swimmingStateIsIsolatedAndCommitted() {
+    MockSimulationEnvironment delegate = new MockSimulationEnvironment();
+    SimulationEnvironment view = delegate.mutableView();
+
+    view.setSwimming(true);
+
+    assertFalse(delegate.isSwimming());
+    assertTrue(view.isSwimming());
+
+    view.commitTo(delegate);
+
+    assertTrue(delegate.isSwimming());
+  }
+
   @Test
   void boatStateIsIsolatedAndCommitted() {
     MockSimulationEnvironment delegate = new MockSimulationEnvironment();
@@ -62,6 +100,36 @@ final class MutableSimulationEnvironmentViewTest {
     assertEquals(7.0, view.baseMotionX(), 0.0);
     assertEquals(10.0, delegate.baseMotionX(), 0.0);
     assertEquals(4.0, view.positionX(), 0.0);
+  }
+
+  @Test
+  void metricReadsFollowDelegateUntilOverridden() {
+    MockSimulationEnvironment delegate = new MockSimulationEnvironment();
+    SimulationEnvironment view = delegate.mutableView();
+
+    assertEquals(0, view.ticks(MoveMetric.IN_WATER));
+    assertEquals(100, view.ticksPast(MoveMetric.IN_WATER));
+
+    delegate.activeTick(MoveMetric.IN_WATER);
+    assertEquals(1, view.ticks(MoveMetric.IN_WATER));
+    assertEquals(0, view.ticksPast(MoveMetric.IN_WATER));
+
+    view.inactiveTick(MoveMetric.IN_WATER);
+    delegate.inactiveTick(MoveMetric.IN_WATER);
+    delegate.inactiveTick(MoveMetric.IN_WATER);
+
+    assertEquals(0, view.ticks(MoveMetric.IN_WATER));
+    assertEquals(1, view.ticksPast(MoveMetric.IN_WATER));
+    assertEquals(2, delegate.ticksPast(MoveMetric.IN_WATER));
+  }
+
+  @Test
+  void immutableViewIsReusedAndUnmodifiedViewCanCommit() {
+    MockSimulationEnvironment delegate = new MockSimulationEnvironment();
+    SimulationEnvironment view = delegate.mutableView();
+
+    assertSame(view.immutableView(), view.immutableView());
+    assertDoesNotThrow(() -> view.commitTo(delegate));
   }
 
   @Test

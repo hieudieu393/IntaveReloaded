@@ -58,12 +58,11 @@ public final class PhysicsTestRecorder extends Module {
 			MovementMetadata movement = user.meta().movement();
 			BoundingBox boundingBox = movement.boundingBox();
 
-			Input input;
+			Input input = Input.none();
 			if (MinecraftVersions.VER1_21_3.atOrAbove() && user.meta().protocol().sendsInputs()) {
 				input = movement.input;
-			} else {
-				input = Input.partialFrom(movement);
 			}
+			input = input.overrideFromPartial(Input.partialFrom(movement));
 			MovementRecording recording = recordingData.get(user);
 			if (position == null && !recording.firstPositionHasBeenSent()) {
 				position = movement.position();

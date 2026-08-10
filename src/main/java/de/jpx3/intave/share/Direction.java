@@ -343,6 +343,18 @@ public enum Direction {
     return this.directionVecAsVector;
   }
 
+  public int normalX() {
+    return this.axis == X_AXIS ? this.axisDirection.offset() : 0;
+  }
+
+  public int normalY() {
+    return this.axis == Y_AXIS ? this.axisDirection.offset() : 0;
+  }
+
+  public int normalZ() {
+    return this.axis == Z_AXIS ? this.axisDirection.offset() : 0;
+  }
+
   static {
     for (Direction enumfacing : values()) {
       VALUES[enumfacing.index] = enumfacing;

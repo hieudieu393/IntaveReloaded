@@ -373,7 +373,7 @@ public final class DefaultSimulationEvaluator implements SimulationEvaluator {
             tags.add(EvaluationTag.COLLISION);
           }
         }
-        if (user.meta().protocol().beeUpdate() && (abs(motionX) < 0.09 || abs(motionZ) < 0.09)) {
+        if (protocol.beeUpdate() && protocol.flyingPacketsCausePositionUncertainty() && (abs(motionX) < 0.09 || abs(motionZ) < 0.09)) {
           motionXTolerance = Math.max(motionXTolerance, 0.009);
           motionZTolerance = Math.max(motionZTolerance, 0.009);
           tags.add(EvaluationTag.FLYING);

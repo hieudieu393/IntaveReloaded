@@ -11,10 +11,10 @@
 
 package de.jpx3.intave.check.movement.physics.search;
 
+import de.jpx3.intave.check.movement.physics.environment.PostTickSimulation;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.check.movement.physics.simulator.Simulation;
 import de.jpx3.intave.check.movement.physics.simulator.Simulator;
-import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.share.Position;
 import de.jpx3.intave.user.User;
 
@@ -37,7 +37,7 @@ public interface SimulationSearch {
 	  Simulator simulator, SimulationSearchOptions options
   );
 
-	List<Motion> afterTickMotionCandidates(
+	List<PostTickSimulation> afterTickMotionCandidates(
 	  User user, SimulationEnvironment environment,
 	  Simulator simulator, Position newPosition,
 	  PostTickMotionType motionType

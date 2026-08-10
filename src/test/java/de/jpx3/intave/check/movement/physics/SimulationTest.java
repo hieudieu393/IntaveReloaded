@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Proxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class SimulationTest {
   @Test
@@ -47,12 +48,25 @@ final class SimulationTest {
     assertEquals("", simulation.blueDetails());
   }
 
+  @Test
+  void finiteSimulationWinsOverNonFiniteDistance() {
+    Simulation finite = simulationWith(Motion.newEmpty());
+    Simulation nonFinite = simulationWith(new Motion(Double.NaN, 0.0D, 0.0D));
+
+    assertTrue(Double.isFinite(nonFinite.select(finite).offsetDifference()));
+    assertTrue(Double.isFinite(finite.select(nonFinite).offsetDifference()));
+  }
+
   private Simulation simulation() {
+    return simulationWith(Motion.newEmpty());
+  }
+
+  private Simulation simulationWith(Motion motion) {
     return Simulation.of(
       userWithoutPlayer(),
       MovementConfiguration.blank(),
       new MockSimulationEnvironment(),
-      SimulationResult.untouched(Motion.newEmpty())
+      SimulationResult.untouched(motion)
     );
   }
 

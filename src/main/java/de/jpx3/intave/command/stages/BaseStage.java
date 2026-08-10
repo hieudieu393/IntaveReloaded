@@ -368,7 +368,7 @@ public final class BaseStage extends CommandStage {
       file.getParentFile().mkdirs();
       try {
         recorder.saveRecordingDataTo(user, file);
-      } catch (IOException e) {
+      } catch (Throwable e) {
         user.player().sendMessage(ChatColor.RED + "Failed to save recording: " + e.getMessage());
         return;
       }

@@ -16,7 +16,7 @@ import de.jpx3.intave.user.meta.InventoryMetadata;
 import de.jpx3.intave.user.meta.ProtocolMetadata;
 import org.bukkit.Material;
 
-import java.util.List;
+import java.util.Collection;
 
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.ENTITY_USE;
 
@@ -25,7 +25,7 @@ final class UseItemBrancher extends MovementSearchBrancher {
   private static final boolean[] PESSIMISTIC = new boolean[]{false, true};
 
   @Override
-  public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, List<MovementSearchBranch> outputBranches) {
+  public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, Collection<MovementSearchBranch> outputBranches) {
     InventoryMetadata inventoryData = input.user().meta().inventory();
     ProtocolMetadata protocol = input.user().meta().protocol();
     UseItemRequirement requirement = useItemRequirement(input, inputBranch);

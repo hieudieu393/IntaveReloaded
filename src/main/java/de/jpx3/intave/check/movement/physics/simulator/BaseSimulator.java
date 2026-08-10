@@ -15,6 +15,8 @@ import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.block.access.VolatileBlockAccess;
 import de.jpx3.intave.block.fluid.Fluids;
+import de.jpx3.intave.block.inside.BlockInsideChecks;
+import de.jpx3.intave.block.inside.EntityMovement;
 import de.jpx3.intave.block.physics.BlockPhysics;
 import de.jpx3.intave.block.physics.BlockProperties;
 import de.jpx3.intave.block.shape.BlockShape;
@@ -35,20 +37,17 @@ import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.MetadataBundle;
 import de.jpx3.intave.user.meta.ProtocolMetadata;
 import de.jpx3.intave.user.meta.ViolationMetadata;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongSet;
-import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.EXTERNAL_VELOCITY;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.IN_LAVA;
 import static de.jpx3.intave.share.ClientMath.clamp_double;
 import static de.jpx3.intave.share.ClientMath.floor;
-import static de.jpx3.intave.user.meta.ProtocolMetadata.VER_1_14;
 
 class BaseSimulator extends Simulator {
   @Override
@@ -151,7 +150,11 @@ class BaseSimulator extends Simulator {
   ) {
     updateInWater(user, baseMotion, environment);
     updateInLava(user, baseMotion, environment, afterMove);
-    environment.updateEyesInWater();
+    if (!afterMove) {
+      environment.updateEyesInWater();
+    } else if (user.meta().protocol().refreshesFluidStateAfterMove()) {
+      environment.updateEyesInWaterAfterMove();
+    }
   }
 
   private void updateInWater(User user, Motion baseMotion, SimulationEnvironment environment) {
@@ -160,8 +163,8 @@ class BaseSimulator extends Simulator {
     BoundingBox boundingBox = environment.boundingBox();
     if (!clientData.aquaticUpdate()) {
       boundingBox = boundingBox.grow(0.0D, -0.4000000059604645D, 0.0D);
+      boundingBox = boundingBox.shrink(0.001D);
     }
-    boundingBox = boundingBox.shrink(0.001D);
     environment.setInWater(user.fluidflow().applyWaterFlowTo(user, environment, baseMotion, boundingBox));
   }
 
@@ -231,12 +234,20 @@ class BaseSimulator extends Simulator {
       double fluidDepth = user.fluidflow().fluidDepthAt(
         user, BoundingBox.fromPosition(user, environment, lastPosition)
       );
-      boolean fluidStateEmpty = !Fluids.fluidPresentAt(user, lastPosition);
-      allowJumpInLiquid = fluidStateEmpty || fluidDepth <= 0.4;
+      allowJumpInLiquid = fluidDepth <= 0.4;
+    }
+    boolean allowGroundJumpInLava = false;
+    if (
+      protocol.fluidHeightBasedLavaMovement()
+        && environment.inLava()
+        && environment.lastOnGround()
+    ) {
+      double fluidJumpThreshold = environment.eyeHeight() < 0.4D ? 0.0D : 0.4D;
+      allowGroundJumpInLava = !(environment.lavaDepth() > fluidJumpThreshold);
     }
     if (inWater && !allowJumpInLiquid) {
       motion.motionY += 0.04F;
-    } else if (environment.inLava()) {
+    } else if (environment.inLava() && !allowGroundJumpInLava) {
       // #handleJumpLava
       motion.motionY += 0.04F;
     } else if (environment.lastOnGround()) {
@@ -279,17 +290,31 @@ class BaseSimulator extends Simulator {
     double positionZ = environment.verifiedLastPositionZ();
     boolean inWater = environment.inWater();
     boolean inLava = environment.inLava();
-	  boolean swimming = environment.shouldHaveSwimmingPose();
-    boolean crouching = pose == Pose.CROUCHING;
+    boolean swimming = environment.isSwimming();
+    boolean crouching;
+    if (protocol.beeUpdate()) {
+      crouching = !meta.abilities().flying()
+        && !swimming
+        && !environment.isInVehicle()
+        && environment.isPoseClear(Pose.CROUCHING)
+        && (environment.lastSneaking()
+          || !environment.shouldBeInSleepingPose()
+          && !environment.isPoseClear(Pose.STANDING));
+    } else if (protocol.alternativeSneak()) {
+      crouching = pose == Pose.CROUCHING || environment.isSneaking();
+    } else {
+      crouching = environment.isSneaking();
+    }
+    crouching = environment.resolveCrouchingInputSlowdown(crouching);
     boolean visuallyCrawling = protocol.applyModernCollider()
       && !inWater
-      && !environment.shouldHaveFallFlyingPose()
-      && pose == Pose.FALL_FLYING;
+      && (pose == Pose.SWIMMING
+        || (!environment.shouldHaveFallFlyingPose() && pose == Pose.FALL_FLYING));
     boolean waterUpdate = protocol.aquaticUpdate();
 
     motion = motion.copy();
 
-    if (crouching || visuallyCrawling || (!protocol.beeUpdate() && environment.isSneaking())) {
+    if (crouching || visuallyCrawling) {
       double sneakingSpeed = user.meta().abilities().attributeValue("player.sneaking_speed");
       if (Double.isNaN(sneakingSpeed)) {
         sneakingSpeed = 0.3 + Enchantments.resolveSwiftSpeedModifier(user.player()) * 0.15f;
@@ -520,7 +545,7 @@ class BaseSimulator extends Simulator {
       motion.setMotionZ(0.0);
     }
 
-    simulateMovementOfCollidedBlocksAfter(user, environment, motion, boundingBox);
+    simulateMovementOfCollidedBlocksAfter(user, environment, configuration, motion);
 
     if (inWater) {
       simulateWaterAfter(user, environment, configuration, motion, gravity);
@@ -534,7 +559,8 @@ class BaseSimulator extends Simulator {
     }
 
     if (user.meta().protocol().newBlockEntityIntersectionLogic()) {
-      simulateApplyEffectsFromBlocks(user, environment, motion, boundingBox);
+      environment.aquaticUpdateLavaReset();
+      applyEffectsFromBlocks(user, environment, configuration, motion);
     }
 
     if (clientData.combatUpdate()
@@ -561,16 +587,11 @@ class BaseSimulator extends Simulator {
 
   private void simulateMovementOfCollidedBlocksAfter(
     User user, SimulationEnvironment environment,
-    Motion motion, BoundingBox entityBoundingBox
+    MovementConfiguration configuration, Motion motion
   ) {
     Player player = user.player();
-    World world = player.getWorld();
-    MetadataBundle meta = user.meta();
+	  MetadataBundle meta = user.meta();
     ProtocolMetadata clientData = meta.protocol();
-
-    double positionX = environment.positionX();
-    double positionY = environment.positionY();
-    double positionZ = environment.positionZ();
 
     Material block = environment.collideMaterial();
 
@@ -588,7 +609,7 @@ class BaseSimulator extends Simulator {
     // onLanded
     if (environment.collidedVertically()) {
       Motion collisionVector = BlockPhysics.blockLanded(
-        user, block, motion.motionX, environment.baseMotionY(), motion.motionZ
+        user, environment, block, motion.motionX, environment.baseMotionY(), motion.motionZ
       );
       if (collisionVector != null) {
         motion.setTo(collisionVector);
@@ -599,49 +620,17 @@ class BaseSimulator extends Simulator {
 
 //    environment.checkSupportingBlock();
 
-    // EntityCollidedWithBlock
-    if (environment.onGround() && !environment.isSneaking()) {
-      Motion collisionVector =
-        BlockPhysics.stepOn(user, block, environment, motion.motionX, motion.motionY, motion.motionZ);
-      if (collisionVector != null) {
-        motion.setTo(collisionVector);
-      }
-    }
 
     // Block collisions
 
-    environment.aquaticUpdateLavaReset();
+    if (!clientData.newBlockEntityIntersectionLogic()) {
+      environment.aquaticUpdateLavaReset();
+      applyEffectsFromBlocks(user, environment, configuration, motion);
+    }
 
-//    if (!user.meta().protocol().newBlockEntityIntersectionLogic()) {
-    double limit = 1.0E-7D;
-    int blockPositionStartX = floor(entityBoundingBox.minX + limit);
-      int blockPositionStartY = floor(entityBoundingBox.minY + limit);
-      int blockPositionStartZ = floor(entityBoundingBox.minZ + limit);
-      int blockPositionEndX = floor(entityBoundingBox.maxX - limit);
-      int blockPositionEndY = floor(entityBoundingBox.maxY - limit);
-      int blockPositionEndZ = floor(entityBoundingBox.maxZ - limit);
-
-      Location blockCollisionFrom = new Location(world, positionX, positionY, positionZ);
-      for (int x = blockPositionStartX; x <= blockPositionEndX; x++) {
-        for (int y = blockPositionStartY; y <= blockPositionEndY; y++) {
-          for (int z = blockPositionStartZ; z <= blockPositionEndZ; z++) {
-            Location location = new Location(world, x, y, z);
-            Material material = VolatileBlockAccess.typeAccess(user, world, x, y, z);
-            Motion collisionMotion = BlockPhysics.entityInside(
-              user, material,
-              environment,
-              location, blockCollisionFrom,
-              motion.motionX, motion.motionY, motion.motionZ
-            );
-            if (collisionMotion != null) {
-              motion.setTo(collisionMotion);
-            }
-          }
-        }
-      }
-//    }
-
-    if (clientData.protocolVersion() >= VER_1_14 && environment.pose() != Pose.FALL_FLYING) {
+    if (clientData.beeUpdate()
+      && !meta.abilities().flying()
+      && !environment.shouldHaveFallFlyingPose()) {
       int soulSandModifier = Enchantments.resolveSoulSpeedModifier(player);
       if (soulSandModifier == 0 || !environment.blockOnPositionSoulSpeedAffected()) {
         float speedFactor = environment.blockSpeedFactor();
@@ -651,50 +640,51 @@ class BaseSimulator extends Simulator {
     }
   }
 
-  private void simulateApplyEffectsFromBlocks(
-    User user, SimulationEnvironment environment, Motion motion, BoundingBox boundingBox
+  private void applyStepOnMechanics(
+    User user, SimulationEnvironment environment,
+    Motion motion
   ) {
-    Position from = environment.verifiedLastPosition();
-    Position to = environment.position();
-    Motion move = from.motionTo(to);
-
-    SimulationResult simulationResult = environment.simulationResult();
-    if (simulationResult == null || simulationResult.isValid()) {
-      return;
-    }
-    Motion crazyMotion = simulationResult.intermittentResult();
-
-    LongSet visitedBlocks = new LongOpenHashSet();
-
-		int i = 16;
-    if (crazyMotion != null && move.lengthSquared() > 0.0) {
-      for (Direction.Axis axis : Direction.axisStepOrder(crazyMotion)) {
-        double motionPartial = crazyMotion.partialMotionIn(axis);
-        if (motionPartial != 0.0) {
-	        Position positionPartial = from.relative(axis.positive(), motionPartial);
-	        i -= checkInsideBlocks(user, environment, from, positionPartial, visitedBlocks, i);
-					from = positionPartial;
-        }
+    // EntityCollidedWithBlock
+    if (environment.onGround()/* && !environment.isSneaking()*/) {
+      Motion newMotion = BlockPhysics.stepOn(
+        user, environment.collideMaterial(), environment,
+        motion.motionX, motion.motionY, motion.motionZ
+      );
+      if (newMotion != null) {
+        motion.setTo(newMotion);
       }
-    } else {
-			i -= checkInsideBlocks(user, environment, from, to, visitedBlocks, i);
     }
-		if (i <= 0) {
-			checkInsideBlocks(user, environment, from, to, visitedBlocks, 1);
-		}
   }
 
-  private int checkInsideBlocks(
-    User user,
-		SimulationEnvironment environment,
-    Position from, Position to,
-    LongSet visitedBlocks,
-    int limit
+  private void applyEffectsFromBlocks(
+    User user, SimulationEnvironment environment,
+    MovementConfiguration configuration, Motion motion
   ) {
-	  BoundingBox box = BoundingBox.fromPosition(user, environment, to).shrink(0.00001f);
-		boolean furtherThanOneBlock = from.distanceSquared(to) > (0.9999900000002526 * 0.9999900000002526);
+    if (environment.onGround()) {
+      applyStepOnMechanics(user, environment, motion);
+    }
+    SimulationResult result = environment.simulationResult();
+    Position from = environment.lastPosition();
+    Position to = environment.position();
+    Motion intermittentResult = result.intermittentResult();
+    List<EntityMovement> movements = Collections.singletonList(EntityMovement.of(from, to, intermittentResult));
+    BlockInsideChecks.select(
+      user, user.blockInsideChecks(),
+      configuration
+    ).checkInsideBlocks(
+      user, environment, motion, movements
+    );
+  }
 
-    return 0;
+  private boolean collidedWithShapeMovingFrom(
+    User user,
+    SimulationEnvironment environment,
+    Position from, Position to,
+    BlockShape collisionShape
+  ) {
+    BoundingBox fromBox = BoundingBox.fromPosition(user, environment, from);
+    Motion move = to.subtractToMotion(from);
+    return fromBox.collidedAlongVector(move, collisionShape);
   }
 
   private void simulateWaterAfter(
@@ -856,8 +846,13 @@ class BaseSimulator extends Simulator {
       ) {
         continue;
       }
-      if (entity.boundingBox().intersectsWith(boundingBox)) {
+      BoundingBox entityBoundingBox = entity.boundingBox();
+      if (entityBoundingBox.intersectsWith(boundingBox)) {
         applyEntityPush(environment, context, entity);
+      }
+      if (entityBoundingBox.growHorizontally(0.2).intersectsWith(boundingBox)) {
+//        applyEntityPush(environment, context, entity);
+        environment.setPushedByEntity(true);
       }
     }
   }

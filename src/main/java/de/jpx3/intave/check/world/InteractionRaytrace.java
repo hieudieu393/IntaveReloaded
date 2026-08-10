@@ -172,7 +172,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
       int variant = VolatileBlockAccess.variantIndexAccess(user, placementLocation);
 
       boolean raytraceCollidesWithPosition = typeUsedInHand.isBlock() && Collision.playerInImaginaryBlock(
-        user, world,
+        user, user.meta().movement(), world,
         blockX, blockY, blockZ,
         typeUsedInHand, 0
       );
@@ -258,7 +258,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
         case FAILED_CRITICAL:
         case ENFORCE_ROUTING:
           interactionMeta.interactionList.add(interaction);
-          boolean usable = ItemProperties.canItemBeUsed(player, heldItem)
+          boolean usable = ItemProperties.canItemBeUsed(user, heldItem)
             && !ItemProperties.isPotion(interaction.itemTypeInHand());
           if (!usable || type == EMPTY_INTERACT) {
             if (MinecraftVersions.VER1_19.atOrAbove() && enumDirection != 255) {
@@ -695,7 +695,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
     MetadataBundle meta = user.meta();
     ViolationMetadata violationMetadata = meta.violationLevel();
     InteractionMeta interactionMeta = metaOf(player);
-    boolean usableItemInHand = ItemProperties.canItemBeUsed(player, interaction.itemInHand())
+    boolean usableItemInHand = ItemProperties.canItemBeUsed(user, interaction.itemInHand())
       && !ItemProperties.isPotion(interaction.itemTypeInHand());
     Location targetLocation = interaction.targetBlock().toLocation(world);
 
@@ -926,7 +926,8 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
             boolean replace = BlockInteractionAccess.replacedOnPlacement(world, player, new com.comphenix.protocol.wrappers.BlockPosition(raycastLocation.toVector()));
             Location placementLocation = replace ? raycastLocation : raycastLocation.clone().add(raycastResult.sideHit.directionVector().convertToBukkitVec());
             boolean raytraceCollidesWithPosition = material.isBlock() && Collision.playerInImaginaryBlock(
-              user, world, placementLocation.getBlockX(), placementLocation.getBlockY(), placementLocation.getBlockZ(),
+              user, user.meta().movement(), world,
+              placementLocation.getBlockX(), placementLocation.getBlockY(), placementLocation.getBlockZ(),
               material, dat
             );
             if (raytraceCollidesWithPosition) {

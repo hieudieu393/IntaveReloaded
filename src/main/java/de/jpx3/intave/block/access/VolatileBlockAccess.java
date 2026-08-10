@@ -14,13 +14,11 @@ package de.jpx3.intave.block.access;
 import de.jpx3.intave.block.fluid.Fluid;
 import de.jpx3.intave.block.fluid.Fluids;
 import de.jpx3.intave.block.shape.BlockShape;
+import de.jpx3.intave.block.shape.BlockShapes;
 import de.jpx3.intave.block.variant.BlockVariant;
 import de.jpx3.intave.block.variant.BlockVariantRegister;
 import de.jpx3.intave.cleanup.GarbageCollector;
-import de.jpx3.intave.share.BlockPosition;
-import de.jpx3.intave.share.ClientMath;
-import de.jpx3.intave.share.MutableBlockPosition;
-import de.jpx3.intave.share.Position;
+import de.jpx3.intave.share.*;
 import de.jpx3.intave.user.User;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -129,7 +127,7 @@ public final class VolatileBlockAccess {
 
   private static Block fallbackBlock(World world) {
     Location spawnLocation = world.getSpawnLocation();
-    if (!world.isChunkLoaded(spawnLocation.getBlockX(), spawnLocation.getBlockZ())) {
+    if (!isInLoadedChunk(world, spawnLocation.getBlockX(), spawnLocation.getBlockZ())) {
       // too expensive
 //      try {
 //        Chunk[] loadedChunks = world.getLoadedChunks();
@@ -212,6 +210,10 @@ public final class VolatileBlockAccess {
   }
 
   public static @NotNull Material typeAccess(User user, World blockAccess, int blockX, int blockY, int blockZ) {
+    BlockState blockState = user.blockCache().peekStateAt(blockX, blockY, blockZ);
+    if (blockState != null) {
+      return blockState.type();
+    }
     if (isInLoadedChunk(blockAccess, blockX, blockZ) || Bukkit.isPrimaryThread()) {
       return user.blockCache().typeAt(blockX, blockY, blockZ);
     }
@@ -257,14 +259,14 @@ public final class VolatileBlockAccess {
   }
 
   public static int variantIndexAccess(User user, World blockAccess, int blockX, int blockY, int blockZ) {
+    BlockState blockState = user.blockCache().peekStateAt(blockX, blockY, blockZ);
+    if (blockState != null) {
+      return blockState.variantIndex();
+    }
     if (isInLoadedChunk(blockAccess, blockX, blockZ) || Bukkit.isPrimaryThread()) {
       return user.blockCache().variantIndexAt(blockX, blockY, blockZ);
     }
     return 0;
-  }
-
-  public static BlockShape collisionShapeAccess(User user, Location location) {
-    return user.blockCache().collisionShapeAt(location.getBlockX(), location.getBlockY(), location.getBlockZ());
   }
 
   public static BlockShape collisionShapeAccess(User user, BlockPosition position) {
@@ -275,8 +277,15 @@ public final class VolatileBlockAccess {
     return collisionShapeAccess(user, position.x(), position.y(), position.z());
   }
 
-  public static BlockShape collisionShapeAccess(User user, double x, double y, double z) {
-    return user.blockCache().collisionShapeAt(floor(x), floor(y), floor(z));
+  public static BlockShape collisionShapeAccess(User user, int x, int y, int z) {
+    BlockState blockState = user.blockCache().peekStateAt(x, y, z);
+    if (blockState != null) {
+      return blockState.collisionShape();
+    }
+    if (isInLoadedChunk(user.player().getWorld(), x, z) || Bukkit.isPrimaryThread()) {
+      return user.blockCache().collisionShapeAt(x, y, z);
+    }
+    return BlockShapes.emptyShape();
   }
 
   public static BlockShape collisionShapeAccess(User user, Position position) {

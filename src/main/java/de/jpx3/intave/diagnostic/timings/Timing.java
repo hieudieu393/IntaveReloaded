@@ -25,8 +25,7 @@ public class Timing implements Cloneable, Comparable<Timing> {
   private TimingType timingType = TimingType.BASE;
   private final TimingData totalTimingData = new TimingData();
 
-  //  private Lock lock = new ReentrantLock();
-  private final ThreadLocal<Long> lastStart = ThreadLocal.withInitial(() -> 0L);
+  private final ThreadLocal<TimingContainer> state = ThreadLocal.withInitial(TimingContainer::new);
 
   private Timing(String timingName, String parentName) {
     this.timingName = timingName;
@@ -36,7 +35,7 @@ public class Timing implements Cloneable, Comparable<Timing> {
   public void start() {
     if (IntaveControl.USE_TIMINGS) {
       // start from sync start
-      lastStart.set(now());
+      state.get().lastStart = now();
     }
   }
 
@@ -44,7 +43,7 @@ public class Timing implements Cloneable, Comparable<Timing> {
     if (IntaveControl.USE_TIMINGS) {
       // end from before sync
       long now = now();
-      totalTimingData.addDuration(now - lastStart.get());
+      totalTimingData.addDuration(now - state.get().lastStart);
       totalTimingData.increaseCallCount();
     }
   }
@@ -112,6 +111,18 @@ public class Timing implements Cloneable, Comparable<Timing> {
     return (totalDurationMillis()) / (double) Math.max(1, recordedCalls());
   }
 
+  public long p99CallDurationInNanos() {
+    return totalTimingData.p99Duration();
+  }
+
+  public double p99CallDurationInMillis() {
+    return p99CallDurationInNanos() / 1000000d;
+  }
+
+  public List<TimingData.DurationBucket> callDurationHistogram(int maximumBucketCount) {
+    return totalTimingData.durationHistogram(maximumBucketCount);
+  }
+
   public double durationInTicks() {
     return averageCallDurationInMillis() / 50;
   }
@@ -132,6 +143,10 @@ public class Timing implements Cloneable, Comparable<Timing> {
 
   private static long now() {
     return System.nanoTime();
+  }
+
+  private static final class TimingContainer {
+    private long lastStart;
   }
 
   static Timing of(String name) {

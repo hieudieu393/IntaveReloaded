@@ -13,7 +13,7 @@ package de.jpx3.intave.check.movement.physics.branch;
 
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 
-import java.util.List;
+import java.util.Collection;
 
 /*
  * The following can happen:
@@ -23,9 +23,9 @@ import java.util.List;
  */
 public final class RotationBrancher extends MovementSearchBrancher {
 	@Override
-	public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, List<MovementSearchBranch> outputBranches) {
+	public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, Collection<MovementSearchBranch> outputBranches) {
 		SimulationEnvironment environment = input.environment();
-		if (environment.lastRotation().equals(environment.rotation())) {
+		if (environment.lastRotationEqualsRotation()) {
 			outputBranches.add(inputBranch);
 			return;
 		}

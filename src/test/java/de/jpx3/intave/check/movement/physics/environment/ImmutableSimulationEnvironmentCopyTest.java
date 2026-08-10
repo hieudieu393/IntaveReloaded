@@ -13,13 +13,64 @@ package de.jpx3.intave.check.movement.physics.environment;
 
 import de.jpx3.intave.check.movement.physics.simulator.BoatSimulator.Status;
 import de.jpx3.intave.share.BoundingBox;
+import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.share.Position;
 import org.bukkit.util.Vector;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 final class ImmutableSimulationEnvironmentCopyTest {
+	@Test
+	void postTickCandidatesAreFrozenAndCopiedToTarget() {
+		MockSimulationEnvironment source = new MockSimulationEnvironment();
+		Motion sharedMotion = new Motion(0.1, 0.2, 0.3);
+		source.setPostTickMotionCandidates(Arrays.asList(
+			new PostTickSimulation(sharedMotion, false),
+			new PostTickSimulation(sharedMotion, true)
+		));
+
+		SimulationEnvironment copy = source.immutableCopy();
+		sharedMotion.motionX = 9.0;
+		source.clearPostTickMotionCandidates();
+		Motion returnedMotion = copy.postTickMotionCandidates().get(0).motion();
+		returnedMotion.motionX = 8.0;
+
+		assertEquals(2, copy.postTickMotionCandidates().size());
+		assertEquals(0.1, copy.postTickMotionCandidates().get(0).motion().motionX(), 0.0);
+		assertFalse(copy.postTickMotionCandidates().get(0).priorSprinting());
+		assertTrue(copy.postTickMotionCandidates().get(1).priorSprinting());
+		assertThrows(
+			UnsupportedOperationException.class,
+			() -> copy.postTickMotionCandidates().clear()
+		);
+
+		MockSimulationEnvironment target = new MockSimulationEnvironment();
+		copy.commitTo(target);
+
+		assertEquals(2, target.postTickMotionCandidates().size());
+		assertTrue(target.postTickMotionCandidates().get(1).priorSprinting());
+	}
+
+  @Test
+  void swimmingStateIsFrozenAndCopiedToTarget() {
+    MockSimulationEnvironment source = new MockSimulationEnvironment();
+    source.setSwimming(true);
+
+    SimulationEnvironment copy = source.immutableCopy();
+    source.setSwimming(false);
+
+    assertTrue(copy.isSwimming());
+    assertThrows(UnsupportedOperationException.class, () -> copy.setSwimming(false));
+
+    MockSimulationEnvironment target = new MockSimulationEnvironment();
+    copy.commitTo(target);
+
+    assertTrue(target.isSwimming());
+  }
+
   @Test
   void boatStateIsFrozenAndCopiedToTarget() {
     MockSimulationEnvironment source = new MockSimulationEnvironment();

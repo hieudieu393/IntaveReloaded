@@ -13,16 +13,16 @@ package de.jpx3.intave.check.movement.physics.branch;
 
 import de.jpx3.intave.check.movement.physics.config.MovementConfiguration;
 
-import java.util.List;
+import java.util.Collection;
 
 public final class UseLastMovementConfigBrancher extends MovementSearchBrancher {
 	@Override
 	public void branch(
 		MovementSearchInput input,
 		MovementSearchBranch inputBranch,
-		List<MovementSearchBranch> outputBranches
+		Collection<MovementSearchBranch> outputBranches
 	) {
 		MovementConfiguration previous = input.environment().lastMovementConfiguration();
-		outputBranches.add(inputBranch.withMoveConfig(previous, "_useLastMovementConfig"));
+		outputBranches.add(inputBranch.withLastMovementConfiguration(previous));
 	}
 }

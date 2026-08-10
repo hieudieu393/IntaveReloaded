@@ -18,6 +18,7 @@ import de.jpx3.intave.access.player.trust.TrustFactorResolver;
 import de.jpx3.intave.annotate.Nullable;
 import de.jpx3.intave.block.cache.BlockCache;
 import de.jpx3.intave.block.fluid.FluidFlow;
+import de.jpx3.intave.block.inside.BlockInsideCheck;
 import de.jpx3.intave.check.MetaCheck;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.movement.physics.environment.Pose;
@@ -41,6 +42,7 @@ import de.jpx3.intave.user.storage.Storage;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -348,6 +350,12 @@ public interface User {
    * @return the simple collider processor
    */
   SimpleCollider simplifiedCollider();
+
+  /**
+   * Retrieve the list of {@link BlockInsideCheck}s that are used for this user.
+   * Can be mutiple since 1.21.9 and 1.21.10 share a protocolversion (thanks mojang)
+   */
+  List<BlockInsideCheck> blockInsideChecks();
 
   /**
    * Retrieve the placeholder associated with the present {@link Player}

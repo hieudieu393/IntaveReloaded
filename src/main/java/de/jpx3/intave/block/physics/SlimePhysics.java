@@ -41,9 +41,12 @@ final class SlimePhysics implements BlockPhysic {
 
   @Override
   // SlimeBlock.bounceUp
-  public Motion landed(User user, double motionX, double motionY, double motionZ) {
-    MovementMetadata movementData = user.meta().movement();
-    if (motionY < 0.0 && !movementData.sneaking) {
+  public Motion landed(
+    User user,
+    SimulationEnvironment environment,
+    double motionX, double motionY, double motionZ
+  ) {
+    if (motionY < 0.0 && !environment.isSneaking()) {
       return new Motion(motionX, -motionY, motionZ);
     } else {
       return null;

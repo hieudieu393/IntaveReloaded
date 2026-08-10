@@ -46,8 +46,10 @@ public final class AbilityMetadata {
 
 	private final AtomicReference<Map<String, Attribute>> attributes = new AtomicReference<>(new HashMap<>());
   private final AtomicReference<Map<String, List<AttributeModifier>>> attributeModifiers = new AtomicReference<>(new HashMap<>());
-  private double scaleCache = Double.NEGATIVE_INFINITY;
-  private double jumpStrengthCache = Double.NEGATIVE_INFINITY;
+  private double scaleCache;
+  private boolean scaleCacheValid;
+  private double jumpStrengthCache;
+  private boolean jumpStrengthCacheValid;
 
   public float unsynchronizedHealth;
   public float health;
@@ -128,24 +130,22 @@ public final class AbilityMetadata {
   }
 
   private void clearAttributeCaches() {
-    scaleCache = Double.NEGATIVE_INFINITY;
-    jumpStrengthCache = Double.NEGATIVE_INFINITY;
+    scaleCacheValid = false;
+    jumpStrengthCacheValid = false;
   }
 
   public double scale() {
-    if (Double.isInfinite(scaleCache)) {
-      double newScaleCache = attributeValue("generic.scale");
-      scaleCache = newScaleCache;
-      return newScaleCache;
+    if (!scaleCacheValid) {
+      scaleCache = attributeValue("generic.scale");
+      scaleCacheValid = true;
     }
     return scaleCache;
   }
 
   public double jumpStrength() {
-    if (Double.isInfinite(jumpStrengthCache)) {
-      double newJumpStrengthCache = attributeValue("generic.jump_strength");
-      jumpStrengthCache = newJumpStrengthCache;
-      return newJumpStrengthCache;
+    if (!jumpStrengthCacheValid) {
+      jumpStrengthCache = attributeValue("generic.jump_strength");
+      jumpStrengthCacheValid = true;
     }
     return jumpStrengthCache;
   }
@@ -238,44 +238,49 @@ public final class AbilityMetadata {
     return attribute;
   }
 
-  private static final boolean KEY_WRAPPED;
-  private static final Map<String, String> REMAP;
+  private static final Map<String, String> LEGACY_WRAPPED_KEY_REMAP;
+  private static final Map<String, String> MODERN_WRAPPED_KEY_REMAP;
 
   static {
-    KEY_WRAPPED = MinecraftVersions.VER1_16_0.atOrAbove();
-    Map<String, String> remap = new HashMap<>();
-    if (MinecraftVersions.VER1_21_3.atOrAbove()) {
-      remap.put("generic.maxHealth", "max_health");
-      remap.put("generic.followRange", "follow_range");
-      remap.put("generic.knockbackResistance", "knockback_resistance");
-      remap.put("generic.movementSpeed", "movement_speed");
-      remap.put("generic.attackDamage", "attack_damage");
-      remap.put("generic.attackSpeed", "attack_speed");
-      remap.put("generic.armorToughness", "armor_toughness");
-      remap.put("generic.attackKnockback", "attack_knockback");
-      remap.put("generic.jump_strength", "jump_strength");
-      remap.put("horse.jumpStrength", "jump_strength");
-      remap.put("horse.jump_strength", "jump_strength");
-      remap.put("zombie.spawnReinforcements", "spawn_reinforcements");
-      remap.put("generic.scale", "scale");
-      remap.put("player.sneaking_speed", "sneaking_speed");
-    } else {
-      remap.put("generic.maxHealth", "generic.max_health");
-      remap.put("generic.followRange", "generic.follow_range");
-      remap.put("generic.knockbackResistance", "generic.knockback_resistance");
-      remap.put("generic.movementSpeed", "generic.movement_speed");
-      remap.put("generic.attackDamage", "generic.attack_damage");
-      remap.put("generic.attackSpeed", "generic.attack_speed");
-      remap.put("generic.armorToughness", "generic.armor_toughness");
-      remap.put("generic.attackKnockback", "generic.attack_knockback");
-      remap.put("horse.jumpStrength", "horse.jump_strength");
-      remap.put("zombie.spawnReinforcements", "zombie.spawn_reinforcements");
-    }
-    REMAP = ImmutableMap.copyOf(remap);
+    Map<String, String> legacyRemap = new HashMap<>();
+    legacyRemap.put("generic.maxHealth", "generic.max_health");
+    legacyRemap.put("generic.followRange", "generic.follow_range");
+    legacyRemap.put("generic.knockbackResistance", "generic.knockback_resistance");
+    legacyRemap.put("generic.movementSpeed", "generic.movement_speed");
+    legacyRemap.put("generic.attackDamage", "generic.attack_damage");
+    legacyRemap.put("generic.attackSpeed", "generic.attack_speed");
+    legacyRemap.put("generic.armorToughness", "generic.armor_toughness");
+    legacyRemap.put("generic.attackKnockback", "generic.attack_knockback");
+    legacyRemap.put("horse.jumpStrength", "horse.jump_strength");
+    legacyRemap.put("zombie.spawnReinforcements", "zombie.spawn_reinforcements");
+    LEGACY_WRAPPED_KEY_REMAP = ImmutableMap.copyOf(legacyRemap);
+
+    Map<String, String> modernRemap = new HashMap<>();
+    modernRemap.put("generic.maxHealth", "max_health");
+    modernRemap.put("generic.followRange", "follow_range");
+    modernRemap.put("generic.knockbackResistance", "knockback_resistance");
+    modernRemap.put("generic.movementSpeed", "movement_speed");
+    modernRemap.put("generic.attackDamage", "attack_damage");
+    modernRemap.put("generic.attackSpeed", "attack_speed");
+    modernRemap.put("generic.armorToughness", "armor_toughness");
+    modernRemap.put("generic.attackKnockback", "attack_knockback");
+    modernRemap.put("generic.jump_strength", "jump_strength");
+    modernRemap.put("horse.jumpStrength", "jump_strength");
+    modernRemap.put("horse.jump_strength", "jump_strength");
+    modernRemap.put("zombie.spawnReinforcements", "spawn_reinforcements");
+    modernRemap.put("generic.scale", "scale");
+    modernRemap.put("player.sneaking_speed", "sneaking_speed");
+    MODERN_WRAPPED_KEY_REMAP = ImmutableMap.copyOf(modernRemap);
   }
 
   private String keyTranslation(String key) {
-    return KEY_WRAPPED ? REMAP.getOrDefault(key, key) : key;
+    if (!MinecraftVersions.VER1_16_0.atOrAbove()) {
+      return key;
+    }
+    Map<String, String> remap = MinecraftVersions.VER1_21_3.atOrAbove()
+      ? MODERN_WRAPPED_KEY_REMAP
+      : LEGACY_WRAPPED_KEY_REMAP;
+    return remap.getOrDefault(key, key);
   }
 
   public void modifyBaseValue(String key, double baseValue) {

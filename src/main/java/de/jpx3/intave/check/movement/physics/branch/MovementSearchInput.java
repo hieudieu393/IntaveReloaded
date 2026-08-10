@@ -17,12 +17,17 @@ import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.check.movement.physics.simulator.Simulator;
 import de.jpx3.intave.user.User;
 
+import java.util.IdentityHashMap;
+import java.util.Map;
+import java.util.function.UnaryOperator;
+
 public final class MovementSearchInput {
   private final User user;
   private final Simulator simulator;
   private final SimulationEnvironment environment;
   private final boolean detectNoSlowdown;
   private final @Nullable TraceImmutableMovementConfiguration tracedAfterTickMovementConfig;
+  private Map<UnaryOperator<SimulationEnvironment>, SimulationEnvironment> modifiedEnvironmentCache;
 
   private MovementSearchInput(User user, Simulator simulator, SimulationEnvironment environment, boolean detectNoSlowdown, TraceImmutableMovementConfiguration tracedAfterTickMovementConfig) {
     this.user = user;
@@ -52,6 +57,21 @@ public final class MovementSearchInput {
     return environment.immutableView();
   }
 
+  SimulationEnvironment modifiedImmutableEnvironment(
+    UnaryOperator<SimulationEnvironment> modifier
+  ) {
+    if (modifiedEnvironmentCache == null) {
+      modifiedEnvironmentCache = new IdentityHashMap<>();
+    }
+    SimulationEnvironment cached = modifiedEnvironmentCache.get(modifier);
+    if (cached != null) {
+      return cached;
+    }
+    SimulationEnvironment modified = modifier.apply(environment.mutableView()).immutableView();
+    modifiedEnvironmentCache.put(modifier, modified);
+    return modified;
+  }
+
   boolean detectNoSlowdown() {
     return detectNoSlowdown;
   }
@@ -75,5 +95,10 @@ public final class MovementSearchInput {
       return false;
     }
     return tracedAfterTickMovementConfig.requiredActualMotionOverride();
+  }
+
+  boolean blockInsideCheckBranchNecessary() {
+    return tracedAfterTickMovementConfig != null
+      && tracedAfterTickMovementConfig.requiredBlockInsideCheckVersion();
   }
 }

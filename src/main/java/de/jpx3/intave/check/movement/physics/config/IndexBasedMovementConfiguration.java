@@ -32,6 +32,7 @@ final class IndexBasedMovementConfiguration implements MovementConfiguration {
   private static final BiState handActive = new BiState();
   private static final BiState reduceBefore = new BiState();
   private static final BiState noHorizontalMotionReset = new BiState();
+  private static final BiState alternativeBlockInsideCheck = new BiState();
 
   static {
     List<State> statez = new ArrayList<>();
@@ -43,6 +44,7 @@ final class IndexBasedMovementConfiguration implements MovementConfiguration {
     statez.add(handActive);
     statez.add(reduceBefore);
     statez.add(noHorizontalMotionReset);
+    statez.add(alternativeBlockInsideCheck);
     states = Collections.unmodifiableList(statez);
   }
 
@@ -232,6 +234,21 @@ final class IndexBasedMovementConfiguration implements MovementConfiguration {
   @Override
   public boolean overrideEndMotionToActualMotion() {
     return !noHorizontalMotionReset.get(index);
+  }
+
+  @Override
+  public boolean usesAlternateBlockInsideCheck() {
+    return alternativeBlockInsideCheck.get(index);
+  }
+
+  @Override
+  public MovementConfiguration withAlternativeBlockInsideCheck() {
+    return UNIVERSE[alternativeBlockInsideCheck.set(index, true)];
+  }
+
+  @Override
+  public MovementConfiguration withoutAlternativeBlockInsideCheck() {
+    return UNIVERSE[alternativeBlockInsideCheck.set(index, false)];
   }
 
   @Override

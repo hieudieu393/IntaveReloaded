@@ -35,6 +35,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.RIPTIDE_SPIN;
 
 public final class InventoryMetadata {
+  private final User user;
   private final Player player;
   private final List<String> whitelistedItemIdRequests = new ArrayList<>();
   public int handActiveTicks, pastHandActiveTicks = 100;
@@ -61,8 +62,9 @@ public final class InventoryMetadata {
   private boolean foodItem;
   public int lastBlockSequenceNumber;
 
-  public InventoryMetadata(Player player) {
-    this.player = player;
+  public InventoryMetadata(Player player, User user) {
+	  this.user = user;
+	  this.player = player;
     if (player != null) {
       this.handSlot = player.getInventory().getHeldItemSlot();
     }
@@ -97,7 +99,8 @@ public final class InventoryMetadata {
   }
 
   public boolean usableItemInEitherHand() {
-    return ItemProperties.canItemBeUsed(player, heldItem()) || ItemProperties.canItemBeUsed(player, offhandItem());
+    return ItemProperties.canItemBeUsed(user, heldItem()) ||
+      ItemProperties.canItemBeUsed(user, offhandItem());
   }
 
   public boolean usableItemInEitherHandOrHotbar() {
@@ -109,7 +112,7 @@ public final class InventoryMetadata {
     }
     for (int i = 0; i < 9; i++) {
       ItemStack item = player.getInventory().getItem(i);
-      if (ItemProperties.canItemBeUsed(player, item)) {
+      if (ItemProperties.canItemBeUsed(user, item)) {
         return true;
       }
     }
@@ -123,7 +126,7 @@ public final class InventoryMetadata {
   }
 
   public boolean offhandItemPrimary() {
-    return ItemProperties.canItemBeUsed(player, offhandItem()) && !ItemProperties.canItemBeUsed(player, heldItem());
+    return ItemProperties.canItemBeUsed(user, offhandItem()) && !ItemProperties.canItemBeUsed(user, heldItem());
   }
 
   public int handSlot() {
@@ -151,10 +154,10 @@ public final class InventoryMetadata {
       user.meta().movement().handItemSimulationFails = 0;
 
       if (offhandItemPrimary()) {
-        this.foodItem = ItemProperties.foodConsumable(player, offhandItemType());
+        this.foodItem = ItemProperties.foodConsumable(user, offhandItemType());
         this.activeItemType = offhandItemType();
       } else {
-        this.foodItem = ItemProperties.foodConsumable(player, heldItemType());
+        this.foodItem = ItemProperties.foodConsumable(user, heldItemType());
         this.activeItemType = heldItemType();
       }
       this.pastItemUsageTransition = 0;
@@ -226,8 +229,8 @@ public final class InventoryMetadata {
       int slot = slotSwitchData.slot();
       ItemStack item = slotSwitchData.item();
 
-      boolean primaryItemUsable = ItemProperties.canItemBeUsed(player, item);
-      boolean offhandItemUsage = ItemProperties.canItemBeUsed(player, offhandItem());
+      boolean primaryItemUsable = ItemProperties.canItemBeUsed(user, item);
+      boolean offhandItemUsage = ItemProperties.canItemBeUsed(user, offhandItem());
       boolean handActive = (primaryItemUsable || offhandItemUsage) && handActive();
       if (handActive) {
         activateHand();

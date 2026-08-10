@@ -142,36 +142,6 @@ public final class MovementRecording {
 		@Nullable Position position,
 		@Nullable Rotation rotation,
 		BlockCache blockCache,
-		boolean gliding,
-		@Nullable Pose physicalPose
-	) {
-		insertFrame(
-			boundingBox, input, position, rotation,
-			blockCache, Collections.emptyMap(), gliding, physicalPose
-		);
-	}
-
-	public void insertFrame(
-		BoundingBox boundingBox,
-		Input input,
-		@Nullable Position position,
-		@Nullable Rotation rotation,
-		BlockCache blockCache,
-		Map<String, Attribute> attributes,
-		boolean gliding
-	) {
-		insertFrame(
-			boundingBox, input, position, rotation,
-			blockCache, attributes, gliding, null
-		);
-	}
-
-	public void insertFrame(
-		BoundingBox boundingBox,
-		Input input,
-		@Nullable Position position,
-		@Nullable Rotation rotation,
-		BlockCache blockCache,
 		Map<String, Attribute> attributes,
 		boolean gliding,
 		@Nullable Pose physicalPose
@@ -294,11 +264,11 @@ public final class MovementRecording {
 		return actions;
 	}
 
-	List<MoveFrame> frames() {
+	public List<MoveFrame> frames() {
 		return frames;
 	}
 
-	Map<String, Attribute> attributesForFrame(int frame) {
+	public Map<String, Attribute> attributesForFrame(int frame) {
 		if (frame < 0 || frame >= frameAttributes.size()) {
 			return Collections.emptyMap();
 		}

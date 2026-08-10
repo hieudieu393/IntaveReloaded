@@ -1,3 +1,14 @@
+/*
+ * Copyright 2026 Intave
+ *
+ * This software is licensed under the PolyForm Perimeter License 1.0.0.
+ * You may use this software for any purpose, except for providing to
+ * others any product that competes with the software.
+ *
+ * A copy of the license is available at:
+ *   https://polyformproject.org/licenses/perimeter/1.0.0/
+ */
+
 package de.jpx3.intave;
 
 import de.jpx3.intave.adapter.MinecraftVersions;
@@ -173,7 +184,7 @@ public final class IntaveLogger extends PluginLogger {
         PENDING_LOG_ENTRIES.clear();
         return;
       case ENABLED:
-        if (PENDING_LOG_ENTRIES.size() > 0) {
+        if (!PENDING_LOG_ENTRIES.isEmpty()) {
           String[] messages = PENDING_LOG_ENTRIES.toArray(new String[0]);
           PENDING_LOG_ENTRIES.clear();
           for (String pendingMessage : messages) {

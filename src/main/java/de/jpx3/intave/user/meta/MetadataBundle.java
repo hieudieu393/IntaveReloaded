@@ -1,3 +1,14 @@
+/*
+ * Copyright 2026 Intave
+ *
+ * This software is licensed under the PolyForm Perimeter License 1.0.0.
+ * You may use this software for any purpose, except for providing to
+ * others any product that competes with the software.
+ *
+ * A copy of the license is available at:
+ *   https://polyformproject.org/licenses/perimeter/1.0.0/
+ */
+
 package de.jpx3.intave.user.meta;
 
 import de.jpx3.intave.user.User;
@@ -19,7 +30,7 @@ public final class MetadataBundle {
     this.attack = new AttackMetadata(player);
     this.connection = new ConnectionMetadata(player);
     this.effect = new EffectMetadata(player);
-    this.inventory = new InventoryMetadata(player);
+    this.inventory = new InventoryMetadata(player, user);
     this.movement = new MovementMetadata(player, user);
     this.protocol = new ProtocolMetadata(player, user);
     this.punishment = new PunishmentMetadata(player);

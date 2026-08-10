@@ -24,7 +24,7 @@ import java.util.*;
 
 import static de.jpx3.intave.codec.ByteBufStreamCodecs.*;
 
-final class MoveFrame {
+public final class MoveFrame {
 	private static final int VERSIONED_LIST_MARKER = Integer.MIN_VALUE;
 	private static final int CURRENT_FORMAT_VERSION = 2;
 	private static final int MAX_FRAME_COUNT = 1_048_576;

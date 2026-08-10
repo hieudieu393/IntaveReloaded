@@ -11,8 +11,8 @@
 
 package de.jpx3.intave.search;
 
-import java.util.List;
+import java.util.Collection;
 
 public abstract class SearchBrancher<I, T> {
-	public abstract void branch(I input, T inputBranch, List<T> outputBranches);
+	public abstract void branch(I input, T inputBranch, Collection<T> outputBranches);
 }

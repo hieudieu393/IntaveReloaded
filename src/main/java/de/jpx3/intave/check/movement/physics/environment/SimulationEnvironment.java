@@ -18,6 +18,7 @@ import de.jpx3.intave.block.fluid.Fluid;
 import de.jpx3.intave.block.physics.BlockProperties;
 import de.jpx3.intave.block.physics.MaterialMagic;
 import de.jpx3.intave.block.shape.BlockShape;
+import de.jpx3.intave.block.tick.ShulkerBox;
 import de.jpx3.intave.block.type.BlockTypeAccess;
 import de.jpx3.intave.check.movement.physics.config.MovementConfiguration;
 import de.jpx3.intave.check.movement.physics.simulator.BoatSimulator.Status;
@@ -71,6 +72,10 @@ public interface SimulationEnvironment {
   }
   float lastRotationYaw();
   float lastRotationPitch();
+
+  default boolean lastRotationEqualsRotation() {
+    return lastRotationYaw() == rotationYaw() && lastRotationPitch() == rotationPitch();
+  }
 
   void updateMovement(
 	  double newPositionX, double newPositionY, double newPositionZ,
@@ -185,8 +190,8 @@ public interface SimulationEnvironment {
   double offsetMotionY();
   double offsetMotionZ();
 
-  List<Motion> postTickMotionCandidates();
-  void setPostTickMotionCandidates(@NotNull List<Motion> postTickMotionCandidates);
+  List<PostTickSimulation> postTickMotionCandidates();
+  void setPostTickMotionCandidates(@NotNull List<PostTickSimulation> postTickSimulations);
 
   default void clearPostTickMotionCandidates() {
     setPostTickMotionCandidates(Collections.emptyList());
@@ -268,6 +273,8 @@ public interface SimulationEnvironment {
   void setSneaking(boolean sneaking);
   boolean lastSprinting();
   void setLastSprinting(boolean lastSprinting);
+  boolean isSwimming();
+  void setSwimming(boolean swimming);
 
   boolean isSleeping();
   void setSleeping(boolean sleeping);
@@ -469,16 +476,36 @@ public interface SimulationEnvironment {
   void setInteractingFluid(Fluid interactingFluid);
   Fluid interactingFluid();
 
+  // Entity.baseTick(): 1.16+ publishes the previous tick's tracker before
+  // refreshing it; 1.13-1.15 publish the freshly scanned pre-travel state.
   default void updateEyesInWater() {
     ProtocolMetadata protocol = user().meta().protocol();
-    double yPos = positionY() + eyeHeight() - protocol.fluidOnEyesOffset();
-    this.setEyesInWater(interactingFluid() != null && interactingFluid().isOfWater());
+    if (protocol.stagesEyeFluidState()) {
+      this.setEyesInWater(interactingFluid() != null && interactingFluid().isOfWater());
+    }
+    refreshInteractingFluid(
+      verifiedLastPositionX(), verifiedLastPositionY(), verifiedLastPositionZ()
+    );
+    if (!protocol.stagesEyeFluidState()) {
+      this.setEyesInWater(interactingFluid() != null && interactingFluid().isOfWater());
+    }
+  }
+
+  // Modern LivingEntity.checkFallDamage(): refresh the tracker after movement
+  // without publishing/advancing wasEyeInWater a second time in the same tick.
+  default void updateEyesInWaterAfterMove() {
+    refreshInteractingFluid(positionX(), positionY(), positionZ());
+  }
+
+  default void refreshInteractingFluid(double positionX, double positionY, double positionZ) {
+    ProtocolMetadata protocol = user().meta().protocol();
+    double yPos = positionY + eyeHeight() - protocol.fluidOnEyesOffset();
     this.setInteractingFluid(null);
 
     int fluidBlockY = floor(yPos);
-    Fluid fluid = VolatileBlockAccess.fluidAccess(user(), positionX(), fluidBlockY, positionZ());
+    Fluid fluid = VolatileBlockAccess.fluidAccess(user(), positionX, fluidBlockY, positionZ);
     if (fluid.isOfWater()) {
-      Fluid fluidAbove = VolatileBlockAccess.fluidAccess(user(), positionX(), fluidBlockY + 1, positionZ());
+      Fluid fluidAbove = VolatileBlockAccess.fluidAccess(user(), positionX, fluidBlockY + 1, positionZ);
       float fluidHeight = fluid.similarTo(fluidAbove) ? 1.0F : fluid.height();
       boolean surfaceIncludesEyes = protocol.fluidSurfaceIncludesEyes();
       double fluidSurfaceY = surfaceIncludesEyes
@@ -544,6 +571,10 @@ public interface SimulationEnvironment {
     return Integer.MIN_VALUE;
   }
 
+  default @Nullable ShulkerBox shulkerBoxAt(int posX, int posY, int posZ) {
+    return user().meta().movement().shulkerBoxAt(posX, posY, posZ);
+  }
+
   default int pistonMotionToleranceRemaining() {
     return 0;
   }
@@ -586,6 +617,14 @@ public interface SimulationEnvironment {
 
   default boolean lastSneaking() {
     return false;
+  }
+
+  default boolean resolveCrouchingInputSlowdown(boolean fallback) {
+    return fallback;
+  }
+
+  default void overrideCrouchingInputSlowdown(boolean slowdown) {
+    throw new UnsupportedOperationException("Crouching input slowdown cannot be overridden");
   }
 
   default boolean currentlyInBlock() {
@@ -664,19 +703,43 @@ public interface SimulationEnvironment {
     return isSleeping();
   }
 
-  // isSwimming()
-  default boolean shouldHaveSwimmingPose() {
+  // Entity.updateSwimming()
+  default void updateSwimming() {
+    updateSwimming(lastMovementConfiguration().isSprinting());
+  }
+
+  default void updateSwimming(boolean sprinting) {
     ProtocolMetadata protocol = user().meta().protocol();
-    if (!protocol.swimmingMechanics()) {
-      return false;
+    if (!protocol.swimmingMechanics()
+      || user().meta().abilities().flying()
+      || isInVehicle()) {
+      setSwimming(false);
+      return;
     }
-    boolean sprinting = lastSprinting();
-    boolean swimming = pose() == Pose.SWIMMING;
-    if (swimming) {
-      return sprinting && inWater();
-    } else {
-      return sprinting && ((pose() == Pose.FALL_FLYING && inWater()) || areEyesInWater());
+
+    if (isSwimming()) {
+      setSwimming(sprinting && inWater());
+      return;
     }
+
+    boolean underWater = areEyesInWater() && inWater();
+    if (!sprinting || !underWater) {
+      setSwimming(false);
+      return;
+    }
+
+    boolean waterAtBlockPosition = !protocol.cavesAndCliffsUpdate()
+      || VolatileBlockAccess.fluidAccess(
+        user(),
+        verifiedLastPositionX(),
+        verifiedLastPositionY(),
+        verifiedLastPositionZ()
+      ).isOfWater();
+    setSwimming(waterAtBlockPosition);
+  }
+
+  default boolean shouldHaveSwimmingPose() {
+    return isSwimming();
   }
 
   default boolean shouldHaveSneakingPose() {

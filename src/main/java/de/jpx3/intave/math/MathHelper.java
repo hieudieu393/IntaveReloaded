@@ -1,3 +1,14 @@
+/*
+ * Copyright 2026 Intave
+ *
+ * This software is licensed under the PolyForm Perimeter License 1.0.0.
+ * You may use this software for any purpose, except for providing to
+ * others any product that competes with the software.
+ *
+ * A copy of the license is available at:
+ *   https://polyformproject.org/licenses/perimeter/1.0.0/
+ */
+
 package de.jpx3.intave.math;
 
 import de.jpx3.intave.share.Motion;
@@ -23,7 +34,7 @@ public final class MathHelper {
      1_000_000_000L,
     10_000_000_000L
   };
-  
+
   public static double averageOf(List<? extends Number> data) {
     double sum = 0;
     for (Number element : data) {
@@ -183,4 +194,8 @@ public final class MathHelper {
   public static double resolveHorizontalDistance(double x1, double z1, double x2, double z2) {
     return Hypot.fast(x1 - x2, z1 - z2);
   }
+
+	public static double square(double v) {
+    return v * v;
+	}
 }

@@ -1,7 +1,19 @@
+/*
+ * Copyright 2026 Intave
+ *
+ * This software is licensed under the PolyForm Perimeter License 1.0.0.
+ * You may use this software for any purpose, except for providing to
+ * others any product that competes with the software.
+ *
+ * A copy of the license is available at:
+ *   https://polyformproject.org/licenses/perimeter/1.0.0/
+ */
+
 package de.jpx3.intave.block.physics;
 
 import de.jpx3.intave.block.fluid.Fluids;
 import de.jpx3.intave.block.type.BlockTypeAccess;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 
 public final class MaterialMagic {
@@ -19,7 +31,12 @@ public final class MaterialMagic {
 
   public static boolean blockSolid(Material material) {
     // Liquids aren't solid
-    if (isLavaOrWater(material) || material.isTransparent()) {
+    if (isLavaOrWater(material)) {
+      return false;
+    }
+    // Modern Bukkit resolves this deprecated property through the live server
+    // registry, which is intentionally absent from standalone physics tests.
+    if (Bukkit.getServer() != null && material.isTransparent()) {
       return false;
     }
     // Materials of MaterialLogic and MaterialTransparent override isSolid() with "false"

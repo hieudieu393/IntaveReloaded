@@ -21,7 +21,6 @@ import de.jpx3.intave.module.tracker.entity.Entity;
 import de.jpx3.intave.player.collider.complex.SimulationResult;
 import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.share.BoundingBox;
-import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.share.Position;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.world.border.WorldBorder;
@@ -46,7 +45,7 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 	private final double motionX, motionY, motionZ;
 	private final double baseMotionX, baseMotionY, baseMotionZ;
 	private final boolean motionXReset, motionZReset;
-	private final List<Motion> postTickMotionCandidates;
+	private final List<PostTickSimulation> postTickSimulations;
 	private final Vector motionMultiplier;
 	private final float rotationYaw, yawSine, yawCosine, rotationPitch;
 	private final float aiMoveSpeed, sprintAiMoveSpeed;
@@ -56,6 +55,7 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 	private final boolean hasJumpedInTick;
 	private final boolean sneaking, sprinting, hasSprintSpeed, sprintingAllowed;
 	private final boolean lastSprinting;
+	private final boolean swimming;
 	private final boolean inWater, inLava, inWeb;
 	private final double lavaDepth;
 	private final boolean onGround, lastOnGround, collidedHorizontally, collidedVertically;
@@ -95,6 +95,7 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 	private final double boatWaterLevel;
 	private final int physicsPacketRelinkFlyVL;
 	private final boolean lastSneaking, currentlyInBlock;
+	private final boolean crouchingInputSlowdownWhenFalse, crouchingInputSlowdownWhenTrue;
 	private final int highestLocalRiptideLevel;
 	private final boolean onGroundWithRiptide;
 	private final double baseMoveSpeed;
@@ -148,6 +149,7 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 		this.sneaking = source.isSneaking();
 		this.sprinting = source.isSprinting();
 		this.lastSprinting = source.lastSprinting();
+		this.swimming = source.isSwimming();
 		this.areEyesInWater = source.areEyesInWater();
 		this.hasSprintSpeed = source.hasSprintSpeed();
 		this.sprintingAllowed = source.sprintingAllowed();
@@ -206,13 +208,15 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 		this.boatWaterLevel = source.boatWaterLevel();
 		this.physicsPacketRelinkFlyVL = source.physicsPacketRelinkFlyVL();
 		this.lastSneaking = source.lastSneaking();
+		this.crouchingInputSlowdownWhenFalse = source.resolveCrouchingInputSlowdown(false);
+		this.crouchingInputSlowdownWhenTrue = source.resolveCrouchingInputSlowdown(true);
 		this.currentlyInBlock = source.currentlyInBlock();
 		this.highestLocalRiptideLevel = source.highestLocalRiptideLevel();
 		this.onGroundWithRiptide = source.onGroundWithRiptide();
 		this.baseMoveSpeed = source.baseMoveSpeed();
 		this.clientElytraFlying = source.shouldHaveFallFlyingPose();
 		this.sleeping = source.isSleeping();
-		this.postTickMotionCandidates = new ArrayList<>(source.postTickMotionCandidates());
+		this.postTickSimulations = copyPostTickMotionCandidates(source.postTickMotionCandidates());
 		this.mainSupportingBlockPos = source.mainSupportingBlockPos();
 		this.onGroundNoBlocks = source.onGroundNoBlocks();
 		this.activeTracker = new EnumMap<>(MoveMetric.class);
@@ -365,12 +369,14 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 	}
 
 	@Override
-	public List<Motion> postTickMotionCandidates() {
-		return postTickMotionCandidates.isEmpty() ? Collections.emptyList() : new ArrayList<>(postTickMotionCandidates);
+	public List<PostTickSimulation> postTickMotionCandidates() {
+		return postTickSimulations.isEmpty()
+			? Collections.emptyList()
+			: Collections.unmodifiableList(copyPostTickMotionCandidates(postTickSimulations));
 	}
 
 	@Override
-	public void setPostTickMotionCandidates(@NotNull List<Motion> postTickMotionCandidates) {
+	public void setPostTickMotionCandidates(@NotNull List<PostTickSimulation> postTickSimulations) {
 		throw immutableCopyException();
 	}
 
@@ -531,6 +537,16 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 
 	@Override
 	public void setLastSprinting(boolean lastSprinting) {
+		throw immutableCopyException();
+	}
+
+	@Override
+	public boolean isSwimming() {
+		return swimming;
+	}
+
+	@Override
+	public void setSwimming(boolean swimming) {
 		throw immutableCopyException();
 	}
 
@@ -973,6 +989,11 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 	}
 
 	@Override
+	public boolean resolveCrouchingInputSlowdown(boolean fallback) {
+		return fallback ? crouchingInputSlowdownWhenTrue : crouchingInputSlowdownWhenFalse;
+	}
+
+	@Override
 	public boolean currentlyInBlock() {
 		return currentlyInBlock;
 	}
@@ -1101,12 +1122,14 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 		other.setBoundingBox(copyBoundingBox(boundingBox));
 		other.setWorldBorder(worldBorder);
 		other.setBaseMotion(baseMotionX, baseMotionY, baseMotionZ);
+		other.setPostTickMotionCandidates(copyPostTickMotionCandidates(postTickSimulations));
 		if (motionMultiplier == null) {
 			other.resetMotionMultiplier();
 		} else {
 			other.setMotionMultiplier(copyVector(motionMultiplier));
 		}
 		other.setJumpMotion(jumpMotion);
+		other.setSwimming(swimming);
 		other.setInWater(inWater);
 		other.setInLava(inLava);
 		other.setLavaDepth(lavaDepth);
@@ -1125,6 +1148,16 @@ public final class ImmutableSimulationEnvironmentCopy implements SimulationEnvir
 		other.setBoatWaterLevel(boatWaterLevel);
 		other.setPhysicsPacketRelinkFlyVL(physicsPacketRelinkFlyVL);
 		applyMetricsTo(other);
+	}
+
+	private static List<PostTickSimulation> copyPostTickMotionCandidates(
+		List<PostTickSimulation> candidates
+	) {
+		List<PostTickSimulation> copies = new ArrayList<>(candidates.size());
+		for (PostTickSimulation candidate : candidates) {
+			copies.add(candidate.copy());
+		}
+		return copies;
 	}
 
 	private void applyFallDistanceTo(SimulationEnvironment other) {

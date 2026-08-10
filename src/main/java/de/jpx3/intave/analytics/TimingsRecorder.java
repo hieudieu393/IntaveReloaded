@@ -1,3 +1,14 @@
+/*
+ * Copyright 2026 Intave
+ *
+ * This software is licensed under the PolyForm Perimeter License 1.0.0.
+ * You may use this software for any purpose, except for providing to
+ * others any product that competes with the software.
+ *
+ * A copy of the license is available at:
+ *   https://polyformproject.org/licenses/perimeter/1.0.0/
+ */
+
 package de.jpx3.intave.analytics;
 
 import com.google.common.collect.ImmutableSet;
@@ -29,6 +40,7 @@ public final class TimingsRecorder extends Recorder {
       timingJson.addProperty("name", timing.name());
       timingJson.addProperty("calls", timing.recordedCalls());
       timingJson.addProperty("total-ns", timing.totalDurationNanos());
+      timingJson.addProperty("p99-ns", timing.p99CallDurationInNanos());
       if (timing.isPacketEventTiming()) {
         packetTimings.add(timingJson);
       } else if (timing.isBukkitEventTiming()) {

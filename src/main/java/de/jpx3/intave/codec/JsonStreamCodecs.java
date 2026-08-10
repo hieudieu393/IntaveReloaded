@@ -181,6 +181,28 @@ public final class JsonStreamCodecs {
     );
   }
 
+  public static <T, A, B, C, D, E, F, G, H, I> JsonObjectCodec<T> object(
+    JsonField<T, A> first,
+    JsonField<T, B> second,
+    JsonField<T, C> third,
+    JsonField<T, D> fourth,
+    JsonField<T, E> fifth,
+    JsonField<T, F> sixth,
+    JsonField<T, G> seventh,
+    JsonField<T, H> eighth,
+    JsonField<T, I> ninth,
+    NonaFunction<A, B, C, D, E, F, G, H, I, T> constructor
+  ) {
+    return objectCodec(
+      Arrays.asList(first, second, third, fourth, fifth, sixth, seventh, eighth, ninth),
+      values -> constructor.apply(
+        value(values, 0), value(values, 1), value(values, 2), value(values, 3),
+        value(values, 4), value(values, 5), value(values, 6), value(values, 7),
+        value(values, 8)
+      )
+    );
+  }
+
   private static <T> JsonObjectCodec<T> objectCodec(
     List<? extends JsonField<T, ?>> fields,
     Function<Object[], T> constructor
@@ -571,6 +593,11 @@ public final class JsonStreamCodecs {
   @FunctionalInterface
   public interface OctaFunction<A, B, C, D, E, F, G, H, R> {
     R apply(A first, B second, C third, D fourth, E fifth, F sixth, G seventh, H eighth);
+  }
+
+  @FunctionalInterface
+  public interface NonaFunction<A, B, C, D, E, F, G, H, I, R> {
+    R apply(A first, B second, C third, D fourth, E fifth, F sixth, G seventh, H eighth, I ninth);
   }
 
   @FunctionalInterface

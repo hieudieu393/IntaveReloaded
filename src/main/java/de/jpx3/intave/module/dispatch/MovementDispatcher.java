@@ -260,6 +260,7 @@ public final class MovementDispatcher extends Module {
       movement.sneaking = false;
       movement.sleepingBedPosition = null;
       movement.setSprinting(false);
+      movement.setSwimming(false);
       if (protocol.protocolVersion() >= VER_1_16) {
         user.refreshSprintState();
       }

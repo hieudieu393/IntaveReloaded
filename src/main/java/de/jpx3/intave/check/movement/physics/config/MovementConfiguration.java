@@ -31,7 +31,12 @@ public interface MovementConfiguration {
 			MovementConfiguration::overrideEndMotionToActualMotion,
 			true
 		),
-		(forward, strafe, handActive, jumping, reduceTicks, sprinting, reduceBefore, overrideEndMotion) -> {
+		booleanField(
+			"v21_9BlockInsideCheck",
+			MovementConfiguration::usesAlternateBlockInsideCheck,
+			false
+		),
+		(forward, strafe, handActive, jumping, reduceTicks, sprinting, reduceBefore, overrideEndMotion, v21_9BlockInsideCheck) -> {
 			MovementConfiguration configuration = MovementConfiguration.blank()
 				.withKeypress(forward, strafe)
 				.withHandActive(handActive)
@@ -39,9 +44,12 @@ public interface MovementConfiguration {
 				.withReduceTicks(reduceTicks)
 				.withSprintingSetTo(sprinting)
 				.withReduceBefore(reduceBefore);
-			return overrideEndMotion
+			configuration = overrideEndMotion
 				? configuration.allowOverrideToActualMotion()
 				: configuration.denyOverrideToActualMotion();
+			return v21_9BlockInsideCheck
+				? configuration.withAlternativeBlockInsideCheck()
+				: configuration.withoutAlternativeBlockInsideCheck();
 		}
 	);
 
@@ -66,6 +74,8 @@ public interface MovementConfiguration {
 	boolean reduceBefore();
 
 	boolean overrideEndMotionToActualMotion();
+
+	boolean usesAlternateBlockInsideCheck();
 
 	int reduceTicks();
 
@@ -106,6 +116,10 @@ public interface MovementConfiguration {
 	MovementConfiguration allowOverrideToActualMotion();
 
 	MovementConfiguration denyOverrideToActualMotion();
+
+	MovementConfiguration withAlternativeBlockInsideCheck();
+
+	MovementConfiguration withoutAlternativeBlockInsideCheck();
 
 	TraceImmutableMovementConfiguration withRecording();
 

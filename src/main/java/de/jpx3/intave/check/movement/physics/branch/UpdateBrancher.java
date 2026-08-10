@@ -16,13 +16,14 @@ import de.jpx3.intave.check.movement.physics.update.CausalConstraint;
 import de.jpx3.intave.check.movement.physics.update.TickAmbiguousUpdate;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
 public final class UpdateBrancher extends MovementSearchBrancher {
 	@Override
-	public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, List<MovementSearchBranch> outputBranches) {
+	public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, Collection<MovementSearchBranch> outputBranches) {
 		SimulationEnvironment environment = input.environment();
 
 		List<TickAmbiguousUpdate> updates = environment.possibleTickAmbiguousUpdates();
@@ -83,7 +84,7 @@ public final class UpdateBrancher extends MovementSearchBrancher {
 			UnaryOperator<SimulationEnvironment> envUpdate = options.get(i);
 			boolean thisCanFinishTick = canFinishTick.get(i);
 			MovementSearchBranch cfg = inputBranch;
-			cfg = cfg.modifyAfter(envUpdate, "_updateBranch=" + i+"."+thisCanFinishTick);
+			cfg = cfg.withAmbiguousUpdates(envUpdate, i, thisCanFinishTick);
 			cfg = cfg.withExplicitTickFinishAllow(thisCanFinishTick);
 			outputBranches.add(cfg);
 //			input.user().sendMessage("Branching option: " + optionDebug.get(i) + " (canFinishTick=" + thisCanFinishTick + ")");

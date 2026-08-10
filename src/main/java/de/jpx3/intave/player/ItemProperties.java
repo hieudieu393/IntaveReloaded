@@ -106,16 +106,15 @@ public final class ItemProperties {
     }
   }
 
-  public static boolean canItemBeUsed(Player player, @Nullable ItemStack itemStack) {
+  public static boolean canItemBeUsed(User user, @Nullable ItemStack itemStack) {
     Material type = itemStack == null ? Material.AIR : itemStack.getType();
     if (/*ITEM_TRIDENT != null && */type == ITEM_TRIDENT) {
-      User user = UserRepository.userOf(player);
       return tridentUsable(user, itemStack);
     }
 
     // Bow check
     if (type == Material.BOW) {
-      boolean hasArrows = inventoryContains(player, arrowItems);
+      boolean hasArrows = inventoryContains(user.player(), arrowItems);
       if (!hasArrows) {
         return false;
       }
@@ -125,8 +124,8 @@ public final class ItemProperties {
     }
     boolean useItem = materialUseItems.contains(type);
     boolean potion = materialPotionItems.contains(type);
-    boolean sword = materialSwordItems.contains(type) && swordBlockable(player);
-    return sword || useItem || potion || foodConsumable(player, type);
+    boolean sword = materialSwordItems.contains(type) && swordBlockable(user.player());
+    return sword || useItem || potion || foodConsumable(user, type);
   }
 
   public static boolean crossbowLoaded(ItemStack itemStack) {
@@ -159,8 +158,7 @@ public final class ItemProperties {
     return protocol.swordBlockingPossible() || protocol.viaVersionShieldBlockReplacement();
   }
 
-  public static boolean foodConsumable(Player player, Material type) {
-    User user = UserRepository.userOf(player);
+  public static boolean foodConsumable(User user, Material type) {
     AbilityMetadata abilityData = user.meta().abilities();
     boolean creative = abilityData.inGameMode(AbilityTracker.GameMode.CREATIVE);
     if (creative) {

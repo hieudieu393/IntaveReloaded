@@ -19,6 +19,7 @@ import de.jpx3.intave.check.movement.physics.branch.MovementSearchBranchers;
 import de.jpx3.intave.check.movement.physics.branch.MovementSearchInput;
 import de.jpx3.intave.check.movement.physics.config.MovementConfiguration;
 import de.jpx3.intave.check.movement.physics.config.TraceImmutableMovementConfiguration;
+import de.jpx3.intave.check.movement.physics.environment.PostTickSimulation;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.check.movement.physics.search.collector.BestSimulationSet;
 import de.jpx3.intave.check.movement.physics.search.collector.ExhaustiveSimulationCollector;
@@ -38,6 +39,7 @@ import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.InventoryMetadata;
 import de.jpx3.intave.user.meta.MetadataBundle;
 import de.jpx3.intave.user.meta.MovementMetadata;
+import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import org.bukkit.ChatColor;
 
 import java.util.*;
@@ -99,13 +101,13 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 				continue;
 			}
 			SimulationEnvironment firstTickEnvironment = firstTickSimulation.environment().mutableView();
-			simulator.simulateAround(
+			Simulator secondTickSimulator = simulator.simulateAround(
 				user, firstTickEnvironment, firstTickSimulation,
 				receivedPosition, environment.rotation()
 			);
 
 			ExhaustiveSimulationCollector secondTickContainer = collectSimulations(
-				user, simulator, firstTickEnvironment,
+				user, secondTickSimulator, firstTickEnvironment,
 				ExhaustiveSimulationCollector.forEnvironment(
 					user, firstTickEnvironment, lastPositionB4Flying, maxFlyingSimulations,
 					bestSimulations, sim -> sim.positionDifference(receivedPosition)
@@ -119,13 +121,13 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 					continue;
 				}
 				SimulationEnvironment secondTickEnvironment = secondTickFlyingSimulation.environment().mutableView();
-				simulator.simulateAround(
+				Simulator thirdTickSimulator = secondTickSimulator.simulateAround(
 					user, secondTickEnvironment, secondTickFlyingSimulation,
 					receivedPosition, environment.rotation()
 				);
 
 				ExhaustiveSimulationCollector thirdTickContainer = collectSimulations(
-					user, simulator, secondTickEnvironment,
+					user, thirdTickSimulator, secondTickEnvironment,
 					ExhaustiveSimulationCollector.forEnvironment(
 						user, secondTickEnvironment, lastPositionB4Flying, maxFlyingSimulations,
 						bestSimulations, sim -> sim.positionDifference(receivedPosition)
@@ -136,6 +138,131 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 			}
 		}
 		return bestSimulations.simulations();
+	}
+
+	public Simulation exactFlyingPacketSearch(
+		User user,
+		SimulationEnvironment environment,
+		Simulator simulator,
+		int precedingFlyingPackets
+	) {
+		// Recordings know the exact count; production fuzzy search intentionally does not.
+		if (precedingFlyingPackets < 0 || precedingFlyingPackets > 2) {
+			throw new IllegalArgumentException(
+				"precedingFlyingPackets must be between 0 and 2"
+			);
+		}
+
+		Position receivedPosition = environment.position();
+		Position lastReportedPosition = environment.lastPosition();
+		int maxFlyingSimulations = 36;
+		MergingSimulationCollector firstTickContainer = collectSimulations(
+			user, simulator, environment,
+			MergingSimulationCollector.forEnvironment(user, environment, maxFlyingSimulations),
+			simulation -> false
+		);
+		int totalSimulationsDone = firstTickContainer.simulationsDone();
+		if (precedingFlyingPackets == 0) {
+			return finishExactSearch(
+				user, firstTickContainer.bestSimulation(), 0, totalSimulationsDone
+			);
+		}
+
+		Simulation bestSimulation = Simulation.invalid();
+		for (Simulation firstTickSimulation : firstTickContainer.flyingSimulations()) {
+			SimulationEnvironment firstTickEnvironment = firstTickSimulation.environment().mutableView();
+			Simulator secondTickSimulator = simulator.simulateAround(
+				user, firstTickEnvironment, firstTickSimulation,
+				receivedPosition, environment.rotation()
+			);
+			MergingSimulationCollector secondTickContainer = collectSimulations(
+				user, secondTickSimulator, firstTickEnvironment,
+				MergingSimulationCollector.forEnvironmentWithCustomTargets(
+					user, firstTickEnvironment, firstTickEnvironment.sentOffsetMotion(),
+					lastReportedPosition, maxFlyingSimulations
+				),
+				simulation -> false
+			);
+			totalSimulationsDone += secondTickContainer.simulationsDone();
+			if (precedingFlyingPackets == 1) {
+				bestSimulation = bestSimulation.select(
+					secondTickContainer.bestSimulation(), receivedPosition
+				);
+				continue;
+			}
+
+			for (Simulation secondTickFlyingSimulation : secondTickContainer.flyingSimulations()) {
+				SimulationEnvironment secondTickEnvironment = secondTickFlyingSimulation.environment().mutableView();
+				Simulator thirdTickSimulator = secondTickSimulator.simulateAround(
+					user, secondTickEnvironment, secondTickFlyingSimulation,
+					receivedPosition, environment.rotation()
+				);
+				MergingSimulationCollector thirdTickContainer = collectSimulations(
+					user, thirdTickSimulator, secondTickEnvironment,
+					MergingSimulationCollector.forEnvironmentWithCustomTargets(
+						user, secondTickEnvironment, secondTickEnvironment.sentOffsetMotion(),
+						lastReportedPosition, maxFlyingSimulations
+					),
+					simulation -> false
+				);
+				totalSimulationsDone += thirdTickContainer.simulationsDone();
+				bestSimulation = bestSimulation.select(
+					thirdTickContainer.bestSimulation(), receivedPosition
+				);
+			}
+		}
+		return finishExactSearch(
+			user, bestSimulation, precedingFlyingPackets, totalSimulationsDone
+		);
+	}
+
+	public Simulation positionlessFlyingPacketSearch(
+		User user,
+		SimulationEnvironment environment,
+		Simulator simulator
+	) {
+		// A positionless packet may only select a branch below the client's send threshold.
+		MergingSimulationCollector simulations = collectSimulations(
+			user, simulator, environment,
+			MergingSimulationCollector.forEnvironment(user, environment, 36),
+			simulation -> false
+		);
+		Position lastReportedPosition = environment.lastPosition();
+		Simulation bestSimulation = simulations.flyingSimulations().stream()
+			.min(Comparator
+				.comparingDouble((Simulation simulation) ->
+					simulation.positionDifference(lastReportedPosition)
+				)
+				.thenComparing(simulation -> simulation.configuration().toString())
+				.thenComparingDouble(simulation -> simulation.offsetMotion().motionX)
+				.thenComparingDouble(simulation -> simulation.offsetMotion().motionY)
+				.thenComparingDouble(simulation -> simulation.offsetMotion().motionZ)
+			)
+			.orElse(Simulation.invalid());
+		if (bestSimulation == Simulation.invalid()) {
+			return bestSimulation;
+		}
+		bestSimulation.appendBlue("pf/" + simulations.simulationsDone() + "es");
+		applySimulation(user, bestSimulation);
+		user.meta().movement().simulationRateLimiter.noteAcquired(simulations.simulationsDone());
+		return bestSimulation;
+	}
+
+	private Simulation finishExactSearch(
+		User user,
+		Simulation simulation,
+		int precedingFlyingPackets,
+		int totalSimulationsDone
+	) {
+		if (simulation == Simulation.invalid()) {
+			return simulation;
+		}
+		simulation.appendBlue(
+			precedingFlyingPackets + "f/" + totalSimulationsDone + "es"
+		);
+		applySimulation(user, simulation);
+		user.meta().movement().simulationRateLimiter.noteAcquired(totalSimulationsDone);
+		return simulation;
 	}
 
 	@Override
@@ -162,7 +289,7 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 		MergingSimulationCollector firstTickContainer = collectSimulations(
 			user, simulator, movementData,
 			MergingSimulationCollector.forEnvironment(user, movementData, maxFlyingSimulations),
-		 sim -> sim.offsetDifference() < requiredAccuracyFirstTick && !FIRST_TICK_MUST_BE_FULLY_SIMULATED
+			sim -> sim.offsetDifference() < requiredAccuracyFirstTick && !FIRST_TICK_MUST_BE_FULLY_SIMULATED
 		);
 
 		int totalSimulationsDone = firstTickContainer.simulationsDone();
@@ -176,7 +303,7 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 				if (totalSimulationsDone > 1) {
 					bestSimulation.appendBlue(totalSimulationsDone + "as");
 				}
-				double durationMs = ((double)System.nanoTime() - start) / 1_000_000d;
+				double durationMs = ((double) System.nanoTime() - start) / 1_000_000d;
 				if (durationMs > 0.1) {
 					bestSimulation.appendBlue(formatDouble(durationMs, 2) + "ms");
 				}
@@ -196,14 +323,14 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 				continue;
 			}
 			SimulationEnvironment firstTickEnvironment = firstTickSimulation.environment().mutableView();
-			simulator.simulateAround(
+			Simulator secondTickSimulator = simulator.simulateAround(
 				user, firstTickEnvironment, firstTickSimulation,
 				receivedPosition, movementData.rotation()
 			);
 
 			Motion secondTickRemainingMotion = firstTickEnvironment.sentOffsetMotion();
 			MergingSimulationCollector secondTickContainer = collectSimulations(
-				user, simulator, firstTickEnvironment,
+				user, secondTickSimulator, firstTickEnvironment,
 				MergingSimulationCollector.forEnvironmentWithCustomTargets(
 					user, firstTickEnvironment, secondTickRemainingMotion, lastPositionB4Flying, maxFlyingSimulations
 				),
@@ -212,7 +339,7 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 			totalSimulationsDone += secondTickContainer.simulationsDone();
 
 			Simulation secondTickSimulation = secondTickContainer.bestSimulation();
-			secondTickSimulation.appendBlue("1f/"+firstTickFlyingSimulations.size() + "x");
+			secondTickSimulation.appendBlue("1f/" + firstTickFlyingSimulations.size() + "x");
 
 			double secondTickDistance = secondTickSimulation.positionDifference(receivedPosition);
 			if (secondTickDistance < bestDistance && secondTickSimulation.canFinishExplicitTick()) {
@@ -224,7 +351,7 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 				if (totalSimulationsDone > 1) {
 					bestSimulation.appendBlue(totalSimulationsDone + "bs");
 				}
-				double durationMs = ((double)System.nanoTime() - start) / 1_000_000d;
+				double durationMs = ((double) System.nanoTime() - start) / 1_000_000d;
 				if (durationMs > 0.1) {
 					bestSimulation.appendBlue(formatDouble(durationMs, 2) + "ms");
 				}
@@ -242,23 +369,23 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 				}
 
 				SimulationEnvironment secondTickEnvironment = secondTickFlyingSimulation.environment().mutableView();
-				simulator.simulateAround(
+				Simulator thirdTickSimulator = secondTickSimulator.simulateAround(
 					user, secondTickEnvironment, secondTickFlyingSimulation,
 					receivedPosition, movementData.rotation()
 				);
 
 				Motion thirdTickRemainingMotion = secondTickEnvironment.sentOffsetMotion();
-				MergingSimulationCollector thirdTickSimulator = collectSimulations(
-					user, simulator, secondTickEnvironment,
+				MergingSimulationCollector thirdTickContainer = collectSimulations(
+					user, thirdTickSimulator, secondTickEnvironment,
 					MergingSimulationCollector.forEnvironmentWithCustomTargets(
 						user, secondTickEnvironment, thirdTickRemainingMotion, lastPositionB4Flying, maxFlyingSimulations
 					),
 					sim -> sim.positionDifference(receivedPosition) < requiredAccuracyThirdTick
 				);
-				totalSimulationsDone += thirdTickSimulator.simulationsDone();
+				totalSimulationsDone += thirdTickContainer.simulationsDone();
 
-				Simulation thirdTickSimulation = thirdTickSimulator.bestSimulation();
-				thirdTickSimulation.appendBlue("2f/" + secondTickFlyingCandidates.size()+"x");
+				Simulation thirdTickSimulation = thirdTickContainer.bestSimulation();
+				thirdTickSimulation.appendBlue("2f/" + secondTickFlyingCandidates.size() + "x");
 				double thirdTickDistance = thirdTickSimulation.positionDifference(receivedPosition);
 				if (thirdTickDistance < bestDistance && thirdTickSimulation.canFinishExplicitTick()) {
 					bestSimulation = thirdTickSimulation.reusableCopy();
@@ -269,7 +396,7 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 					if (totalSimulationsDone > 1) {
 						bestSimulation.appendBlue(totalSimulationsDone + "cs");
 					}
-					double durationMs = ((double)System.nanoTime() - start) / 1_000_000d;
+					double durationMs = ((double) System.nanoTime() - start) / 1_000_000d;
 					if (durationMs > 0.1) {
 						bestSimulation.appendBlue(formatDouble(durationMs, 2) + "ms");
 					}
@@ -282,7 +409,7 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 		if (totalSimulationsDone > 1) {
 			bestSimulation.appendBlue(totalSimulationsDone + "ds");
 		}
-		double durationMs = ((double)System.nanoTime() - start) / 1_000_000d;
+		double durationMs = ((double) System.nanoTime() - start) / 1_000_000d;
 		if (durationMs > 0.1) {
 			bestSimulation.appendBlue(formatDouble(durationMs, 2) + "ms");
 		}
@@ -293,7 +420,7 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 	}
 
 	@Override
-	public List<Motion> afterTickMotionCandidates(
+	public List<PostTickSimulation> afterTickMotionCandidates(
 		@Immutable User user, @Mutable SimulationEnvironment environment,
 		@Immutable Simulator simulator, @Immutable Position position,
 		@Immutable PostTickMotionType motionType
@@ -313,35 +440,38 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 			position, afterTickInputMotion.copy()
 		);
 
+		// Entity.updateSwimming consumes this tick's sprint state during the next
+		// base tick, even when after-tick motion itself did not read sprinting.
+		if (user.meta().protocol().swimmingMechanics()) {
+			trace.isSprinting();
+		}
+
 		// write to the active environment
 		// this is a safety measure in case we drop/forget to run LastPostTickCandidateBrancher next tick
 		branchEnv.setBaseMotion(outputMotion);
 
 		// If the afterTick does not depend on the movementConfiguration, we can just return the outputMotion and not bother with the search
 		if (!trace.requiredAnyState()) {
-//			user.sendMessage("[afterTickMotionCandidates:322] No movement config required, returning single motion candidate");
 			branchEnv.commitTo(environment);
-			return Collections.singletonList(outputMotion);
+			return Collections.singletonList(
+				new PostTickSimulation(outputMotion, last.isSprinting())
+			);
 		}
-
-//		user.sendMessage(trace.requiredSprintingState() + "spr " + trace.requiredJumpingState() + "jmp");
 
 		// Now we can search for all possible movement configurations that we possibly didn't check in the tick search.
 		Set<MovementSearchBranch> branches = AFTER_TICK_SEARCHER.searchConfigurationsFor(
 			MovementSearchInput.forAfterTick(user, simulator, environment, detectNoSlowdown, trace) // trace to restrict
 		);
 
-		if (branches.isEmpty() || branches.size() == 1) {
-//			if (branches.size() == 1) {
-//				user.sendMessage("Only one branch found");
-//			}
-//			user.sendMessage("[afterTickMotionCandidates:322] No branches found, returning single motion candidate");
+		if (branches.isEmpty()) {
 			branchEnv.commitTo(environment);
-			return Collections.singletonList(outputMotion);
+			return Collections.singletonList(
+				new PostTickSimulation(outputMotion, last.isSprinting())
+			);
 		}
 
-		List<Motion> motions = new ArrayList<>();
-		motions.add(outputMotion);
+		List<PostTickSimulation> candidates = new ArrayList<>();
+		candidates.add(new PostTickSimulation(outputMotion, last.isSprinting()));
 
 		for (MovementSearchBranch branch : branches) {
 			SimulationEnvironment disposable = environment.mutableView();
@@ -356,10 +486,10 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 			// see below
 //			disposable.commitTo(environment);
 
-			// We only care about unique motions
-			if (!motions.contains(motion)) {
-				motions.add(motion);
-			}
+			addCandidateIfUnique(
+				candidates,
+				new PostTickSimulation(motion, branch.moveConfig().isSprinting())
+			);
 		}
 
 //		user.sendMessage("Motions: " + motions.size());
@@ -373,7 +503,19 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 		// Should this change, we have to properly support this (or we rely on rollbacking here?).
 		branchEnv.commitTo(environment);
 
-		return motions;
+		return candidates;
+	}
+
+	private static void addCandidateIfUnique(
+		List<PostTickSimulation> candidates,
+		PostTickSimulation candidate
+	) {
+		for (PostTickSimulation existing : candidates) {
+			if (existing.sameAs(candidate)) {
+				return;
+			}
+		}
+		candidates.add(candidate);
 	}
 
 	private void applySimulation(User user, Simulation simulation) {
@@ -439,7 +581,7 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 			);
 			simulation.setEnvironment(localEnvironment);
 			simulation.setCanFinishExplicitTick(canFinishExplicitTick);
-			simulation.setBranchIdentifier(config.branchIdentifier());
+			simulation.setBranchFrequencyKey(config.frequencyKey());
 			accumulator.accept(container, simulation);
 			if (canFinishExplicitTick && earlyStop.test(simulation)) {
 				break;
@@ -450,15 +592,20 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 		return finisher.apply(container);
 	}
 
-	private static List<MovementSearchBranch> sortByFrequency(User user, Set<MovementSearchBranch> branches) {
+	private static List<MovementSearchBranch> sortByFrequency(
+		User user, Set<MovementSearchBranch> branches
+	) {
 		MovementMetadata movement = user.meta().movement();
-		Map<String, Long> branchFrequency = movement.branchFrequency;
-		List<MovementSearchBranch> list = new ArrayList<>(branches);
-		if (movement.branchFrequencyTrimCounter > 256) {
-			list.sort((a, b) ->
-				Long.compare(branchFrequency.getOrDefault(b.branchIdentifier(), 0L),
-					branchFrequency.getOrDefault(a.branchIdentifier(), 0L)));
+		MovementSearchBranch[] sorted = branches.toArray(new MovementSearchBranch[0]);
+
+		if (movement.branchFrequencyTrimCounter <= 256 || sorted.length < 2) {
+			return Arrays.asList(sorted);
 		}
-		return list;
+		Long2LongMap frequencies = movement.branchFrequency;
+		Arrays.sort(sorted, (left, right) -> Long.compare(
+			frequencies.get(right.frequencyKey()),
+			frequencies.get(left.frequencyKey())
+		));
+		return Arrays.asList(sorted);
 	}
 }

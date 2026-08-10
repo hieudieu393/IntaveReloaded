@@ -18,6 +18,7 @@ public final class TraceImmutableMovementConfiguration implements MovementConfig
 	private boolean requiredReducingState;
 	private boolean requiredSprintingState;
 	private boolean requiredActualMotionOverride;
+	private boolean requiredBlockInsideCheckVersion;
 
 	public TraceImmutableMovementConfiguration(MovementConfiguration delegate) {
 		this.delegate = delegate;
@@ -58,6 +59,12 @@ public final class TraceImmutableMovementConfiguration implements MovementConfig
 	public boolean overrideEndMotionToActualMotion() {
 		requiredActualMotionOverride = true;
 		return delegate.overrideEndMotionToActualMotion();
+	}
+
+	@Override
+	public boolean usesAlternateBlockInsideCheck() {
+		requiredBlockInsideCheckVersion = true;
+		return delegate.usesAlternateBlockInsideCheck();
 	}
 
 	@Override
@@ -182,6 +189,16 @@ public final class TraceImmutableMovementConfiguration implements MovementConfig
 		throw new UnsupportedOperationException("Cannot modify a recording configuration");
 	}
 
+	@Override
+	public MovementConfiguration withAlternativeBlockInsideCheck() {
+		throw new UnsupportedOperationException("Cannot modify a recording configuration");
+	}
+
+	@Override
+	public MovementConfiguration withoutAlternativeBlockInsideCheck() {
+		throw new UnsupportedOperationException("Cannot modify a recording configuration");
+	}
+
 	public boolean requiredSprintingState() {
 		return requiredSprintingState;
 	}
@@ -198,8 +215,13 @@ public final class TraceImmutableMovementConfiguration implements MovementConfig
 		return requiredActualMotionOverride;
 	}
 
+	public boolean requiredBlockInsideCheckVersion() {
+		return requiredBlockInsideCheckVersion;
+	}
+
 	public boolean requiredAnyState() {
-		return requiredJumpingState || requiredReducingState || requiredSprintingState || requiredActualMotionOverride;
+		return requiredJumpingState || requiredReducingState || requiredSprintingState
+			|| requiredActualMotionOverride || requiredBlockInsideCheckVersion;
 	}
 
 	public void reset() {
@@ -207,6 +229,7 @@ public final class TraceImmutableMovementConfiguration implements MovementConfig
 		requiredReducingState = false;
 		requiredSprintingState = false;
 		requiredActualMotionOverride = false;
+		requiredBlockInsideCheckVersion = false;
 	}
 
 	@Override

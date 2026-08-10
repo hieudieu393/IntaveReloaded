@@ -24,6 +24,8 @@ import de.jpx3.intave.block.cache.BlockCache;
 import de.jpx3.intave.block.cache.BlockCaches;
 import de.jpx3.intave.block.fluid.FluidFlow;
 import de.jpx3.intave.block.fluid.Fluids;
+import de.jpx3.intave.block.inside.BlockInsideCheck;
+import de.jpx3.intave.block.inside.BlockInsideChecks;
 import de.jpx3.intave.block.type.BlockTypeAccess;
 import de.jpx3.intave.check.movement.physics.environment.Pose;
 import de.jpx3.intave.cleanup.GarbageCollector;
@@ -96,9 +98,11 @@ final class PlayerUser implements User {
   private final PlayerStorage storage;
   private final Lock storageSubscriptionLock = new ReentrantLock();
   private final Queue<Reference<Runnable>> storageSubscriptionQueue = new ArrayDeque<>();
+
   private Collider collider;
   private FluidFlow fluidFlow;
   private SimpleCollider simpleCollider;
+  private List<BlockInsideCheck> blockInsideChecks;
   private Map<Pose, HitboxSize> poseSizes;
   private boolean ignoreNextInboundPacket;
   private boolean ignoreNextOutboundPacket;
@@ -119,6 +123,7 @@ final class PlayerUser implements User {
     this.collider = Colliders.suitableComplexColliderProcessorFor(this);
     this.fluidFlow = Fluids.suitableFluidflowFor(this);
     this.simpleCollider = Colliders.suitableSimpleColliderProcessorFor(this);
+    this.blockInsideChecks = BlockInsideChecks.suitableFor(this);
     Synchronizer.synchronize(this::setDefaultMessagingChannel);
     this.playerContext = PlayerContext.of(player);
     this.storage = Storages.emptyPlayerStorageFor(player.getUniqueId());
@@ -149,6 +154,7 @@ final class PlayerUser implements User {
     this.fluidFlow = Fluids.suitableFluidflowFor(this);
     this.collider = Colliders.suitableComplexColliderProcessorFor(this);
     this.simpleCollider = Colliders.suitableSimpleColliderProcessorFor(this);
+    this.blockInsideChecks = BlockInsideChecks.suitableFor(this);
     this.poseSizes = Pose.poseSizesByVersion(metadata.protocol().protocolVersion());
     BlockTypeAccess.setupTranslationsFor(this);
     meta().movement().setupDefaults();
@@ -341,6 +347,11 @@ final class PlayerUser implements User {
   @Override
   public SimpleCollider simplifiedCollider() {
     return simpleCollider;
+  }
+
+  @Override
+  public List<BlockInsideCheck> blockInsideChecks() {
+    return blockInsideChecks;
   }
 
   @Override

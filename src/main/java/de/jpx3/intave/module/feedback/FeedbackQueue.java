@@ -1,10 +1,17 @@
+/*
+ * Copyright 2026 Intave
+ *
+ * This software is licensed under the PolyForm Perimeter License 1.0.0.
+ * You may use this software for any purpose, except for providing to
+ * others any product that competes with the software.
+ *
+ * A copy of the license is available at:
+ *   https://polyformproject.org/licenses/perimeter/1.0.0/
+ */
+
 package de.jpx3.intave.module.feedback;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -13,7 +20,7 @@ public final class FeedbackQueue {
   private static final int MAX_DIRECT_SIZE = 2048;
   private static final int DIRECT_TRANSLATION = 1024;
   private final FeedbackEntry[] directLocalAccess = new FeedbackEntry[MAX_DIRECT_SIZE];
-  private final Map<Short, FeedbackEntry> fallbackLocalAccess = new ConcurrentHashMap<>();
+  private final Map<Short, FeedbackEntry> fallbackLocalAccess = new HashMap<>();
   private FeedbackEntry head, tail;
   private int size;
   private final ReadWriteLock lock = new ReentrantReadWriteLock();

@@ -48,13 +48,14 @@ final class v13Fluidflow implements FluidFlow {
     boolean inWater = false;
     Motion waterFlowTotal = null;
     int countedWaterCollisions = 0;
+    boolean doublePrecision = user.meta().protocol().fluidHeightUsesDoublePrecision();
 
     for (int x = minX; x < maxX; ++x) {
       for (int y = minY; y < maxY; ++y) {
         for (int z = minZ; z < maxZ; ++z) {
           Fluid fluid = VolatileBlockAccess.fluidAccess(user, x, y, z);
           if (fluid.isOfWater()) {
-            double fluidSurfaceY = (float) y + fluid.height();
+            double fluidSurfaceY = fluidSurfaceY(y, fluid.height(), doublePrecision);
             if (fluidSurfaceY >= wrappedBoundingBox.minY) {
               inWater = true;
               largestFluidDepth = Math.max(fluidSurfaceY - wrappedBoundingBox.minY, largestFluidDepth);
@@ -174,6 +175,7 @@ final class v13Fluidflow implements FluidFlow {
   @Override
   public double fluidDepthAt(User user, BoundingBox boundingBox) {
     double largestFluidDepth = 0;
+    boolean doublePrecision = user.meta().protocol().fluidHeightUsesDoublePrecision();
     BoundingBox wrappedBoundingBox = boundingBox.shrink(0.001D);
     int minX = floor(wrappedBoundingBox.minX);
     int minY = floor(wrappedBoundingBox.minY);
@@ -186,7 +188,7 @@ final class v13Fluidflow implements FluidFlow {
         for (int z = minZ; z < maxZ; ++z) {
           Fluid fluid = VolatileBlockAccess.fluidAccess(user, x, y, z);
           if (fluid.isOfWater()) {
-            double fluidSurfaceY = (float) y + fluid.height();
+            double fluidSurfaceY = fluidSurfaceY(y, fluid.height(), doublePrecision);
             if (fluidSurfaceY >= wrappedBoundingBox.minY) {
               largestFluidDepth = Math.max(fluidSurfaceY - wrappedBoundingBox.minY, largestFluidDepth);
             }
@@ -195,6 +197,12 @@ final class v13Fluidflow implements FluidFlow {
       }
     }
     return largestFluidDepth;
+  }
+
+  static double fluidSurfaceY(int blockY, float fluidHeight, boolean doublePrecision) {
+    return doublePrecision
+      ? blockY + (double) fluidHeight
+      : (double) ((float) blockY + fluidHeight);
   }
 
   @Override

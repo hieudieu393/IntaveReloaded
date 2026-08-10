@@ -36,6 +36,7 @@ import de.jpx3.intave.check.CheckViolationLevelDecrementer;
 import de.jpx3.intave.check.movement.physics.config.MovementConfiguration;
 import de.jpx3.intave.check.movement.physics.environment.MovementCharacteristics;
 import de.jpx3.intave.check.movement.physics.environment.Pose;
+import de.jpx3.intave.check.movement.physics.environment.PostTickSimulation;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.check.movement.physics.evaluation.DefaultSimulationEvaluator;
 import de.jpx3.intave.check.movement.physics.evaluation.EvaluationTag;
@@ -50,10 +51,12 @@ import de.jpx3.intave.diagnostic.KeyPressStudy;
 import de.jpx3.intave.diagnostic.message.DebugBroadcast;
 import de.jpx3.intave.diagnostic.message.MessageSeverity;
 import de.jpx3.intave.diagnostic.timings.Timings;
+import de.jpx3.intave.executor.BackgroundExecutors;
 import de.jpx3.intave.executor.Synchronizer;
 import de.jpx3.intave.math.MathHelper;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
+import de.jpx3.intave.module.test.PhysicsTestRecorder;
 import de.jpx3.intave.module.tracker.player.PacketLogging;
 import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.module.violation.ViolationContext;
@@ -150,7 +153,7 @@ public final class Physics extends Check {
   public void receiveMovement(User user, boolean withMovement, boolean withRotation) {
     MetadataBundle meta = user.meta();
     MovementMetadata movementData = meta.movement();
-	  Simulator simulator = Simulators.selectFor(movementData);
+    Simulator simulator = Simulators.selectFor(movementData);
     movementData.setSimulator(simulator);
     movementData.setStepHeight(simulator.stepHeight());
 
@@ -162,21 +165,29 @@ public final class Physics extends Check {
     Motion preTickMotion = simulator.simulatePreTick(user, previousBaseMotion.copy(), firstTickBranch);
     firstTickBranch.setBaseMotion(preTickMotion);
 
+    simulator = Simulators.selectFor(firstTickBranch);
+    movementData.setSimulator(simulator);
+    movementData.setStepHeight(simulator.stepHeight());
+
     /*
      * Run simulatePreTick on all postTickMotionCandidates, discarding the environment changes
      */
-    List<Motion> candidates = movementData.postTickMotionCandidates();
+    List<PostTickSimulation> candidates = movementData.postTickMotionCandidates();
     if (!candidates.isEmpty()) {
       // micro optimization
-      if (candidates.size() == 1 && candidates.get(0).equals(previousBaseMotion)) {
+      if (candidates.size() == 1 && candidates.get(0).motion().equals(previousBaseMotion)) {
         movementData.setPostTickMotionCandidates(
-          Collections.singletonList(preTickMotion)
+          Collections.singletonList(candidates.get(0).withMotion(preTickMotion))
         );
       } else {
-        List<Motion> newCandidates = new ArrayList<>();
-        for (Motion candidate : candidates) {
+        List<PostTickSimulation> newCandidates = new ArrayList<>();
+        for (PostTickSimulation candidate : candidates) {
           newCandidates.add(
-            simulator.simulatePreTick(user, candidate.copy(), movementData.mutableView())
+            candidate.withMotion(
+              simulator.simulatePreTick(
+                user, candidate.motion(), movementData.mutableView()
+              )
+            )
           );
         }
         movementData.setPostTickMotionCandidates(newCandidates);
@@ -217,6 +228,19 @@ public final class Physics extends Check {
     );
     if (!withMovement && !reinterpretToMovePacket) {
       Timings.CHECK_PHYSICS_PROC.stop();
+      // A rotation/ground-only packet is still a real client tick. Preserve the
+      // selected branch's base-tick transition and advance sprint provenance even
+      // though its speculative movement is discarded. With no position delta to
+      // distinguish histories, retained motions follow that selected state branch.
+      movementData.setSwimming(simulationEnvironment.isSwimming());
+      movementData.setLastMovementConfiguration(simulation.configuration());
+      List<PostTickSimulation> advancedCandidates = new ArrayList<>();
+      for (PostTickSimulation candidate : movementData.postTickMotionCandidates()) {
+        advancedCandidates.add(new PostTickSimulation(
+          candidate.motion(), simulation.configuration().isSprinting()
+        ));
+      }
+      movementData.setPostTickMotionCandidates(advancedCandidates);
       movementData.setBaseMotion(previousBaseMotion);
       updateOnGroundIfFlying(user);
       return;
@@ -282,7 +306,7 @@ public final class Physics extends Check {
       Motion afterBaseMotion;
 
       try {
-        List<Motion> candidates = simulationSearch.afterTickMotionCandidates(
+        List<PostTickSimulation> candidates = simulationSearch.afterTickMotionCandidates(
           user, movementData, simulator,
           movementData.position(), SENT_OFFSET_MOTION
         );
@@ -329,7 +353,7 @@ public final class Physics extends Check {
 //      movementData.setBaseMotion(motion);
 
       try {
-        List<Motion> candidates = simulationSearch.afterTickMotionCandidates(
+        List<PostTickSimulation> candidates = simulationSearch.afterTickMotionCandidates(
           user, movementData, simulator, newPosition, SENT_OFFSET_MOTION
         );
         movementData.setPostTickMotionCandidates(candidates);
@@ -449,7 +473,21 @@ public final class Physics extends Check {
       movementData.artificialFallDistance = 0;
     }
 
-    double biasedDistance = MathHelper.hypot3d(differenceX, differenceY * 2, differenceZ);
+    BoundingBox myBoundingBox = movementData.boundingBox();
+    boolean freeOfHorizontalColliders = Collision.nonePresent(user, movementData, myBoundingBox.growHorizontally(0.5));
+    boolean freeOfVerticalColliders = Collision.nonePresent(user, movementData, myBoundingBox.growVertically(0.5));
+    boolean movingFasterThanPredicted = Math.abs(receivedOffsetMotionX) > Math.abs(predictedOffsetX) * 1.01 || Math.abs(receivedOffsetMotionZ) > Math.abs(predictedOffsetZ) * 1.01;
+    boolean movingSufficientlyFast = Math.abs(receivedOffsetMotionX) > 0.03 || Math.abs(receivedOffsetMotionZ) > 0.03;
+    boolean noHorizontalTags = horizontalTags.isEmpty();
+    double verticalFactor = freeOfVerticalColliders ? 3 : 2;
+    double horizontalFactor = freeOfHorizontalColliders && movingFasterThanPredicted && movingSufficientlyFast && noHorizontalTags ? 3 : 1;
+    if (horizontalViolationIncrease < 0.1) {
+      horizontalFactor = 0;
+    }
+    if (verticalViolationIncrease < 0.1) {
+      verticalFactor = 0;
+    }
+    double biasedDistance = MathHelper.hypot3d(differenceX * horizontalFactor, differenceY * verticalFactor, differenceZ * horizontalFactor);
     violationLevelData.physicsOffset += biasedDistance;
     violationLevelData.physicsOffset -= movementData.receivedFlyingPacketIn(2) && movementData.sentOffsetMotion().length() < 0.1 ? Math.min(0.03, biasedDistance) : 0;
     violationLevelData.physicsOffset -= violationLevelData.physicsOffset > 0.6 ? 0.002 : 0.001;
@@ -464,16 +502,16 @@ public final class Physics extends Check {
     }
 
     boolean velocityDetected = false;
+
     boolean checkVelocity = !skipVLCalculation
       && movementData.ticksPast(IN_WEB) > 5
       && !movementData.inWater()
       && !movementData.collidedWithBoat();
-
     if (checkVelocity && !movementData.gliding && movementData.ticksPast(EXTERNAL_VELOCITY) < 10 && !movementData.receivedFlyingPacketIn(2)) {
       boolean actuallyMoved = (Math.abs(predictedOffsetX) > 0.01 || Math.abs(predictedOffsetZ) > 0.01);
 
       boolean noCollisionOnHighVersion = !(protocol.cavesAndCliffsUpdate()
-        && Collision.present(user, movementData, movementData.boundingBox().growHorizontally(0.3)));
+        && Collision.present(user, movementData, myBoundingBox.growHorizontally(0.3)));
 
       if (distance > 0.005 && horizontalViolationIncrease > 0.001 && !onLadder && noCollisionOnHighVersion) {
         if (actuallyMoved) {
@@ -601,11 +639,12 @@ public final class Physics extends Check {
       if (horizontalFasterThanExpected) {
         gainMultiplier *= 0.5;
       }
+      boolean nothingNear = Collision.nonePresent(user, movementData, myBoundingBox.expand(0.5, 0.1, 0.5));
 
       if (Math.abs(differenceY) < 0.1 && receivedOffsetMotionY < predictedOffsetY + 0.01 &&
         Math.abs(differenceX) < 0.15 * gainMultiplier && Math.abs(differenceZ) < 0.15 * gainMultiplier &&
         Math.abs(differenceX) + Math.abs(differenceZ) < 0.2 * gainMultiplier &&
-        distance < 0.25
+        distance < 0.25 && nothingNear
       ) {
         violationLevelData.physicsInsignificantBufferVL += (distance < 0.05 ? 0.5 : 1);
         violationLevelIncrease = 0;
@@ -672,11 +711,11 @@ public final class Physics extends Check {
 
     double latantDistance = 0.7;
     if (violationLevelIncrease > 0) {
-      boolean uncommonArea = //movementData.past(WATER_MOVEMENT) < 20
+      boolean uncommonArea =
         movementData.collidedHorizontally
         || movementData.collidedWithBoat()
-        || movementData.inWeb
-        || movementData.ticksPast(ELYTRA_FLYING) < 20;
+        || movementData.inWeb;
+//        || movementData.ticksPast(ELYTRA_FLYING) < 20;
       if (uncommonArea) {
         violationLevelIncrease /= 2;
       } else if (protocol.aquaticUpdate()) {
@@ -909,6 +948,12 @@ public final class Physics extends Check {
       }
 
       if (user.trustFactor().atLeast(TrustFactor.BYPASS)) {
+        setback = false;
+      }
+
+      PhysicsTestRecorder recorder = Modules.physicsTestRecorder();
+      boolean recording = recorder.isRecording(user);
+      if (recording) {
         setback = false;
       }
 
@@ -1264,11 +1309,14 @@ public final class Physics extends Check {
   }
 
   private void sendPacketWithExperience(Player player, int level) {
-    PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.EXPERIENCE);
-    packet.getFloat().write(0, 0f);
-    packet.getIntegers().write(0, 0);
-    packet.getIntegers().write(1, level);
-    PacketSender.sendServerPacket(player, packet);
+    BackgroundExecutors.execute(() -> {
+      PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.EXPERIENCE);
+      packet.getFloat().write(0, 0f);
+      packet.getIntegers().write(0, 0);
+      packet.getIntegers().write(1, level);
+      Synchronizer.synchronize(() ->
+        PacketSender.sendServerPacket(player, packet));
+    });
   }
 
   private void refreshNearbyBlocks(User user, double x, double y, double z) {

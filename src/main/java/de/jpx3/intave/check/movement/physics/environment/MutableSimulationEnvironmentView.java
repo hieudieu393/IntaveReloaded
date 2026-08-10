@@ -21,7 +21,6 @@ import de.jpx3.intave.module.tracker.entity.Entity;
 import de.jpx3.intave.player.collider.complex.SimulationResult;
 import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.share.BoundingBox;
-import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.share.Position;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.world.border.WorldBorder;
@@ -35,12 +34,13 @@ import java.util.EnumMap;
 import java.util.List;
 
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.*;
+import static de.jpx3.intave.check.movement.physics.environment.MovementCharacteristics.resolveFriction;
 import static de.jpx3.intave.share.ClientMath.cos;
 import static de.jpx3.intave.share.ClientMath.sin;
 
 public final class MutableSimulationEnvironmentView implements SimulationEnvironment {
   private final SimulationEnvironment delegate;
-  private final List<EnvironmentMutation> deferredMutations = new ArrayList<>();
+  private List<EnvironmentMutation> deferredMutations;
 
   private Pose pose;
   private boolean poseOverridden;
@@ -78,7 +78,9 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   private boolean onGroundOverridden, onGround;
   private boolean lastOnGroundOverridden, lastOnGround;
   private boolean sneakingOverridden, sneaking;
+  private boolean crouchingInputSlowdownOverridden, crouchingInputSlowdown;
   private boolean lastSprintingOverridden, lastSprinting;
+  private boolean swimmingOverridden, swimming;
   private boolean collidedHorizontallyOverridden, collidedHorizontally;
   private boolean collidedVerticallyOverridden, collidedVertically;
   private boolean fallDistanceOverridden;
@@ -123,15 +125,22 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   private Material collideMaterial = Material.AIR, previousCollideMaterial = Material.AIR;
   private boolean frictionMaterialOverridden, collideMaterialOverridden,
     previousFrictionMaterialOverridden, previousCollideMaterialOverridden;
-  private List<Motion> postTickMotionCandidates;
+  private List<PostTickSimulation> postTickSimulations;
   private boolean sleepingOverridden;
   private boolean sleeping;
 
-  private final EnumMap<MoveMetric, Integer> activeTrackerOverrides = new EnumMap<>(MoveMetric.class);
-  private final EnumMap<MoveMetric, Integer> pastTrackerOverrides = new EnumMap<>(MoveMetric.class);
+  private EnumMap<MoveMetric, Integer> activeTrackerOverrides;
+  private EnumMap<MoveMetric, Integer> pastTrackerOverrides;
 
   MutableSimulationEnvironmentView(SimulationEnvironment delegate) {
     this.delegate = delegate;
+  }
+
+  private void defer(EnvironmentMutation mutation) {
+    if (deferredMutations == null) {
+      deferredMutations = new ArrayList<>(4);
+    }
+    deferredMutations.add(mutation);
   }
 
   @Override
@@ -148,7 +157,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
       boundingBoxOverridden = true;
       boundingBox = BoundingBox.fromPosition(user(), this, position());
     }
-    deferredMutations.add(environment -> environment.setPose(pose));
+    defer(environment -> environment.setPose(pose));
   }
 
   @Override
@@ -178,7 +187,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
         positionZ() - verifiedLastPositionZ()
       );
     }
-    deferredMutations.add(environment -> environment.updateMovement(
+    defer(environment -> environment.updateMovement(
       newPositionX, newPositionY, newPositionZ,
       newRotationYaw, newRotationPitch,
       hasMovement, hasRotation
@@ -190,13 +199,13 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
     setLastPosition(positionX(), positionY(), positionZ());
     setPositionOverride(x, y, z);
     setBoundingBox(BoundingBox.fromPosition(user(), this, x, y, z));
-    deferredMutations.add(environment -> environment.setPosition(x, y, z));
+    defer(environment -> environment.setPosition(x, y, z));
   }
 
   @Override
   public void setRotation(float newRotationYaw, float newRotationPitch) {
     setRotationOverride(newRotationYaw, newRotationPitch);
-    deferredMutations.add(environment -> environment.setRotation(newRotationYaw, newRotationPitch));
+    defer(environment -> environment.setRotation(newRotationYaw, newRotationPitch));
   }
 
   @Override
@@ -241,7 +250,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
     verifiedLastPositionY = position.getY();
     verifiedLastPositionZ = position.getZ();
     verifiedLastPositionReason = reason;
-    deferredMutations.add(environment -> environment.setVerifiedLastPosition(position, reason));
+    defer(environment -> environment.setVerifiedLastPosition(position, reason));
   }
 
   @Override
@@ -272,20 +281,20 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   @Override
   public void setLastRotation(float lastRotationYaw, float lastRotationPitch) {
     setLastRotationOverride(lastRotationYaw, lastRotationPitch);
-    deferredMutations.add(environment -> environment.setLastRotation(lastRotationYaw, lastRotationPitch));
+    defer(environment -> environment.setLastRotation(lastRotationYaw, lastRotationPitch));
   }
 
   @Override
   public void setLastPosition(double x, double y, double z) {
     setLastPositionOverride(x, y, z);
-    deferredMutations.add(environment -> environment.setLastPosition(x, y, z));
+    defer(environment -> environment.setLastPosition(x, y, z));
   }
 
   @Override
   public void setBoundingBox(BoundingBox boundingBox) {
     boundingBoxOverridden = true;
     this.boundingBox = boundingBox;
-    deferredMutations.add(environment -> environment.setBoundingBox(boundingBox));
+    defer(environment -> environment.setBoundingBox(boundingBox));
   }
 
   @Override
@@ -309,15 +318,16 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   }
 
   @Override
-  public List<Motion> postTickMotionCandidates() {
-    return postTickMotionCandidatesOverridden ? Collections.unmodifiableList(postTickMotionCandidates) : delegate.postTickMotionCandidates();
+  public List<PostTickSimulation> postTickMotionCandidates() {
+    return postTickMotionCandidatesOverridden ? Collections.unmodifiableList(postTickSimulations) : delegate.postTickMotionCandidates();
   }
 
   @Override
-  public void setPostTickMotionCandidates(@NotNull List<Motion> postTickMotionCandidates) {
+  public void setPostTickMotionCandidates(@NotNull List<PostTickSimulation> postTickSimulations) {
     postTickMotionCandidatesOverridden = true;
-    this.postTickMotionCandidates = postTickMotionCandidates;
-    deferredMutations.add(environment -> environment.setPostTickMotionCandidates(postTickMotionCandidates));
+    List<PostTickSimulation> candidatesCopy = new ArrayList<>(postTickSimulations);
+    this.postTickSimulations = candidatesCopy;
+    defer(environment -> environment.setPostTickMotionCandidates(candidatesCopy));
   }
 
   @Override
@@ -341,7 +351,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
     this.baseMotionX = baseMotionX;
     this.baseMotionY = baseMotionY;
     this.baseMotionZ = baseMotionZ;
-    deferredMutations.add(environment -> environment.setBaseMotion(baseMotionX, baseMotionY, baseMotionZ));
+    defer(environment -> environment.setBaseMotion(baseMotionX, baseMotionY, baseMotionZ));
   }
 
   @Override
@@ -353,7 +363,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setMotionResetX(boolean reset) {
     motionXResetOverridden = true;
     motionXReset = reset;
-    deferredMutations.add(environment -> environment.setMotionResetX(reset));
+    defer(environment -> environment.setMotionResetX(reset));
   }
 
   @Override
@@ -365,7 +375,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setMotionResetZ(boolean reset) {
     motionZResetOverridden = true;
     motionZReset = reset;
-    deferredMutations.add(environment -> environment.setMotionResetZ(reset));
+    defer(environment -> environment.setMotionResetZ(reset));
   }
 
   @Override
@@ -381,14 +391,14 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
     this.motionMultiplier = copy;
     fallDistanceOverridden = true;
     fallDistance = 0.0;
-    deferredMutations.add(environment -> environment.setMotionMultiplier(copy.clone()));
+    defer(environment -> environment.setMotionMultiplier(copy.clone()));
   }
 
   @Override
   public void resetMotionMultiplier() {
     motionMultiplierOverridden = true;
     motionMultiplier = null;
-    deferredMutations.add(SimulationEnvironment::resetMotionMultiplier);
+    defer(SimulationEnvironment::resetMotionMultiplier);
   }
 
   @Override
@@ -400,7 +410,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setWorldBorder(@NotNull WorldBorder worldBorder) {
     worldBorderOverridden = true;
     this.worldBorder = worldBorder;
-    deferredMutations.add(environment -> environment.setWorldBorder(worldBorder));
+    defer(environment -> environment.setWorldBorder(worldBorder));
   }
 
   @Override
@@ -436,7 +446,14 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
 
   @Override
   public float friction(boolean sprinting) {
-    return delegate.friction(sprinting);
+    // A simulated landing changes the next tick's ground acceleration inside this branch.
+    if (!lastOnGroundOverridden || !lastOnGround || delegate.lastOnGround()) {
+      return delegate.friction(sprinting);
+    }
+    return resolveFriction(
+      user(), this, sprinting,
+      verifiedLastPositionX(), verifiedLastPositionY(), verifiedLastPositionZ()
+    );
   }
 
   @Override
@@ -464,7 +481,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setJumpMotion(double jumpMotion) {
     jumpMotionOverridden = true;
     this.jumpMotion = jumpMotion;
-    deferredMutations.add(environment -> environment.setJumpMotion(jumpMotion));
+    defer(environment -> environment.setJumpMotion(jumpMotion));
   }
 
   @Override
@@ -491,7 +508,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setSneaking(boolean sneaking) {
     sneakingOverridden = true;
     this.sneaking = sneaking;
-    deferredMutations.add(environment -> environment.setSneaking(sneaking));
+    defer(environment -> environment.setSneaking(sneaking));
   }
 
   @Override
@@ -508,7 +525,19 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setLastSprinting(boolean lastSprinting) {
     lastSprintingOverridden = true;
     this.lastSprinting = lastSprinting;
-    deferredMutations.add(environment -> environment.setLastSprinting(lastSprinting));
+    defer(environment -> environment.setLastSprinting(lastSprinting));
+  }
+
+  @Override
+  public boolean isSwimming() {
+    return swimmingOverridden ? swimming : delegate.isSwimming();
+  }
+
+  @Override
+  public void setSwimming(boolean swimming) {
+    swimmingOverridden = true;
+    this.swimming = swimming;
+    defer(environment -> environment.setSwimming(swimming));
   }
 
   @Override
@@ -530,7 +559,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setSleeping(boolean sleeping) {
     sleepingOverridden = true;
     this.sleeping = sleeping;
-    deferredMutations.add(environment -> environment.setSleeping(sleeping));
+    defer(environment -> environment.setSleeping(sleeping));
   }
 
   @Override
@@ -546,7 +575,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
       fallDistanceOverridden = true;
       fallDistance = 0.0;
     }
-    deferredMutations.add(environment -> environment.setInWater(inWater));
+    defer(environment -> environment.setInWater(inWater));
   }
 
   @Override
@@ -562,7 +591,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
       lavaDepthOverridden = true;
       lavaDepth = 0.0;
     }
-    deferredMutations.add(environment -> environment.setInLava(inLava));
+    defer(environment -> environment.setInLava(inLava));
   }
 
   @Override
@@ -578,7 +607,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
       inLavaOverridden = true;
       inLava = true;
     }
-    deferredMutations.add(environment -> environment.setLavaDepth(lavaDepth));
+    defer(environment -> environment.setLavaDepth(lavaDepth));
   }
 
   @Override
@@ -590,7 +619,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setInWeb(boolean inWeb) {
     inWebOverridden = true;
     this.inWeb = inWeb;
-    deferredMutations.add(environment -> environment.setInWeb(inWeb));
+    defer(environment -> environment.setInWeb(inWeb));
   }
 
   @Override
@@ -633,7 +662,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setMainSupportingBlockPos(BlockPosition mainSupportingBlockPos) {
     mainSupportingBlockPosOverridden = true;
     this.mainSupportingBlockPos = mainSupportingBlockPos;
-    deferredMutations.add(environment -> environment.setMainSupportingBlockPos(mainSupportingBlockPos));
+    defer(environment -> environment.setMainSupportingBlockPos(mainSupportingBlockPos));
   }
 
   @Override
@@ -645,7 +674,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setOnGroundNoBlocks(boolean onGroundNoBlocks) {
     this.onGroundNoBlocks = onGroundNoBlocks;
     this.onGroundNoBlocksOverridden = true;
-    deferredMutations.add(environment -> environment.setOnGroundNoBlocks(onGroundNoBlocks));
+    defer(environment -> environment.setOnGroundNoBlocks(onGroundNoBlocks));
   }
 
   @Override
@@ -695,28 +724,28 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setCollideMaterial(Material collideMaterial) {
     collideMaterialOverridden = true;
     this.collideMaterial = collideMaterial;
-    deferredMutations.add(environment -> environment.setCollideMaterial(collideMaterial));
+    defer(environment -> environment.setCollideMaterial(collideMaterial));
   }
 
   @Override
   public void setFrictionMaterial(Material frictionMaterial) {
     frictionMaterialOverridden = true;
     this.frictionMaterial = frictionMaterial;
-    deferredMutations.add(environment -> environment.setFrictionMaterial(frictionMaterial));
+    defer(environment -> environment.setFrictionMaterial(frictionMaterial));
   }
 
   @Override
   public void setPreviousCollideMaterial(Material previousCollideMaterial) {
     previousCollideMaterialOverridden = true;
     this.previousCollideMaterial = previousCollideMaterial;
-    deferredMutations.add(environment -> environment.setPreviousCollideMaterial(previousCollideMaterial));
+    defer(environment -> environment.setPreviousCollideMaterial(previousCollideMaterial));
   }
 
   @Override
   public void setPreviousFrictionMaterial(Material previousFrictionMaterial) {
     previousFrictionMaterialOverridden = true;
     this.previousFrictionMaterial = previousFrictionMaterial;
-    deferredMutations.add(environment -> environment.setPreviousFrictionMaterial(previousFrictionMaterial));
+    defer(environment -> environment.setPreviousFrictionMaterial(previousFrictionMaterial));
   }
 
   @Override
@@ -733,7 +762,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void resetFallDistance() {
     fallDistanceOverridden = true;
     fallDistance = 0.0;
-    deferredMutations.add(SimulationEnvironment::resetFallDistance);
+    defer(SimulationEnvironment::resetFallDistance);
   }
 
   @Override
@@ -741,7 +770,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
     double currentFallDistance = fallDistance();
     fallDistanceOverridden = true;
     this.fallDistance = currentFallDistance + fallDistance;
-    deferredMutations.add(environment -> environment.addFallDistance(fallDistance));
+    defer(environment -> environment.addFallDistance(fallDistance));
   }
 
   @Override
@@ -769,14 +798,14 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void dismountRidingEntity(String boatSetback) {
     inVehicleOverridden = true;
     inVehicle = false;
-    deferredMutations.add(environment -> environment.dismountRidingEntity(boatSetback));
+    defer(environment -> environment.dismountRidingEntity(boatSetback));
   }
 
   @Override
   public void setPushedByEntity(boolean pushedByEntity) {
     pushedByEntityOverridden = true;
     this.pushedByEntity = pushedByEntity;
-    deferredMutations.add(environment -> environment.setPushedByEntity(pushedByEntity));
+    defer(environment -> environment.setPushedByEntity(pushedByEntity));
   }
 
   @Override
@@ -788,7 +817,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setSimulationResult(SimulationResult result) {
     simulationResultOverridden = true;
     simulationResult = result;
-    deferredMutations.add(environment -> environment.setSimulationResult(result));
+    defer(environment -> environment.setSimulationResult(result));
   }
 
   @Override
@@ -800,7 +829,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setLastMovementConfiguration(MovementConfiguration configuration) {
     configurationOverridden = true;
     this.configuration = configuration;
-    deferredMutations.add(environment -> environment.setLastMovementConfiguration(configuration));
+    defer(environment -> environment.setLastMovementConfiguration(configuration));
   }
 
   @Override
@@ -810,24 +839,36 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
 
   @Override
   public int ticks(MoveMetric metric) {
-    return activeTrackerOverrides.getOrDefault(metric, delegate.ticks(metric));
+    if (activeTrackerOverrides != null) {
+      Integer override = activeTrackerOverrides.get(metric);
+      if (override != null) {
+        return override;
+      }
+    }
+    return delegate.ticks(metric);
   }
 
   @Override
   public int ticksPast(MoveMetric metric) {
-    return pastTrackerOverrides.computeIfAbsent(metric, delegate::ticksPast);
+    if (pastTrackerOverrides != null) {
+      Integer override = pastTrackerOverrides.get(metric);
+      if (override != null) {
+        return override;
+      }
+    }
+    return delegate.ticksPast(metric);
   }
 
   @Override
   public void activeTick(MoveMetric metric) {
     activeTickOverride(metric);
-    deferredMutations.add(environment -> environment.activeTick(metric));
+    defer(environment -> environment.activeTick(metric));
   }
 
   @Override
   public void inactiveTick(MoveMetric metric) {
     inactiveTickOverride(metric);
-    deferredMutations.add(environment -> environment.inactiveTick(metric));
+    defer(environment -> environment.inactiveTick(metric));
   }
 
   @Override
@@ -844,7 +885,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setEyesInWater(boolean eyesInWater) {
     eyesInWaterOverridden = true;
     this.eyesInWater = eyesInWater;
-    deferredMutations.add(environment -> environment.setEyesInWater(eyesInWater));
+    defer(environment -> environment.setEyesInWater(eyesInWater));
   }
 
   @Override
@@ -856,14 +897,14 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setInteractingFluid(Fluid interactingFluid) {
     interactingFluidOverridden = true;
     this.interactingFluid = interactingFluid;
-    deferredMutations.add(environment -> environment.setInteractingFluid(interactingFluid));
+    defer(environment -> environment.setInteractingFluid(interactingFluid));
   }
 
   @Override
   public void resetPhysicsPacketRelinkFlyVL() {
     physicsPacketRelinkFlyVLOverridden = true;
     physicsPacketRelinkFlyVL = 0;
-    deferredMutations.add(SimulationEnvironment::resetPhysicsPacketRelinkFlyVL);
+    defer(SimulationEnvironment::resetPhysicsPacketRelinkFlyVL);
   }
 
   @Override
@@ -875,7 +916,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setPhysicsPacketRelinkFlyVL(int physicsPacketRelinkFlyVL) {
     physicsPacketRelinkFlyVLOverridden = true;
     this.physicsPacketRelinkFlyVL = physicsPacketRelinkFlyVL;
-    deferredMutations.add(environment -> environment.setPhysicsPacketRelinkFlyVL(physicsPacketRelinkFlyVL));
+    defer(environment -> environment.setPhysicsPacketRelinkFlyVL(physicsPacketRelinkFlyVL));
   }
 
   @Override
@@ -947,7 +988,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setEnforceBoatStep(boolean enforceBoatStep) {
     enforceBoatStepOverridden = true;
     this.enforceBoatStep = enforceBoatStep;
-    deferredMutations.add(environment -> environment.setEnforceBoatStep(enforceBoatStep));
+    defer(environment -> environment.setEnforceBoatStep(enforceBoatStep));
   }
 
   @Override
@@ -959,7 +1000,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setBoatStatus(Status boatStatus) {
     boatStatusOverridden = true;
     this.boatStatus = boatStatus;
-    deferredMutations.add(environment -> environment.setBoatStatus(boatStatus));
+    defer(environment -> environment.setBoatStatus(boatStatus));
   }
 
   @Override
@@ -971,7 +1012,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setPreviousBoatStatus(Status previousBoatStatus) {
     previousBoatStatusOverridden = true;
     this.previousBoatStatus = previousBoatStatus;
-    deferredMutations.add(environment -> environment.setPreviousBoatStatus(previousBoatStatus));
+    defer(environment -> environment.setPreviousBoatStatus(previousBoatStatus));
   }
 
   @Override
@@ -983,7 +1024,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setBoatGlide(float boatGlide) {
     boatGlideOverridden = true;
     this.boatGlide = boatGlide;
-    deferredMutations.add(environment -> environment.setBoatGlide(boatGlide));
+    defer(environment -> environment.setBoatGlide(boatGlide));
   }
 
   @Override
@@ -995,12 +1036,23 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setBoatWaterLevel(double boatWaterLevel) {
     boatWaterLevelOverridden = true;
     this.boatWaterLevel = boatWaterLevel;
-    deferredMutations.add(environment -> environment.setBoatWaterLevel(boatWaterLevel));
+    defer(environment -> environment.setBoatWaterLevel(boatWaterLevel));
   }
 
   @Override
   public boolean lastSneaking() {
     return delegate.lastSneaking();
+  }
+
+  @Override
+  public boolean resolveCrouchingInputSlowdown(boolean fallback) {
+    return crouchingInputSlowdownOverridden ? crouchingInputSlowdown : delegate.resolveCrouchingInputSlowdown(fallback);
+  }
+
+  @Override
+  public void overrideCrouchingInputSlowdown(boolean slowdown) {
+    crouchingInputSlowdownOverridden = true;
+    crouchingInputSlowdown = slowdown;
   }
 
   @Override
@@ -1020,7 +1072,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
 
   @Override
   public void updateEyesInWater() {
-    deferredMutations.add(SimulationEnvironment::updateEyesInWater);
+    SimulationEnvironment.super.updateEyesInWater();
   }
 
   @Override
@@ -1029,7 +1081,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
     inLava = false;
     lavaDepthOverridden = true;
     lavaDepth = 0.0;
-    deferredMutations.add(SimulationEnvironment::aquaticUpdateLavaReset);
+    defer(SimulationEnvironment::aquaticUpdateLavaReset);
   }
 
   @Override
@@ -1079,7 +1131,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   @Override
   public void assumeOccurred(Simulation simulation) {
     applySimulation(simulation);
-    deferredMutations.add(environment -> environment.assumeOccurred(simulation));
+    defer(environment -> environment.assumeOccurred(simulation));
   }
 
   @Override
@@ -1104,7 +1156,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
       inactiveTickOverride(MoveMetric.EXTERNAL_VELOCITY);
     }
     updatePose();
-    deferredMutations.add(environment -> environment.tickComplete(hasMovement, hasRotation, true));
+    defer(environment -> environment.tickComplete(hasMovement, hasRotation, true));
   }
 
   @Override
@@ -1127,7 +1179,7 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   public void setActiveSequence(long activeSequence) {
     activeSequenceOverridden = true;
     this.activeSequence = activeSequence;
-    deferredMutations.add(environment -> environment.setActiveSequence(activeSequence));
+    defer(environment -> environment.setActiveSequence(activeSequence));
   }
 
   @Override
@@ -1137,16 +1189,18 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
 
   @Override
   public void setTreatThisFlyPacketAsMovePacket(boolean treatThisFlyPacketAsMovePacket) {
-    deferredMutations.add(environment ->
+    defer(environment ->
       environment.setTreatThisFlyPacketAsMovePacket(treatThisFlyPacketAsMovePacket)
     );
   }
 
-  private final SimulationEnvironment unmodifiableView =
-    ImmutableSimulationEnvironmentView.of(this);
+  private SimulationEnvironment unmodifiableView;
 
   @Override
   public SimulationEnvironment immutableView() {
+    if (unmodifiableView == null) {
+      unmodifiableView = ImmutableSimulationEnvironmentView.of(this);
+    }
     return unmodifiableView;
   }
 
@@ -1190,13 +1244,13 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   }
 
   private void activeTickOverride(MoveMetric metric) {
-    activeTrackerOverrides.put(metric, ticks(metric) + 1);
-    pastTrackerOverrides.put(metric, 0);
+    putActiveTrackerOverride(metric, ticks(metric) + 1);
+    putPastTrackerOverride(metric, 0);
   }
 
   private void inactiveTickOverride(MoveMetric metric) {
-    activeTrackerOverrides.put(metric, 0);
-    pastTrackerOverrides.put(metric, ticksPast(metric) + 1);
+    putActiveTrackerOverride(metric, 0);
+    putPastTrackerOverride(metric, ticksPast(metric) + 1);
   }
 
   private void inactiveTickOverride(MoveMetric first, MoveMetric... others) {
@@ -1207,7 +1261,22 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
   }
 
   private boolean hasMetricOverride(MoveMetric metric) {
-    return activeTrackerOverrides.containsKey(metric) || pastTrackerOverrides.containsKey(metric);
+    return activeTrackerOverrides != null && activeTrackerOverrides.containsKey(metric)
+      || pastTrackerOverrides != null && pastTrackerOverrides.containsKey(metric);
+  }
+
+  private void putActiveTrackerOverride(MoveMetric metric, int value) {
+    if (activeTrackerOverrides == null) {
+      activeTrackerOverrides = new EnumMap<>(MoveMetric.class);
+    }
+    activeTrackerOverrides.put(metric, value);
+  }
+
+  private void putPastTrackerOverride(MoveMetric metric, int value) {
+    if (pastTrackerOverrides == null) {
+      pastTrackerOverrides = new EnumMap<>(MoveMetric.class);
+    }
+    pastTrackerOverrides.put(metric, value);
   }
 
   private void setPositionOverride(double positionX, double positionY, double positionZ) {
@@ -1270,8 +1339,10 @@ public final class MutableSimulationEnvironmentView implements SimulationEnviron
     if (delegate != other && delegate.depth() > 0) {
       delegate.commitTo(other);
     }
-    for (EnvironmentMutation deferredMutation : deferredMutations) {
-      deferredMutation.apply(other);
+    if (deferredMutations != null) {
+      for (EnvironmentMutation deferredMutation : deferredMutations) {
+        deferredMutation.apply(other);
+      }
     }
     if (verifiedLastPositionOverridden) {
       other.setVerifiedLastPosition(

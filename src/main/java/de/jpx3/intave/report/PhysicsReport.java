@@ -11,13 +11,11 @@
 
 package de.jpx3.intave.report;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
+import com.google.gson.*;
 import de.jpx3.intave.block.cache.BlockCache;
 import de.jpx3.intave.check.movement.physics.config.MovementConfiguration;
 import de.jpx3.intave.check.movement.physics.environment.MoveMetric;
+import de.jpx3.intave.check.movement.physics.environment.PostTickSimulation;
 import de.jpx3.intave.check.movement.physics.evaluation.MaskedMotionTolerance;
 import de.jpx3.intave.codec.JsonStreamCodecs;
 import de.jpx3.intave.player.collider.complex.SimulationResult;
@@ -123,13 +121,20 @@ public final class PhysicsReport implements Report {
       "surroundingBlocks",
       JsonStreamCodecs.encodeToTree(BlockStateRegion.JSON_CODEC, surroundingBlocks)
     );
+    List<Motion> postTickMotions = new ArrayList<>();
+    JsonArray postTickPriorSprinting = new JsonArray();
+    for (PostTickSimulation candidate : movement.postTickMotionCandidates()) {
+      postTickMotions.add(candidate.motion());
+      postTickPriorSprinting.add(new JsonPrimitive(candidate.priorSprinting()));
+    }
     json.add(
       "postTickMotionCandidates",
       JsonStreamCodecs.encodeToTree(
         Motion.LIST_JSON_CODEC,
-        new ArrayList<>(movement.postTickMotionCandidates())
+        postTickMotions
       )
     );
+    json.add("postTickMotionCandidatePriorSprinting", postTickPriorSprinting);
     json.add("simulationResult", simulationResultToJson(simulationResult));
     json.add("lastMovementConfiguration", configurationToJson(movement.lastMovementConfiguration()));
     json.add("moveMetrics", metricsToJson(movement));

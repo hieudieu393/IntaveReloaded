@@ -17,7 +17,7 @@ import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.MovementMetadata;
 import de.jpx3.intave.user.meta.ProtocolMetadata;
 
-import java.util.List;
+import java.util.Collection;
 
 final class JumpBrancher extends MovementSearchBrancher {
   private static final boolean[] OPTIMISTIC = new boolean[]{true, false};
@@ -30,13 +30,13 @@ final class JumpBrancher extends MovementSearchBrancher {
 	}
 
 	@Override
-  public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, List<MovementSearchBranch> outputBranches) {
+  public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, Collection<MovementSearchBranch> outputBranches) {
     if (!input.jumpingBranchNecessary()) {
       outputBranches.add(inputBranch);
       return;
     }
 
-    SimulationEnvironment environment = inputBranch.modifiedMutableView(input.environment());
+    SimulationEnvironment environment = inputBranch.modifiedImmutableView(input);
     User user = input.user();
     MovementMetadata movement = user.meta().movement();
     ProtocolMetadata protocol = user.meta().protocol();
@@ -44,7 +44,7 @@ final class JumpBrancher extends MovementSearchBrancher {
 
     int writtenOutputBranches = 0;
     for (boolean jumped : estimatedJump ? OPTIMISTIC : PESSIMISTIC) {
-      if (jumped && restricted && !environment.lastOnGround() && !environment.inLava() && !environment.inWater()) {
+      if (jumped && restricted && !environment.lastOnGround() && !environment.inWater() && !environment.inLava()) {
         continue;
       }
       if (jumped && environment.denyJump()) {

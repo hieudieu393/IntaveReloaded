@@ -178,6 +178,13 @@ public final class Input {
     );
   }
 
+  public Input overrideFromPartial(Input partial) {
+    return new Input(
+      this.forward, this.backward, this.left, this.right, this.jump,
+      partial.sneakKey(), partial.sprintKey()
+    );
+  }
+
   public static Input random() {
     ThreadLocalRandom current = ThreadLocalRandom.current();
     return new Input(

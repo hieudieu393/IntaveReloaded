@@ -1,6 +1,18 @@
+/*
+ * Copyright 2026 Intave
+ *
+ * This software is licensed under the PolyForm Perimeter License 1.0.0.
+ * You may use this software for any purpose, except for providing to
+ * others any product that competes with the software.
+ *
+ * A copy of the license is available at:
+ *   https://polyformproject.org/licenses/perimeter/1.0.0/
+ */
+
 package de.jpx3.intave.player;
 
 import de.jpx3.intave.executor.BackgroundExecutors;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -22,12 +34,14 @@ public final class Enchantments {
     Enchantment swiftSneak = null;
     Enchantment soulSpeed = null;
     Enchantment depthStrider = null;
-    try {
-      riptide = Enchantment.getByName("RIPTIDE");
-      swiftSneak = Enchantment.getByName("SWIFT_SNEAK");
-      soulSpeed = Enchantment.getByName("SOUL_SPEED");
-      depthStrider = Enchantment.getByName("DEPTH_STRIDER");
-    } catch (Throwable ignored) {}
+    if (Bukkit.getServer() != null) {
+      try {
+        riptide = Enchantment.getByName("RIPTIDE");
+        swiftSneak = Enchantment.getByName("SWIFT_SNEAK");
+        soulSpeed = Enchantment.getByName("SOUL_SPEED");
+        depthStrider = Enchantment.getByName("DEPTH_STRIDER");
+      } catch (Throwable ignored) {}
+    }
     ENCHANTMENT_RIPTIDE = riptide;
     ENCHANTMENT_SWIFT_SNEAK = swiftSneak;
     ENCHANTMENT_SOUL_SPEED = soulSpeed;

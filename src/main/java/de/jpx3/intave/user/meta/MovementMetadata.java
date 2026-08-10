@@ -23,10 +23,7 @@ import de.jpx3.intave.block.physics.BlockProperties;
 import de.jpx3.intave.block.tick.ShulkerBox;
 import de.jpx3.intave.block.type.BlockTypeAccess;
 import de.jpx3.intave.check.movement.physics.config.MovementConfiguration;
-import de.jpx3.intave.check.movement.physics.environment.MoveMetric;
-import de.jpx3.intave.check.movement.physics.environment.MovementCharacteristics;
-import de.jpx3.intave.check.movement.physics.environment.Pose;
-import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
+import de.jpx3.intave.check.movement.physics.environment.*;
 import de.jpx3.intave.check.movement.physics.evaluation.MaskedMotionTolerance;
 import de.jpx3.intave.check.movement.physics.simulator.BoatSimulator;
 import de.jpx3.intave.check.movement.physics.simulator.Simulation;
@@ -49,6 +46,7 @@ import de.jpx3.intave.user.MessageChannel;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import de.jpx3.intave.world.border.WorldBorder;
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -129,7 +127,7 @@ public final class MovementMetadata implements SimulationEnvironment {
   public boolean treatThisFlyPacketAsMovePacket;
   public double baseMotionX, baseMotionY, baseMotionZ; // base or last motion, exclusively for the physics check
   public double baseMotionXBeforeVelocity, baseMotionYBeforeVelocity, baseMotionZBeforeVelocity;
-  private List<Motion> postTickMotionCandidates = Collections.emptyList();
+  private List<PostTickSimulation> postTickSimulations = Collections.emptyList();
   public double endMotionXOverride = Double.NaN, endMotionYOverride = Double.NaN, endMotionZOverride = Double.NaN;
   public int highestLocalRiptideLevel = 0;
   public boolean physicsResetMotionX, physicsResetMotionZ;
@@ -209,6 +207,7 @@ public final class MovementMetadata implements SimulationEnvironment {
   private double jumpMotion;
   private float aiMoveSpeed, jumpMovementFactor;
   private boolean eyesInWater;
+  private boolean swimming;
   // Vehicle
   private Entity vehicle;
   private boolean vehicleCanBeRidden;
@@ -236,7 +235,7 @@ public final class MovementMetadata implements SimulationEnvironment {
   private final Map<MoveMetric, Integer> activeTracker = new EnumMap<>(MoveMetric.class);
   private final Map<MoveMetric, Integer> pastTracker = new EnumMap<>(MoveMetric.class);
 
-  public final Map<String, Long> branchFrequency = new HashMap<>();
+  public final Long2LongOpenHashMap branchFrequency = new Long2LongOpenHashMap();
   public long branchFrequencyTrimCounter = 0;
 
   {
@@ -678,6 +677,9 @@ public final class MovementMetadata implements SimulationEnvironment {
 
   public boolean receivedFlyingPacketIn(int ticks) {
     ProtocolMetadata protocol = user.meta().protocol();
+    if (!protocol.flyingPacketsCausePositionUncertainty()) {
+      return false;
+    }
     if (protocol.emptyFlyingPacketsAreExplicitlySent()) {
       return ticksPast(FLYING_PACKET_CLIENT) <= ticks && ticksPast(FLYING_PACKET_ACCURATE) <= ticks;
     } else {
@@ -734,6 +736,7 @@ public final class MovementMetadata implements SimulationEnvironment {
     }
   }
 
+  @Override
   public ShulkerBox shulkerBoxAt(int posX, int posY, int posZ) {
     if (shulkerData.isEmpty()) {
       return null;
@@ -863,13 +866,16 @@ public final class MovementMetadata implements SimulationEnvironment {
     }
     // </tolerances>
     // <performance>
-    branchFrequency.merge(simulation.branchIdentifier(), 1L, Long::sum);
+    branchFrequency.addTo(simulation.branchFrequencyKey(), 1L);
     if (branchFrequencyTrimCounter++ % 10000 == 0) {
-      branchFrequency.replaceAll((s, aLong) -> {
-        aLong = aLong / 3;
-        return aLong <= 0 ? 1L : aLong;
+      branchFrequency.long2LongEntrySet().removeIf(entry -> {
+        long decayedFrequency = entry.getLongValue() / 3;
+        if (decayedFrequency <= 10) {
+          return true;
+        }
+        entry.setValue(decayedFrequency);
+        return false;
       });
-      branchFrequency.entrySet().removeIf(entry -> entry.getValue() <= 10);
     }
 
     // </performance>
@@ -1134,13 +1140,13 @@ public final class MovementMetadata implements SimulationEnvironment {
   }
 
   @Override
-  public List<Motion> postTickMotionCandidates() {
-    return Collections.unmodifiableList(postTickMotionCandidates);
+  public List<PostTickSimulation> postTickMotionCandidates() {
+    return Collections.unmodifiableList(postTickSimulations);
   }
 
   @Override
-  public void setPostTickMotionCandidates(@NotNull List<Motion> postTickMotionCandidates) {
-    this.postTickMotionCandidates = postTickMotionCandidates;
+  public void setPostTickMotionCandidates(@NotNull List<PostTickSimulation> postTickSimulations) {
+    this.postTickSimulations = new ArrayList<>(postTickSimulations);
   }
 
   @Override
@@ -1386,6 +1392,16 @@ public final class MovementMetadata implements SimulationEnvironment {
   @Override
   public void setLastSprinting(boolean lastSprinting) {
     this.lastSprinting = lastSprinting;
+  }
+
+  @Override
+  public boolean isSwimming() {
+    return swimming;
+  }
+
+  @Override
+  public void setSwimming(boolean swimming) {
+    this.swimming = swimming;
   }
 
   @Override

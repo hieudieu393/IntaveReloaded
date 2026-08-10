@@ -15,9 +15,11 @@ import de.jpx3.intave.check.movement.physics.environment.MockSimulationEnvironme
 import de.jpx3.intave.check.movement.physics.environment.MoveMetric;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.player.collider.complex.SimulationResult;
+import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.share.BoundingBox;
 import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.share.Position;
+import org.bukkit.Material;
 
 import java.util.Locale;
 
@@ -30,7 +32,7 @@ public final class MutableSimulationEnvironmentViewBenchmark {
 	private MutableSimulationEnvironmentViewBenchmark() {
 	}
 
-	public static void main(String[] args) {
+	static void main(String[] args) {
 		BenchmarkOptions options = BenchmarkOptions.from(args);
 
 		BenchmarkState warmupState = BenchmarkState.create();
@@ -48,7 +50,7 @@ public final class MutableSimulationEnvironmentViewBenchmark {
 		System.out.println("  iterations: " + options.iterations);
 		System.out.println("  warmup iterations: " + options.warmupIterations);
 		System.out.println("  elapsed: " + formatMillis(elapsedNanos) + " ms");
-		System.out.println("  ns/iteration: " + ((int)nanosPerIteration));
+		System.out.println("  ns/iteration: " + ((int) nanosPerIteration));
 		System.out.println("  iterations/s: " + format(iterationsPerSecond));
 		System.out.println("  checksum: " + format(sink));
 	}
@@ -86,11 +88,17 @@ public final class MutableSimulationEnvironmentViewBenchmark {
 			view.setLastOnGround((iteration & 7) == 0);
 			view.setPushedByEntity((iteration & 15) == 0);
 			view.setSimulationResult(state.results[sample]);
-			view.checkSupportingBlock(true, state.motions[sample]);
-			view.compileSpecialBlocks();
+			// Exercise derived-block state without including user/world lookups in this view benchmark.
+			BlockPosition supportingBlock = state.supportingBlocks[sample];
+			view.setMainSupportingBlockPos(supportingBlock);
+			view.setOnGroundNoBlocks(supportingBlock == null);
+			view.setPreviousCollideMaterial(view.collideMaterial());
+			view.setPreviousFrictionMaterial(view.frictionMaterial());
+			view.setCollideMaterial(state.collideMaterials[sample]);
+			view.setFrictionMaterial(state.frictionMaterials[sample]);
 			view.activeTick(MoveMetric.FLYING_PACKET_CLIENT);
 			view.inactiveTick(MoveMetric.VELOCITY);
-			view.tickComplete(true, true, true);
+			view.activeTick(MoveMetric.ALIVE);
 
 			view.commitTo(state.target);
 			checksum += view.positionX();
@@ -117,6 +125,9 @@ public final class MutableSimulationEnvironmentViewBenchmark {
 		private final Position[] verifiedPositions = new Position[SAMPLE_MASK + 1];
 		private final BoundingBox[] boxes = new BoundingBox[SAMPLE_MASK + 1];
 		private final Motion[] motions = new Motion[SAMPLE_MASK + 1];
+		private final BlockPosition[] supportingBlocks = new BlockPosition[SAMPLE_MASK + 1];
+		private final Material[] collideMaterials = new Material[SAMPLE_MASK + 1];
+		private final Material[] frictionMaterials = new Material[SAMPLE_MASK + 1];
 		private final SimulationResult[] results = new SimulationResult[SAMPLE_MASK + 1];
 		private final float[] yaws = new float[SAMPLE_MASK + 1];
 		private final float[] pitches = new float[SAMPLE_MASK + 1];
@@ -152,6 +163,9 @@ public final class MutableSimulationEnvironmentViewBenchmark {
 				verifiedPositions[sample] = new Position(x - 0.08D, y, z + 0.08D);
 				boxes[sample] = BoundingBox.fromBounds(x - 0.3D, y, z - 0.3D, x + 0.3D, y + 1.8D, z + 0.3D);
 				motions[sample] = new Motion(sample * 0.0001D, 0.42D - sample * 0.00001D, -sample * 0.0001D);
+				supportingBlocks[sample] = (sample & 3) == 0 ? null : new BlockPosition(x, y - 1.0D, z);
+				collideMaterials[sample] = (sample & 1) == 0 ? Material.STONE : Material.AIR;
+				frictionMaterials[sample] = (sample & 1) == 0 ? Material.ICE : Material.STONE;
 				results[sample] = SimulationResult.untouched(motions[sample]);
 				yaws[sample] = sample * 1.40625F;
 				pitches[sample] = (sample & 31) - 16.0F;
@@ -165,14 +179,7 @@ public final class MutableSimulationEnvironmentViewBenchmark {
 		}
 	}
 
-	private static final class BenchmarkOptions {
-		private final int iterations;
-		private final int warmupIterations;
-
-		private BenchmarkOptions(int iterations, int warmupIterations) {
-			this.iterations = iterations;
-			this.warmupIterations = warmupIterations;
-		}
+	private record BenchmarkOptions(int iterations, int warmupIterations) {
 
 		private static BenchmarkOptions from(String[] args) {
 			int iterations = args.length >= 1 ? parsePositiveInt(args[0], "iterations") : DEFAULT_ITERATIONS;

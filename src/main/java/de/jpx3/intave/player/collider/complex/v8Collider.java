@@ -14,6 +14,7 @@ package de.jpx3.intave.player.collider.complex;
 import de.jpx3.intave.block.collision.Collision;
 import de.jpx3.intave.block.shape.BlockShape;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
+import de.jpx3.intave.diagnostic.timings.Timings;
 import de.jpx3.intave.share.BoundingBox;
 import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.user.User;
@@ -81,7 +82,11 @@ public final class v8Collider implements Collider {
         edgeSneak = true;
       }
     }
-    BlockShape collisionShape = Collision.shape(user, environment, environment.boundingBox().expand(offsetMotion.motionX, offsetMotion.motionY, offsetMotion.motionZ));
+    Timings.CHECK_PHYSICS_SIMULATOR_BASE_COLLIDER_SHAPE_LOOKUP.start();
+    BlockShape collisionShape = Collision.shape(
+      user, environment, environment.boundingBox().expand(offsetMotion.motionX, offsetMotion.motionY, offsetMotion.motionZ)
+    );
+    Timings.CHECK_PHYSICS_SIMULATOR_BASE_COLLIDER_SHAPE_LOOKUP.stop();
     BoundingBox startBoundingBox = environment.boundingBox();
     BoundingBox entityBoundingBox = environment.boundingBox();
     offsetMotion.motionY = collisionShape.allowedOffset(Y_AXIS, entityBoundingBox, offsetMotion.motionY);
@@ -98,7 +103,9 @@ public final class v8Collider implements Collider {
       BoundingBox axisalignedbb3 = entityBoundingBox;
       entityBoundingBox = startBoundingBox;
       offsetMotion.motionY = environment.stepHeight();
+      Timings.CHECK_PHYSICS_SIMULATOR_BASE_COLLIDER_SHAPE_LOOKUP.start();
       BlockShape shape = Collision.shape(user, environment, entityBoundingBox.expand(edgeSneakMotionX, offsetMotion.motionY, edgeSneakMotionZ));
+      Timings.CHECK_PHYSICS_SIMULATOR_BASE_COLLIDER_SHAPE_LOOKUP.stop();
       BoundingBox axisalignedbb4 = entityBoundingBox;
       BoundingBox axisalignedbb5 = axisalignedbb4.expand(edgeSneakMotionX, 0.0D, edgeSneakMotionZ);
       double d9 = offsetMotion.motionY;

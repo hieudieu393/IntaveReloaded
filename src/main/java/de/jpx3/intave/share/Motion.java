@@ -223,6 +223,32 @@ public final class Motion {
 			Math.abs(motionZ - other.motionZ) < 1E-10;
 	}
 
+
+	public Motion reversed() {
+		return new Motion(-this.motionX, -this.motionY, -this.motionZ);
+	}
+
+	public RawVector3d toRawVector3d() {
+		return new RawVector3d(motionX, motionY, motionZ);
+	}
+
+	public RawVector3d furthestCorner() {
+		RawVector3d thisAsVec = this.toRawVector3d();
+		double crossX = Math.abs(RawVector3d.X_AXIS.dot(thisAsVec));
+		double crossY = Math.abs(RawVector3d.Y_AXIS.dot(thisAsVec));
+		double crossZ = Math.abs(RawVector3d.Z_AXIS.dot(thisAsVec));
+		int stepX = this.motionX < 0.0 ? -1 : 1;
+		int stepY = this.motionY < 0.0 ? -1 : 1;
+		int stepZ = this.motionZ < 0.0 ? -1 : 1;
+		if (crossX <= crossY && crossX <= crossZ) {
+			return new RawVector3d(-stepX, -stepZ, stepY);
+		} else if (crossY <= crossZ) {
+			return new RawVector3d(stepZ, -stepY, -stepX);
+		} else {
+			return new RawVector3d(-stepY, stepX, -stepZ);
+		}
+	}
+
 	public boolean almostIdentical(Motion motion) {
 		return Math.abs(motionX - motion.motionX) < 1E-5 &&
 			Math.abs(motionY - motion.motionY) < 1E-5 &&

@@ -71,7 +71,7 @@ public class PlayerHandTracker extends Module {
     int foodLevel = event.getFoodLevel();
 
     if (foodLevel >= 20 && inventoryData.handActive() && inventoryData.foodItem()) {
-      if (!ItemProperties.foodConsumable(player, inventoryData.heldItemType())) {
+      if (!ItemProperties.foodConsumable(user, inventoryData.heldItemType())) {
         inventoryData.deactivateHand();
       }
     }
@@ -120,7 +120,7 @@ public class PlayerHandTracker extends Module {
     if (inventoryData.handActive() && !inventoryData.offhandItemPrimary()) {
       inventoryData.releaseItemNextTick();
       ItemStack itemStack = inventoryData.heldItem();
-      if (!ItemProperties.canItemBeUsed(player, itemStack)) {
+      if (!ItemProperties.canItemBeUsed(user, itemStack)) {
         inventoryData.blockNextArrow = true;
         inventoryData.lastBlockArrowRequest = System.currentTimeMillis();
         if (user.receives(MessageChannel.DEBUG_ITEM_RESETS)) {
@@ -195,8 +195,8 @@ public class PlayerHandTracker extends Module {
       return;
     }
 
-    boolean offHandUsable = ItemProperties.canItemBeUsed(user.player(), offhandItem);
-    boolean mainHandUsable = ItemProperties.canItemBeUsed(user.player(), heldItem);
+    boolean offHandUsable = ItemProperties.canItemBeUsed(user, offhandItem);
+    boolean mainHandUsable = ItemProperties.canItemBeUsed(user, heldItem);
     boolean useItem = mainHandUsable || offHandUsable;
 
     // For some reason Minecraft sends BlockPlace packets on 1.9+ with diamond swords

@@ -16,6 +16,8 @@ import de.jpx3.intave.access.player.trust.TrustFactor;
 import de.jpx3.intave.block.cache.BlockCache;
 import de.jpx3.intave.block.fluid.FluidFlow;
 import de.jpx3.intave.block.fluid.Fluids;
+import de.jpx3.intave.block.inside.BlockInsideCheck;
+import de.jpx3.intave.block.inside.BlockInsideChecks;
 import de.jpx3.intave.check.movement.physics.environment.Pose;
 import de.jpx3.intave.connect.customclient.CustomClientSupportConfig;
 import de.jpx3.intave.entity.size.HitboxSize;
@@ -38,6 +40,7 @@ import de.jpx3.intave.user.storage.Storages;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -236,6 +239,12 @@ final class TestUser implements User {
   public SimpleCollider simplifiedCollider() {
     SimpleCollider simplifiedCollider = (SimpleCollider) callback.apply(this, "simplifiedCollider");
     return simplifiedCollider == null ? this.simpleCollider : simplifiedCollider;
+  }
+
+  @Override
+  public List<BlockInsideCheck> blockInsideChecks() {
+    List<BlockInsideCheck> blockInsideChecks = (List<BlockInsideCheck>) callback.apply(this, "blockInsideChecks");
+    return blockInsideChecks == null ? BlockInsideChecks.suitableFor(this) : blockInsideChecks;
   }
 
   @Override

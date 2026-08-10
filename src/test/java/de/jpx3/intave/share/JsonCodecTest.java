@@ -280,7 +280,8 @@ final class JsonCodecTest {
       .withReduceTicks(2)
       .withSprintingSetTo(true)
       .withReduceBefore(true)
-      .denyOverrideToActualMotion();
+      .denyOverrideToActualMotion()
+      .withAlternativeBlockInsideCheck();
 
     String encoded = JsonStreamCodecs.encodeToString(MovementConfiguration.JSON_CODEC, expected);
     MovementConfiguration decoded = JsonStreamCodecs.decodeFromString(
@@ -296,6 +297,7 @@ final class JsonCodecTest {
     assertEquals(expected.isSprinting(), decoded.isSprinting());
     assertEquals(expected.reduceBefore(), decoded.reduceBefore());
     assertEquals(expected.overrideEndMotionToActualMotion(), decoded.overrideEndMotionToActualMotion());
+    assertEquals(expected.usesAlternateBlockInsideCheck(), decoded.usesAlternateBlockInsideCheck());
     JsonObject json = new JsonParser().parse(encoded).getAsJsonObject();
     assertFalse(json.has("keys"));
     assertFalse(json.has("reducing"));

@@ -11,9 +11,10 @@
 
 package de.jpx3.intave.search;
 
-import de.jpx3.intave.IntaveLogger;
-
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 
 public final class Searcher<I, T> {
@@ -25,35 +26,34 @@ public final class Searcher<I, T> {
 		this.initial = initial;
 	}
 
-	private final ThreadLocal<List<T>> cachedAlphaLists = ThreadLocal.withInitial(ArrayList::new);
-	private final ThreadLocal<List<T>> cachedBetaLists = ThreadLocal.withInitial(ArrayList::new);
-	private final ThreadLocal<Set<T>> cachedDeduplicatedSets = ThreadLocal.withInitial(LinkedHashSet::new);
+	private static final class ReusableCache<T> {
+		private final Set<T> alpha = new HashSet<>();
+		private final Set<T> beta = new HashSet<>();
+	}
+
+	private final ThreadLocal<ReusableCache<T>> cachedBuffers = ThreadLocal.withInitial(ReusableCache::new);
 
 	public Set<T> searchConfigurationsFor(I input) {
-		boolean alphaFirst = true;
-		List<T> result = cachedAlphaLists.get();
-		result.clear();
-		result.add(initial.apply(input));
-		Set<T> deduplicated = cachedDeduplicatedSets.get();
+		ReusableCache<T> buffers = cachedBuffers.get();
+		Set<T> current = buffers.alpha;
+		Set<T> next = buffers.beta;
+
+		current.clear();
+		next.clear();
+		current.add(initial.apply(input));
+
 		for (SearchBrancher<I, T> brancher : branchers) {
-			List<T> newResult = alphaFirst ? cachedBetaLists.get() : cachedAlphaLists.get();
-			newResult.clear();
-			for (T t : result) {
-				brancher.branch(input, t, newResult);
+			next.clear();
+			for (T configuration : current) {
+				brancher.branch(input, configuration, next);
 			}
-			if (newResult.isEmpty()) {
-				IntaveLogger.logger().warn("Brancher " + brancher + " produced no results for input " + input + " and result " + result);
+			if (next.isEmpty()) {
+				throw new IllegalStateException("Brancher " + brancher + " produced no results for input " + input + " and result " + current);
 			}
-			deduplicated.clear();
-			deduplicated.addAll(newResult);
-			newResult.clear();
-			newResult.addAll(deduplicated);
-			result = newResult;
-			alphaFirst = !alphaFirst;
+			Set<T> temporary = current;
+			current = next;
+			next = temporary;
 		}
-		deduplicated.clear();
-		deduplicated.addAll(result);
-		// Result must be dropped before calling the method again
-		return Collections.unmodifiableSet(deduplicated);
+		return Collections.unmodifiableSet(current);
 	}
 }

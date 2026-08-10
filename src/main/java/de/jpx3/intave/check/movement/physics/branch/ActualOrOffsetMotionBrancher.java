@@ -11,20 +11,17 @@
 
 package de.jpx3.intave.check.movement.physics.branch;
 
-import de.jpx3.intave.check.movement.physics.config.MovementConfiguration;
+import java.util.Collection;
 
-import java.util.List;
-
-public final class ActualOrOffsetMotionBrancher extends MovementSearchBrancher {
+final class ActualOrOffsetMotionBrancher extends MovementSearchBrancher {
 	@Override
-	public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, List<MovementSearchBranch> outputBranches) {
+	public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, Collection<MovementSearchBranch> outputBranches) {
 		if (!input.actualMotionBranchNecessary()) {
 			outputBranches.add(inputBranch);
 			return;
 		}
 
-		MovementConfiguration config = inputBranch.moveConfig();
-		outputBranches.add(inputBranch.withMoveConfig(config.allowOverrideToActualMotion(), "_allowOverrideToActualMotion"));
-		outputBranches.add(inputBranch.withMoveConfig(config.denyOverrideToActualMotion(), "_denyOverrideToActualMotion"));
+		outputBranches.add(inputBranch.withActualMotionOverride(true));
+		outputBranches.add(inputBranch.withActualMotionOverride(false));
 	}
 }

@@ -199,12 +199,12 @@ public final class ImmutableSimulationEnvironmentView implements SimulationEnvir
 	}
 
 	@Override
-	public List<Motion> postTickMotionCandidates() {
+	public List<PostTickSimulation> postTickMotionCandidates() {
 		return delegate.postTickMotionCandidates();
 	}
 
 	@Override
-	public void setPostTickMotionCandidates(@NotNull List<Motion> postTickMotionCandidates) {
+	public void setPostTickMotionCandidates(@NotNull List<PostTickSimulation> postTickSimulations) {
 		throw new UnsupportedOperationException("Cannot modify unmodifiable view");
 	}
 
@@ -385,6 +385,16 @@ public final class ImmutableSimulationEnvironmentView implements SimulationEnvir
 
 	@Override
 	public void setLastSprinting(boolean lastSprinting) {
+		throw new UnsupportedOperationException("Cannot modify unmodifiable view");
+	}
+
+	@Override
+	public boolean isSwimming() {
+		return delegate.isSwimming();
+	}
+
+	@Override
+	public void setSwimming(boolean swimming) {
 		throw new UnsupportedOperationException("Cannot modify unmodifiable view");
 	}
 
@@ -811,6 +821,16 @@ public final class ImmutableSimulationEnvironmentView implements SimulationEnvir
 	@Override
 	public boolean lastSneaking() {
 		return delegate.lastSneaking();
+	}
+
+	@Override
+	public boolean resolveCrouchingInputSlowdown(boolean fallback) {
+		return delegate.resolveCrouchingInputSlowdown(fallback);
+	}
+
+	@Override
+	public void overrideCrouchingInputSlowdown(boolean slowdown) {
+		throw new UnsupportedOperationException("This environment view is unmodifiable");
 	}
 
 	@Override

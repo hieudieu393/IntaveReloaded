@@ -187,7 +187,7 @@ public final class InteractionEmulator implements EventProcessor {
       if (material == BlockTypeAccess.WEB) {
         boolean playerInsideWeb =
           Collision.playerInImaginaryBlock(
-            user, world, blockX, blockY, blockZ, Material.STONE, 0);
+            user, user.meta().movement(), world, blockX, blockY, blockZ, Material.STONE, 0);
         if (playerInsideWeb) {
           user.meta().movement().checkWebStateAgainNextTick = true;
         }
@@ -251,7 +251,7 @@ public final class InteractionEmulator implements EventProcessor {
       variant = estimationResult.variantIndex();
     }
     boolean raytraceCollidesWithPosition = Collision.playerInImaginaryBlock(
-      user, world,
+      user, user.meta().movement(), world,
       blockX, blockY, blockZ,
       placedBlockType, variant
     ) && !IGNORE_SET_IN_SELF.contains(placedBlockType);

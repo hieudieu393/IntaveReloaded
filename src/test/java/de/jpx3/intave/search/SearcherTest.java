@@ -13,6 +13,7 @@ package de.jpx3.intave.search;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -24,7 +25,7 @@ class SearcherTest {
 	public void testExample() {
 		class ExampleBrancher extends SearchBrancher<Object, String> {
 			@Override
-			public void branch(Object input, String inputBranch, List<String> outputBranches) {
+			public void branch(Object input, String inputBranch, Collection<String> outputBranches) {
 				outputBranches.add(inputBranch + "A");
 				outputBranches.add(inputBranch + "B");
 			}
@@ -43,10 +44,10 @@ class SearcherTest {
 
 	@Test
 	public void testDuplicateBranchesAreDiscarded() {
-		Searcher<Object, String> searcher = new Searcher<Object, String>(
+		Searcher<Object, String> searcher = new Searcher<>(
 			List.of(new SearchBrancher<>() {
 				@Override
-				public void branch(Object input, String inputBranch, List<String> outputBranches) {
+				public void branch(Object input, String inputBranch, Collection<String> outputBranches) {
 					outputBranches.add(inputBranch + "A");
 					outputBranches.add(inputBranch + "A");
 					outputBranches.add(inputBranch + "B");

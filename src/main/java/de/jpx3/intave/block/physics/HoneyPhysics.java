@@ -14,10 +14,10 @@ package de.jpx3.intave.block.physics;
 import com.google.common.collect.ImmutableList;
 import de.jpx3.intave.adapter.MinecraftVersion;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
+import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.share.Motion;
+import de.jpx3.intave.share.Position;
 import de.jpx3.intave.user.User;
-import de.jpx3.intave.user.meta.MovementMetadata;
-import org.bukkit.Location;
 import org.bukkit.Material;
 
 import java.util.List;
@@ -31,38 +31,64 @@ final class HoneyPhysics implements BlockPhysic {
   }
 
   @Override
-  public Motion entityInside(User user, SimulationEnvironment environment, Location location, Location from, double motionX, double motionY, double motionZ) {
-    if (doBlockPhysics(user, location, motionY)) {
-      return updateMovement(user, motionX, motionY, motionZ);
+  public Motion entityInside(User user, SimulationEnvironment environment, BlockPosition location, Position from, Motion motion, boolean insideBlockOrTooFast) {
+    boolean blockEffectsAfterGravity = user.meta().protocol().newBlockEntityIntersectionLogic();
+    double motionYBeforeGravity = blockEffectsAfterGravity
+      ? getOldDeltaY(motion.motionY)
+      : motion.motionY;
+    if (doBlockPhysics(environment, location, motionYBeforeGravity)) {
+      return updateMovement(
+        environment,
+        motion.motionX, motionYBeforeGravity, motion.motionZ,
+        blockEffectsAfterGravity
+      );
     }
     return null;
   }
 
-  private boolean doBlockPhysics(User user, Location blockPos, double motionY) {
-    MovementMetadata movementData = user.meta().movement();
-    if (movementData.onGround) {
+  private static double getOldDeltaY(double deltaY) {
+    return deltaY / 0.98F + 0.08D;
+  }
+
+  private static double getNewDeltaY(double deltaY) {
+    return (deltaY - 0.08D) * 0.98F;
+  }
+
+  private boolean doBlockPhysics(
+    SimulationEnvironment environment,
+    BlockPosition blockPos, double motionY
+  ) {
+    if (environment.onGround()) {
       return false;
-    } else if (movementData.positionY > blockPos.getY() + 0.9375D - 1.0E-7D) {
+    } else if (environment.positionY() > blockPos.getY() + 0.9375D - 1.0E-7D) {
       return false;
     } else if (motionY >= -0.08D) {
       return false;
     } else {
-      double d0 = Math.abs(blockPos.getX() + 0.5D - movementData.positionX);
-      double d1 = Math.abs(blockPos.getZ() + 0.5D - movementData.positionZ);
-      double d2 = 0.4375D + (double) (movementData.width / 2.0F);
+      double d0 = Math.abs(blockPos.getX() + 0.5D - environment.positionX());
+      double d1 = Math.abs(blockPos.getZ() + 0.5D - environment.positionZ());
+      double d2 = 0.4375D + (double) (environment.width() / 2.0F);
       return d0 + 1.0E-7D > d2 || d1 + 1.0E-7D > d2;
     }
   }
 
-  private Motion updateMovement(User user, double motionX, double motionY, double motionZ) {
-    MovementMetadata movementData = user.meta().movement();
-    movementData.artificialFallDistance = 0.0F;
+  private Motion updateMovement(
+    SimulationEnvironment environment,
+    double motionX, double motionY, double motionZ,
+    boolean blockEffectsAfterGravity
+  ) {
+    double throttledMotionY = blockEffectsAfterGravity
+      ? getNewDeltaY(-0.05D)
+      : -0.05D;
+    Motion updatedMotion;
     if (motionY < -0.13D) {
       double d0 = -0.05D / motionY;
-      return new Motion(motionX * d0, -0.05D, motionZ * d0);
+      updatedMotion = new Motion(motionX * d0, throttledMotionY, motionZ * d0);
     } else {
-      return new Motion(motionX, -0.05D, motionZ);
+      updatedMotion = new Motion(motionX, throttledMotionY, motionZ);
     }
+    environment.resetFallDistance();
+    return updatedMotion;
   }
 
   @Override

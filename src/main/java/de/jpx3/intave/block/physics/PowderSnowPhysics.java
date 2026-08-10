@@ -13,12 +13,15 @@ package de.jpx3.intave.block.physics;
 
 import de.jpx3.intave.adapter.MinecraftVersion;
 import de.jpx3.intave.block.access.VolatileBlockAccess;
+import de.jpx3.intave.block.collision.modifier.PowderSnowCollisionModifier;
+import de.jpx3.intave.block.shape.BlockShape;
+import de.jpx3.intave.block.shape.BlockShapes;
 import de.jpx3.intave.block.type.MaterialSearch;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
+import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.share.Motion;
+import de.jpx3.intave.share.Position;
 import de.jpx3.intave.user.User;
-import de.jpx3.intave.user.meta.MovementMetadata;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.util.Vector;
 
@@ -35,18 +38,29 @@ final class PowderSnowPhysics implements BlockPhysic {
   }
 
   @Override
-  public Motion entityInside(User user, SimulationEnvironment environment, Location location, Location from, double motionX, double motionY, double motionZ) {
-    MovementMetadata movementData = user.meta().movement();
-    Material block = VolatileBlockAccess.typeAccess(
-      user, user.player().getWorld(),
-      movementData.positionX,
-      movementData.positionY,
-      movementData.positionZ
-    );
+  public Motion entityInside(User user, SimulationEnvironment environment, BlockPosition location, Position from, Motion motion, boolean insideBlockOrTooFast) {
+    Material block = VolatileBlockAccess.typeAccess(user, environment.blockPosition());
     if (materials.contains(block)) {
       environment.setMotionMultiplier(new Vector(0.9f, 1.5f, 0.9f));
     }
     return null;
+  }
+
+  @Override
+  public BlockShape entityInsideCollisionShape(
+    User user,
+    SimulationEnvironment environment,
+    BlockPosition position
+  ) {
+    if (!user.meta().protocol().powderSnowInsideShapeUsesCollisionContext()) {
+      return BlockShapes.cubeAt(position.getBlockX(), position.getBlockY(), position.getBlockZ());
+    }
+    BlockShape collisionShape = PowderSnowCollisionModifier.collisionShape(
+      user, environment, position.getBlockX(), position.getBlockY(), position.getBlockZ()
+    );
+    return collisionShape.isEmpty()
+      ? BlockShapes.cubeAt(position.getBlockX(), position.getBlockY(), position.getBlockZ())
+      : collisionShape;
   }
 
   @Override

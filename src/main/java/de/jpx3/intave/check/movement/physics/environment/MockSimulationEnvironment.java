@@ -21,7 +21,6 @@ import de.jpx3.intave.check.movement.physics.update.TickAmbiguousUpdate;
 import de.jpx3.intave.player.collider.complex.SimulationResult;
 import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.share.BoundingBox;
-import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.share.Position;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.world.border.WorldBorder;
@@ -41,6 +40,7 @@ public final class MockSimulationEnvironment implements SimulationEnvironment {
   private double lastPositionX, lastPositionY, lastPositionZ;
   private double motionX, motionY, motionZ;
   private double baseMotionX, baseMotionY, baseMotionZ;
+  private List<PostTickSimulation> postTickSimulations = Collections.emptyList();
   private double jumpHeight;
   private float height = 1.8F;
   private float width = 0.6F;
@@ -53,7 +53,7 @@ public final class MockSimulationEnvironment implements SimulationEnvironment {
   private float stepHeight = 0.6F;
   private boolean inWater, inLava;
   private double lavaDepth;
-  private boolean sprinting, sneaking;
+  private boolean sprinting, sneaking, swimming;
   private boolean lastSprinting, lastSneaking;
   private boolean collidedHorizontally, collidedVertically;
   private boolean motionXReset, motionZReset;
@@ -221,6 +221,16 @@ public final class MockSimulationEnvironment implements SimulationEnvironment {
   @Override
   public void setLastSprinting(boolean lastSprinting) {
     this.lastSprinting = lastSprinting;
+  }
+
+  @Override
+  public boolean isSwimming() {
+    return swimming;
+  }
+
+  @Override
+  public void setSwimming(boolean swimming) {
+    this.swimming = swimming;
   }
 
   @Override
@@ -403,13 +413,13 @@ public final class MockSimulationEnvironment implements SimulationEnvironment {
   }
 
   @Override
-  public List<Motion> postTickMotionCandidates() {
-    return Collections.emptyList();
+  public List<PostTickSimulation> postTickMotionCandidates() {
+    return Collections.unmodifiableList(postTickSimulations);
   }
 
   @Override
-  public void setPostTickMotionCandidates(@NotNull List<Motion> postTickMotionCandidates) {
-
+  public void setPostTickMotionCandidates(@NotNull List<PostTickSimulation> postTickSimulations) {
+    this.postTickSimulations = new ArrayList<>(postTickSimulations);
   }
 
   @Override
@@ -881,6 +891,11 @@ public final class MockSimulationEnvironment implements SimulationEnvironment {
 
   @Override
   public void updateEyesInWater() {
+
+  }
+
+  @Override
+  public void updateEyesInWaterAfterMove() {
 
   }
 

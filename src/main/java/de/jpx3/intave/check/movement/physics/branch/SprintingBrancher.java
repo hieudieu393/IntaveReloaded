@@ -13,10 +13,9 @@ package de.jpx3.intave.check.movement.physics.branch;
 
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.user.User;
-import de.jpx3.intave.user.meta.MovementMetadata;
 import de.jpx3.intave.user.meta.ProtocolMetadata;
 
-import java.util.List;
+import java.util.Collection;
 
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.SPRINT_CHANGE;
 
@@ -29,7 +28,7 @@ final class SprintingBrancher extends MovementSearchBrancher {
   @Override
   public void branch(
     MovementSearchInput input, MovementSearchBranch inputBranch,
-    List<MovementSearchBranch> outputBranches
+    Collection<MovementSearchBranch> outputBranches
   ) {
     User user = input.user();
     if (!input.sprintingBranchNecessary()) {

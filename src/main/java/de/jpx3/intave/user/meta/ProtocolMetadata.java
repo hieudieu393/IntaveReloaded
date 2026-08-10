@@ -23,7 +23,12 @@ import java.util.*;
 
 public final class ProtocolMetadata {
   public static int VER_26_1_1 = 775; // 26.1.1
+  public static int VER_1_21_11 = 774; // 1.21.11
+  public static int VER_1_21_9 = 773; // 1.21.9 - 1.21.10
+  public static int VER_1_21_7 = 772; // 1.21.7 - 1.21.8
+  public static int VER_1_21_6 = 771; // 1.21.6
   public static int VER_1_21_5 = 770; // 1.21.5
+  public static int VER_1_21_4 = 769; // 1.21.4
   public static int VER_1_21_3 = 768; // 1.21.3
   public static int VER_1_21 = 767; // 1.21
   // final has been removed to disguise modified integer VERSION_DETAILS
@@ -131,12 +136,10 @@ public final class ProtocolMetadata {
     this.clientBrand = clientBrand;
   }
 
-  private static final boolean SERVER_DROPPED_FLYING_PACKETS = MinecraftVersions.VER1_9_0.atOrAbove();
-
   public boolean emptyFlyingPacketsAreExplicitlySent() {
     // flying packets are guaranteed in 1.8 and below, removed in 1.9
     // but if the server is 1.9+, via version/backwards will drop them even for 1.8 clients
-    return protocolVersion <= VER_1_8 && !SERVER_DROPPED_FLYING_PACKETS;
+    return protocolVersion <= VER_1_8 && !MinecraftVersions.VER1_9_0.atOrAbove();
   }
 
   public boolean supportsInventoryAchievementPacket() {
@@ -160,6 +163,10 @@ public final class ProtocolMetadata {
   }
 
   public boolean fluidHeightBasedLavaMovement() {
+    return protocolVersion >= VER_1_16;
+  }
+
+  public boolean stagesEyeFluidState() {
     return protocolVersion >= VER_1_16;
   }
 
@@ -267,12 +274,24 @@ public final class ProtocolMetadata {
     }
   }
 
+  public boolean flyingPacketsCausePositionUncertainty() {
+    return protocolVersion < VER_1_18_2;
+  }
+
 	public boolean newMotionClampLogic() {
 		return protocolVersion >= VER_1_21_5;
 	}
 
+	public boolean bubbleColumnSurfaceUsesCollisionAndFluid() {
+		return protocolVersion >= VER_1_21_5;
+	}
+
+	public boolean powderSnowInsideShapeUsesCollisionContext() {
+		return protocolVersion >= VER_1_21_5;
+	}
+
   public boolean newBlockEntityIntersectionLogic() {
-    return protocolVersion >= VER_1_21_5;
+    return protocolVersion >= VER_1_21_3;
   }
 
   public boolean oppositeBlockVectorBehavior() {
