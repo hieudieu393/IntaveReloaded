@@ -13,7 +13,7 @@ import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 import de.jpx3.intave.user.meta.MovementMetadata;
-import de.jpx3.intave.world.raytrace.Raytracing;
+import org.bukkit.GameMode;
 
 import static de.jpx3.intave.module.linker.packet.ListenerPriority.LOWEST;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.BLOCK_DIG;
@@ -56,7 +56,7 @@ public final class FarBreakEnvelope extends MetaCheckPart<BreakSpeedLimiter, Far
           movement.lastPositionX, movement.lastPositionY + eye, movement.lastPositionZ, block));
       }
 
-      double max = Raytracing.blockReachDistanceOf(user) + 0.35D;
+      double max = blockReachDistance(user) + 0.35D;
       Meta meta = metaOf(user);
       if (minSq <= max * max) {
         meta.buffer = Math.max(0.0D, meta.buffer - 0.25D);
@@ -81,6 +81,23 @@ public final class FarBreakEnvelope extends MetaCheckPart<BreakSpeedLimiter, Far
     } finally {
       reader.release();
     }
+  }
+
+  private static double blockReachDistance(User user) {
+    boolean creative = user.meta().abilities().inGameMode(GameMode.CREATIVE);
+    double fallback = creative ? 5.0D : 4.5D;
+    if (!user.meta().protocol().supportsInteractionRangeAttributes()) {
+      return fallback;
+    }
+
+    double tracked = user.meta().abilities().attributeValue("player.block_interaction_range");
+    if (!Double.isFinite(tracked) || tracked <= 0.0D) {
+      return fallback;
+    }
+    if (creative && Math.abs(tracked - 4.5D) < 1.0E-6D) {
+      return fallback;
+    }
+    return Math.min(tracked, 64.0D);
   }
 
   private static double distanceSqToUnitBlock(double x, double y, double z, BlockPosition block) {
