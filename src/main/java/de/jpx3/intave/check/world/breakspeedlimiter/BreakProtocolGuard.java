@@ -15,6 +15,7 @@ import de.jpx3.intave.packet.PacketTypes;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 import de.jpx3.intave.user.meta.MovementMetadata;
+import org.bukkit.Material;
 
 import static de.jpx3.intave.module.linker.packet.ListenerPriority.LOWEST;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
@@ -22,7 +23,7 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 /**
  * Layered breaking checks inspired by the protocol invariants used by modern prediction anti-cheats.
  * It complements InteractionRaytrace and duration checks with raw face validation, break-state
- * continuity, same-tick multi-break detection and conservative face/eye geometry.
+ * continuity, same-tick multi-break detection, target validity and conservative face/eye geometry.
  */
 public final class BreakProtocolGuard extends MetaCheckPart<BreakSpeedLimiter, BreakProtocolGuard.Meta> {
   private static final double GEOMETRY_TOLERANCE = 0.35D;
@@ -58,6 +59,7 @@ public final class BreakProtocolGuard extends MetaCheckPart<BreakSpeedLimiter, B
       return;
     }
 
+    checkTargetBlock(user, meta, action, pos);
     checkMultiBreak(user, meta, action, pos, face);
     checkState(user, meta, action, pos, face);
     if (action != DiggingAction.CANCELLED_DIGGING) {
@@ -91,7 +93,51 @@ public final class BreakProtocolGuard extends MetaCheckPart<BreakSpeedLimiter, B
     meta.hasBreakThisTick = false;
     meta.lastTickPos = null;
     meta.lastTickFace = -1;
+    meta.lastTargetType = null;
+    meta.lastTargetInvalid = false;
     meta.multiBuffer = Math.max(0.0D, meta.multiBuffer - 0.05D);
+    meta.invalidTargetBuffer = Math.max(0.0D, meta.invalidTargetBuffer - 0.05D);
+  }
+
+  private void checkTargetBlock(User user, Meta meta, DiggingAction action, Vector3i pos) {
+    if (action == DiggingAction.CANCELLED_DIGGING) {
+      return;
+    }
+
+    Material material = user.blockCache().typeAt(pos.x, pos.y, pos.z);
+    if (material == null) {
+      return;
+    }
+
+    boolean waterAfterZeroHardnessBreak = material == Material.WATER
+      && meta.hasBreakThisTick
+      && same(meta.lastTickPos, pos)
+      && !meta.lastTargetInvalid
+      && meta.lastTargetType != null
+      && meta.lastTargetType.getHardness() == 0.0F;
+
+    boolean invalid = !waterAfterZeroHardnessBreak && (
+      material.isAir()
+        || material == Material.WATER
+        || material == Material.LAVA
+        || material == Material.BUBBLE_COLUMN
+        || material == Material.MOVING_PISTON
+        || (material.getHardness() < 0.0F && action == DiggingAction.FINISHED_DIGGING)
+    );
+
+    if (invalid) {
+      meta.invalidTargetBuffer += 1.0D;
+      if (meta.invalidTargetBuffer >= 2.0D) {
+        flag(user, "broke an impossible block",
+          "block=" + material + ", action=" + action + ", pos=" + compact(pos), 4.0D);
+        meta.invalidTargetBuffer = 1.0D;
+      }
+    } else {
+      meta.invalidTargetBuffer = Math.max(0.0D, meta.invalidTargetBuffer - 0.25D);
+    }
+
+    meta.lastTargetType = material;
+    meta.lastTargetInvalid = invalid;
   }
 
   private void checkState(User user, Meta meta, DiggingAction action, Vector3i pos, int face) {
@@ -290,5 +336,8 @@ public final class BreakProtocolGuard extends MetaCheckPart<BreakSpeedLimiter, B
     private int lastTickFace = -1;
     private double multiBuffer;
     private double geometryBuffer;
+    private Material lastTargetType;
+    private boolean lastTargetInvalid;
+    private double invalidTargetBuffer;
   }
 }
