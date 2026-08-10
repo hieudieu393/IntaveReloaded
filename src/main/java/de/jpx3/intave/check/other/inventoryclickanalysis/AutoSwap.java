@@ -82,6 +82,7 @@ public final class AutoSwap extends MetaCheckPart<InventoryClickAnalysis, AutoSw
       if (meta.buffer >= 4.0) {
         Violation violation = Violation.builderFor(InventoryClickAnalysis.class)
           .forPlayer(event.getPlayer())
+          .withCheckName("AutoSwap")
           .withMessage("might be using automated inventory swap")
           .withDetails("isolated offhand swap + close, slot=" + meta.pendingSwapSlot)
           .withVL(3)
