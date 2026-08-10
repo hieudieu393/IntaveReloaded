@@ -12,6 +12,7 @@ import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.check.movement.Timer;
 import de.jpx3.intave.check.movement.physics.AirStuckGuard;
+import de.jpx3.intave.check.movement.physics.GroundSpoofGuard;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
@@ -44,6 +45,7 @@ public final class CheckService {
   public void setup() {
     addCheck(Physics.class);
     addCheck(AirStuckGuard.class);
+    addCheck(GroundSpoofGuard.class);
     addCheck(InteractionRaytrace.class);
     addCheck(Heuristics.class);
     addCheck(AttackRaytrace.class);
@@ -101,7 +103,6 @@ public final class CheckService {
       String canonical = CheckNames.canonicalFor(check);
       checkNames.add(canonical);
       classRequestCache.put(check.getClass(), check);
-      // Preserve legacy lookup while also accepting the new user-facing name.
       nameRequestCache.put(internal.toLowerCase(Locale.ROOT), check);
       nameRequestCache.putIfAbsent(canonical.toLowerCase(Locale.ROOT), check);
     }
