@@ -74,7 +74,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
 
     InteractionHand hand = interaction.getHand();
     if (hand == null) hand = InteractionHand.MAIN_HAND;
-    boolean sneaking = interaction.isSneaking();
+    boolean sneaking = interaction.isSneaking().orElse(false);
 
     // PacketOrderC: pre-26.1 clients normally pair INTERACT_AT with a matching INTERACT.
     if (action == WrapperPlayClientInteractEntity.InteractAction.INTERACT_AT
