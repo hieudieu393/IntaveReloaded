@@ -15,10 +15,12 @@ import org.bukkit.entity.Player;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 
 /**
- * Rejects numeric values that a vanilla client cannot produce. This intentionally focuses on
- * non-finite data only; geometric placement/reach validation remains owned by InteractionRaytrace.
+ * Rejects numeric values that a vanilla client cannot produce. Geometric placement/reach
+ * validation remains owned by InteractionRaytrace and Physics.
  */
 public final class InvalidNumericData extends CheckPart<ProtocolScanner> {
+  private static final double HARD_WORLD_BORDER = 2.9999999E7D;
+
   public InvalidNumericData(ProtocolScanner parentCheck) {
     super(parentCheck);
   }
@@ -32,6 +34,16 @@ public final class InvalidNumericData extends CheckPart<ProtocolScanner> {
     try {
       if (reader.anyNaNOrInfiniteValue()) {
         flagAndCancel(event, "sent non-finite movement data");
+        return;
+      }
+
+      if (reader.hasMovement()) {
+        double x = reader.positionX();
+        double y = reader.positionY();
+        double z = reader.positionZ();
+        if (Math.abs(x) > HARD_WORLD_BORDER || Math.abs(z) > HARD_WORLD_BORDER || Math.abs(y) > Integer.MAX_VALUE) {
+          flagAndCancel(event, "sent position outside valid world bounds");
+        }
       }
     } finally {
       reader.release();
