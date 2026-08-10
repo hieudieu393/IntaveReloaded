@@ -33,6 +33,7 @@ public final class ProtocolScanner extends Check {
       new InvalidWindowClick(this),
       new PostPacketOrder(this),
       new ExploitGuard(this),
+      new BookEditGuard(this),
       new SequenceGuard(this),
       new ExtendedProtocolGuards(this)
 //      ,
