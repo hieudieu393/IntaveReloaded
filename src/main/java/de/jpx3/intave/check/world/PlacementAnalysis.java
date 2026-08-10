@@ -49,6 +49,7 @@ public final class PlacementAnalysis extends Check {
     appendPlayerCheckPart(RotationSpeed.class);
 //    appendPlayerCheckPart(PacketOrder.class);
     appendCheckPart(new Facing(this));
+    appendCheckPart(new PlacementPacketConsistency(this));
     appendPlayerCheckPart(RoundedRotation.class);
 
     appendPlayerCheckPart(AngleSnap.class);
