@@ -15,6 +15,7 @@ import de.jpx3.intave.check.movement.physics.AirStuckGuard;
 import de.jpx3.intave.check.movement.physics.ElytraSignalGuard;
 import de.jpx3.intave.check.movement.physics.GroundSpoofGuard;
 import de.jpx3.intave.check.movement.physics.MovementSignalGuard;
+import de.jpx3.intave.check.movement.physics.VehicleSignalGuard;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
@@ -44,6 +45,7 @@ public final class CheckService {
     addCheck(GroundSpoofGuard.class);
     addCheck(MovementSignalGuard.class);
     addCheck(ElytraSignalGuard.class);
+    addCheck(VehicleSignalGuard.class);
     addCheck(InteractionRaytrace.class);
     addCheck(Heuristics.class);
     addCheck(AttackRaytrace.class);
