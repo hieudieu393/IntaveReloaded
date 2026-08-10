@@ -111,7 +111,8 @@ public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPa
   }
 
   private static boolean isFeedbackBoundary(PacketType type) {
-    return type == PacketType.Play.Client.TRANSACTION || "PONG".equalsIgnoreCase(type.name());
+    String name = type == null ? "" : type.name();
+    return "TRANSACTION".equalsIgnoreCase(name) || "PONG".equalsIgnoreCase(name);
   }
 
   private static boolean isTrackedAction(PacketType type) {
