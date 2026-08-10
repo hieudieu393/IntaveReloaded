@@ -9,6 +9,7 @@ import de.jpx3.intave.check.world.breakspeedlimiter.CompletionDurationCheck;
 import de.jpx3.intave.check.world.breakspeedlimiter.FarBreakEnvelope;
 import de.jpx3.intave.check.world.breakspeedlimiter.NoSwingBreakCheck;
 import de.jpx3.intave.check.world.breakspeedlimiter.RestartCheck;
+import de.jpx3.intave.check.world.breakspeedlimiter.UseItemBreakCheck;
 import de.jpx3.intave.executor.TaskTracker;
 import de.jpx3.intave.user.UserRepository;
 import org.bukkit.Bukkit;
@@ -38,5 +39,6 @@ public final class BreakSpeedLimiter extends Check {
     appendCheckPart(new FarBreakEnvelope(this));
     appendCheckPart(new BreakProtocolGuard(this));
     appendCheckPart(new AirLiquidBreakCheck(this));
+    appendCheckPart(new UseItemBreakCheck(this));
   }
 }
