@@ -201,8 +201,13 @@ public final class PlaceProtocolGuard extends MetaCheckPart<PlacementAnalysis, P
   }
 
   private static boolean invalidSupport(Material type) {
-    return type == null || type.isAir() || type == Material.WATER || type == Material.LAVA
+    return type == null || isAir(type) || type == Material.WATER || type == Material.LAVA
       || "BUBBLE_COLUMN".equals(type.name());
+  }
+
+  private static boolean isAir(Material type) {
+    String name = type.name();
+    return "AIR".equals(name) || "CAVE_AIR".equals(name) || "VOID_AIR".equals(name);
   }
 
   private static boolean insideBlock(double x, double y, double z, Vector3i pos) {
