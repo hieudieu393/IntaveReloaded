@@ -50,7 +50,6 @@ public final class AirLiquidBreakCheck extends MetaCheckPart<BreakSpeedLimiter, 
       type = user.blockCache().typeAt(pos.x, pos.y, pos.z);
       emptyOutline = user.blockCache().outlineShapeAt(pos.x, pos.y, pos.z).isEmpty();
     } catch (RuntimeException ignored) {
-      // Do not fall back to live Bukkit world if compensated state is unavailable.
       return;
     }
     if (type == null) {
@@ -61,7 +60,6 @@ public final class AirLiquidBreakCheck extends MetaCheckPart<BreakSpeedLimiter, 
     boolean kelpLikeDoubleBreak = same(meta.lastPos, pos)
       && !meta.lastFlagged
       && meta.lastType != null
-      && safeHardness(meta.lastType) == 0.0F
       && safeBlastLike(meta.lastType)
       && isWater(type);
     if (kelpLikeDoubleBreak) {
@@ -69,7 +67,7 @@ public final class AirLiquidBreakCheck extends MetaCheckPart<BreakSpeedLimiter, 
       return;
     }
 
-    boolean invalid = type.isAir()
+    boolean invalid = isAir(type)
       || isWater(type)
       || isLava(type)
       || "BUBBLE_COLUMN".equals(type.name())
@@ -81,7 +79,9 @@ public final class AirLiquidBreakCheck extends MetaCheckPart<BreakSpeedLimiter, 
       invalid = true;
     }
 
-    if (!invalid && action == DiggingAction.FINISHED_DIGGING && safeHardness(type) < 0.0F) {
+    // Material#getHardness is unavailable on the legacy compile API used by this project. The
+    // runtime floor is 1.21+, so use the stable names of vanilla -1-hardness blocks instead.
+    if (!invalid && action == DiggingAction.FINISHED_DIGGING && isKnownUnbreakable(type)) {
       invalid = true;
     }
 
@@ -118,25 +118,33 @@ public final class AirLiquidBreakCheck extends MetaCheckPart<BreakSpeedLimiter, 
       || name.equals("LIGHT");
   }
 
+  private static boolean isAir(Material type) {
+    String name = type.name();
+    return "AIR".equals(name) || "CAVE_AIR".equals(name) || "VOID_AIR".equals(name);
+  }
+
   private static boolean isWater(Material type) {
-    return type == Material.WATER || "WATER".equals(type.name());
+    return type == Material.WATER || "WATER".equals(type.name()) || "STATIONARY_WATER".equals(type.name());
   }
 
   private static boolean isLava(Material type) {
-    return type == Material.LAVA || "LAVA".equals(type.name());
+    return type == Material.LAVA || "LAVA".equals(type.name()) || "STATIONARY_LAVA".equals(type.name());
   }
 
-  private static float safeHardness(Material type) {
-    try {
-      return type.getHardness();
-    } catch (Throwable ignored) {
-      return 0.0F;
-    }
+  private static boolean isKnownUnbreakable(Material type) {
+    String name = type.name();
+    return "BEDROCK".equals(name)
+      || "BARRIER".equals(name)
+      || "END_PORTAL".equals(name)
+      || "END_PORTAL_FRAME".equals(name)
+      || "COMMAND_BLOCK".equals(name)
+      || "CHAIN_COMMAND_BLOCK".equals(name)
+      || "REPEATING_COMMAND_BLOCK".equals(name)
+      || "STRUCTURE_BLOCK".equals(name)
+      || "JIGSAW".equals(name);
   }
 
-  // The original kelp edge case requires a zero-hardness/zero-resistance previous block. Bukkit
-  // does not expose resistance on all supported APIs, so constrain the exemption to common plant
-  // and aquatic instant-break materials instead of widening it to every zero-hardness block.
+  // Narrow exemption for the vanilla kelp/aquatic double-break edge case.
   private static boolean safeBlastLike(Material type) {
     String name = type.name();
     return name.contains("KELP")
