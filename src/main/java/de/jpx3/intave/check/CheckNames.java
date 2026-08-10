@@ -17,6 +17,7 @@ public final class CheckNames {
     Map<String, String> names = new LinkedHashMap<>();
     names.put("physics", "Simulate");
     names.put("airstuckguard", "NoFall");
+    names.put("groundspoofguard", "NoFall");
     names.put("interactionraytrace", "Interact");
     names.put("heuristics", "KillAura");
     names.put("attackraytrace", "Reach");
