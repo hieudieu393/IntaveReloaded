@@ -11,6 +11,7 @@ import de.jpx3.intave.check.combat.ClickSpeedLimiter;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.check.movement.Timer;
+import de.jpx3.intave.check.movement.physics.AirStuckGuard;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
@@ -58,6 +59,7 @@ public final class CheckService {
    */
   public void setup() {
     addCheck(Physics.class);
+    addCheck(AirStuckGuard.class);
     addCheck(InteractionRaytrace.class);
     addCheck(Heuristics.class);
     addCheck(AttackRaytrace.class);
