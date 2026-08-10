@@ -10,6 +10,7 @@ import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.packet.converter.PlayerAction;
 import de.jpx3.intave.packet.reader.BlockDigReader;
+import de.jpx3.intave.packet.reader.EntityUseReader;
 import de.jpx3.intave.packet.reader.PacketReaders;
 import de.jpx3.intave.packet.reader.PlayerActionReader;
 import de.jpx3.intave.user.User;
@@ -22,10 +23,9 @@ import static de.jpx3.intave.module.linker.packet.ListenerPriority.LOWEST;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 
 /**
- * Layered same-tick packet-order validation inspired by the PacketOrder family used by modern
- * anti-cheats. Intave's movement/combat/inventory checks remain authoritative; this class adds an
- * independent protocol-state view so a bypass has to satisfy both the gameplay model and vanilla's
- * action ordering.
+ * Layered same-tick packet-order validation inspired by modern PacketOrder families. Detection is
+ * based on the linker subscription plus packet readers rather than optional ProtocolLib constants,
+ * keeping this compatible with the PacketEvents-backed facade and split ATTACK packets.
  */
 public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, ActionOrderGuard.Meta> {
   public ActionOrderGuard(ProtocolScanner parentCheck) {
@@ -45,26 +45,19 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     PacketType type = event.getPacketType();
+    String packetName = packetName(type);
 
-    if (isTickBoundary(type)) {
+    if (isTickBoundary(user, packetName)) {
       finishTick(user, meta);
       return;
     }
 
-    if (type == PacketType.Play.Client.ATTACK) {
-      if (meta.rightClicking || meta.digging || meta.releasing || meta.dropping || meta.swapping) {
-        conflict(user, meta, "attack during " + activeAction(meta), 1.0);
-      }
-      meta.attacking = true;
+    if (isEntityInteraction(packetName)) {
+      handleEntityInteraction(event, user, meta);
       return;
     }
 
-    if (type == PacketType.Play.Client.USE_ENTITY) {
-      meta.interacting = true;
-      return;
-    }
-
-    if (isUse(type)) {
+    if (isUse(packetName)) {
       if (meta.attacking && !meta.interacting) {
         conflict(user, meta, "use after attack without interact", 1.0);
       }
@@ -75,12 +68,12 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
       return;
     }
 
-    if (type == PacketType.Play.Client.BLOCK_DIG) {
+    if (isName(packetName, "BLOCK_DIG", "PLAYER_DIGGING")) {
       handleDig(event, user, meta);
       return;
     }
 
-    if (type == PacketType.Play.Client.HELD_ITEM_SLOT) {
+    if (isName(packetName, "HELD_ITEM_SLOT", "HELD_ITEM_CHANGE")) {
       if (meta.attacking || meta.rightClicking || meta.digging || meta.releasing
         || meta.dropping || meta.swapping || meta.sprintChanged || meta.sneakChanged) {
         conflict(user, meta, "slot change during " + activeAction(meta), 0.8);
@@ -89,12 +82,12 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
       return;
     }
 
-    if (type == PacketType.Play.Client.ENTITY_ACTION) {
+    if (isName(packetName, "ENTITY_ACTION")) {
       handleEntityAction(event, user, meta);
       return;
     }
 
-    if (type == PacketType.Play.Client.WINDOW_CLICK) {
+    if (isName(packetName, "WINDOW_CLICK", "CLICK_WINDOW")) {
       if (meta.attacking || meta.rightClicking || meta.digging || meta.releasing || meta.dropping) {
         conflict(user, meta, "inventory click during " + activeAction(meta), 0.75);
       }
@@ -105,11 +98,28 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
       return;
     }
 
-    if (type == PacketType.Play.Client.CLOSE_WINDOW) {
+    if (isName(packetName, "CLOSE_WINDOW")) {
       if (meta.inventoryClosing) {
         conflict(user, meta, "duplicate inventory close", 0.5);
       }
       meta.inventoryClosing = true;
+    }
+  }
+
+  private void handleEntityInteraction(PacketEvent event, User user, Meta meta) {
+    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
+    try {
+      if (!reader.isAttackPacket()) {
+        meta.interacting = true;
+        return;
+      }
+
+      if (meta.rightClicking || meta.digging || meta.releasing || meta.dropping || meta.swapping) {
+        conflict(user, meta, "attack during " + activeAction(meta), 1.0);
+      }
+      meta.attacking = true;
+    } finally {
+      reader.release();
     }
   }
 
@@ -172,7 +182,6 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
       boolean sneak = action.isSneakRelated();
 
       if (sprint) {
-        // Vanilla changed the relative sneak/sprint input ordering in 1.21.2.
         if (user.meta().protocol().protocolVersion() < ProtocolMetadata.VER_1_21_3 && meta.sneakChanged) {
           conflict(user, meta, "sprint action after sneak action", 0.5);
         }
@@ -232,18 +241,33 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
       || user.meta().movement().isInVehicle();
   }
 
-  private static boolean isUse(PacketType type) {
-    return type == PacketType.Play.Client.BLOCK_PLACE
-      || "USE_ITEM".equalsIgnoreCase(type.name())
-      || "USE_ITEM_ON".equalsIgnoreCase(type.name());
+  private static boolean isEntityInteraction(String name) {
+    return isName(name, "ATTACK", "ATTACK_ENTITY", "USE_ENTITY", "INTERACT_ENTITY");
   }
 
-  private static boolean isTickBoundary(PacketType type) {
-    return type == PacketType.Play.Client.FLYING
-      || type == PacketType.Play.Client.LOOK
-      || type == PacketType.Play.Client.POSITION
-      || type == PacketType.Play.Client.POSITION_LOOK
-      || "CLIENT_TICK_END".equalsIgnoreCase(type.name());
+  private static boolean isUse(String name) {
+    return isName(name, "BLOCK_PLACE", "PLAYER_BLOCK_PLACEMENT", "USE_ITEM", "USE_ITEM_ON");
+  }
+
+  private static boolean isTickBoundary(User user, String name) {
+    if (user.meta().protocol().sendsClientTickEnd()) {
+      return isName(name, "CLIENT_TICK_END");
+    }
+    return isName(name, "FLYING", "PLAYER_FLYING", "LOOK", "PLAYER_ROTATION",
+      "POSITION", "PLAYER_POSITION", "POSITION_LOOK", "PLAYER_POSITION_AND_ROTATION");
+  }
+
+  private static String packetName(PacketType type) {
+    return type == null || type.name() == null ? "" : type.name().toUpperCase(Locale.ROOT);
+  }
+
+  private static boolean isName(String actual, String... names) {
+    for (String name : names) {
+      if (name.equalsIgnoreCase(actual)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static String activeAction(Meta meta) {
