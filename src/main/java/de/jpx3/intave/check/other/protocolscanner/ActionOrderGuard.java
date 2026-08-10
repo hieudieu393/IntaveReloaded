@@ -76,7 +76,6 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
     if (hand == null) hand = InteractionHand.MAIN_HAND;
     boolean sneaking = interaction.isSneaking().orElse(false);
 
-    // PacketOrderC: pre-26.1 clients normally pair INTERACT_AT with a matching INTERACT.
     if (action == WrapperPlayClientInteractEntity.InteractAction.INTERACT_AT
       && user.protocolVersion() < ProtocolMetadata.VER_26_1_1) {
       meta.pendingInteractAt = true;
@@ -96,7 +95,6 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
       meta.pendingInteractAt = false;
     }
 
-    // PacketOrderD: OFF_HAND follows the corresponding MAIN_HAND interaction when vanilla emits it.
     if (hand == InteractionHand.MAIN_HAND) {
       meta.mainInteractSet = true;
       meta.mainInteractEntity = interaction.getEntityId();
@@ -350,7 +348,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
     int configuredVl = parentCheck().configuration().settings().intBy("packet-order-vl", (int) Math.ceil(vl));
     Violation violation = Violation.builderFor(ProtocolScanner.class)
       .forPlayer(user.player())
-      .withCheckName("PacketOrder")
+      .withCheckName("BadPackets")
       .withMessage("invalid packet order")
       .withDetails(rule + ": " + details)
       .withVL(Math.max(1, configuredVl))
