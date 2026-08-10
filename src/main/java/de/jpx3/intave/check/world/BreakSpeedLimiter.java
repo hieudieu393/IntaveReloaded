@@ -3,6 +3,7 @@ package de.jpx3.intave.check.world;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.check.Check;
 import de.jpx3.intave.check.CheckViolationLevelDecrementer;
+import de.jpx3.intave.check.world.breakspeedlimiter.AirLiquidBreakCheck;
 import de.jpx3.intave.check.world.breakspeedlimiter.BreakProtocolGuard;
 import de.jpx3.intave.check.world.breakspeedlimiter.CompletionDurationCheck;
 import de.jpx3.intave.check.world.breakspeedlimiter.FarBreakEnvelope;
@@ -36,5 +37,6 @@ public final class BreakSpeedLimiter extends Check {
     appendCheckPart(new NoSwingBreakCheck(this));
     appendCheckPart(new FarBreakEnvelope(this));
     appendCheckPart(new BreakProtocolGuard(this));
+    appendCheckPart(new AirLiquidBreakCheck(this));
   }
 }
