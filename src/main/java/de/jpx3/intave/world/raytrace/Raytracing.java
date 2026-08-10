@@ -36,7 +36,7 @@ import java.util.List;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.SNEAKING;
 
 public final class Raytracing {
-  private static final Raytracer RAYTRACER = new UniversalRaytracer();
+	private static final Raytracer RAYTRACER = new UniversalRaytracer();
   private static final boolean[] PESSIMISTIC_BOOLEAN_ORDER = new boolean[]{false, true};
 
   public static float reachDistanceOf(Player player) {
@@ -48,41 +48,7 @@ public final class Raytracing {
   }
 
   public static float reachDistanceOf(MetadataBundle meta) {
-    boolean creative = meta.abilities().inGameMode(GameMode.CREATIVE);
-    float vanillaFallback = creative ? 5.0F : 3.0F;
-    if (!meta.protocol().supportsInteractionRangeAttributes()) {
-      return vanillaFallback;
-    }
-
-    double tracked = meta.abilities().attributeValue("player.entity_interaction_range");
-    if (!Double.isFinite(tracked) || tracked <= 0.0D) {
-      return vanillaFallback;
-    }
-    if (creative && Math.abs(tracked - 3.0D) < 1.0E-6D) {
-      return vanillaFallback;
-    }
-    return (float) Math.min(tracked, 64.0D);
-  }
-
-  public static float blockReachDistanceOf(User user) {
-    return blockReachDistanceOf(user.meta());
-  }
-
-  public static float blockReachDistanceOf(MetadataBundle meta) {
-    boolean creative = meta.abilities().inGameMode(GameMode.CREATIVE);
-    float vanillaFallback = creative ? 5.0F : 4.5F;
-    if (!meta.protocol().supportsInteractionRangeAttributes()) {
-      return vanillaFallback;
-    }
-
-    double tracked = meta.abilities().attributeValue("player.block_interaction_range");
-    if (!Double.isFinite(tracked) || tracked <= 0.0D) {
-      return vanillaFallback;
-    }
-    if (creative && Math.abs(tracked - 4.5D) < 1.0E-6D) {
-      return vanillaFallback;
-    }
-    return (float) Math.min(tracked, 64.0D);
+    return meta.abilities().inGameMode(GameMode.CREATIVE) ? 5.0F : 3.0F;
   }
 
   /**
@@ -181,9 +147,9 @@ public final class Raytracing {
     EntityRaytraceBlockConstraint rayTraceBlocks
   ) {
     Timings.SERVICE_RAYTRACER_ENTITY.start();
+    double blockReachDistance = 6;
     double attackReachDistance = reachDistanceOf(player);
-    double blockReachDistance = Math.max(6.0D, attackReachDistance + 0.5D);
-    double lastReach = Math.max(10.0D, attackReachDistance + 1.0D);
+    double lastReach = 10;
     RawVector3d lastHitVec = null;
     RawVector3d lastEyeVector = null;
 
@@ -234,8 +200,8 @@ public final class Raytracing {
           boolean blockRaytrace = false;
           if (rayTraceBlocks == EntityRaytraceBlockConstraint.ACCEPT_BLOCKS) {
             MovingObjectPosition blockMovingPosition = Raytracing.blockRayTrace(player.getWorld(), player, eyeVector, lookVector);
-            double distanceToBlock = blockMovingPosition == null || blockMovingPosition.hitVec == null ? blockReachDistance + 1.0D : eyeVector.distanceTo(blockMovingPosition.hitVec);
-            reach = distanceToBlock < distanceToEntity ? blockReachDistance + 1.0D : distanceToEntity;
+            double distanceToBlock = blockMovingPosition == null || blockMovingPosition.hitVec == null ? 10 : eyeVector.distanceTo(blockMovingPosition.hitVec);
+            reach = distanceToBlock < distanceToEntity ? 10 : distanceToEntity;
             blockRaytrace = true;
           } else {
             reach = distanceToEntity;
@@ -270,7 +236,7 @@ public final class Raytracing {
   }
 
   public static MovingObjectPosition blockRayTrace(Player player, Location playerLocation, Pose pose) {
-    double blockReachDistance = blockReachDistanceOf(UserRepository.userOf(player));
+    double blockReachDistance = resolveBlockReachDistance(player.getGameMode());
     double eyeHeight = resolvePlayerEyeHeight(player, pose);
     return blockRayTrace(player, playerLocation, playerLocation, blockReachDistance, eyeHeight, 1.0f);
   }
@@ -296,7 +262,7 @@ public final class Raytracing {
       }
       ActionBar.sendActionBar(
         player,
-        eyeVector + " " + location.getY() + " " + user.meta().movement().rotationPitch
+	      eyeVector + " " + location.getY() + " " + user.meta().movement().rotationPitch
       );
     }
     return blockRayTrace(location.getWorld(), player, eyeVector, targetVector);
@@ -305,7 +271,38 @@ public final class Raytracing {
   public static MovingObjectPosition blockRayTrace(World world, Player player, RawVector3d eyeVector, RawVector3d targetVector) {
     try {
       Timings.SERVICE_RAYTRACER_BLOCK.start();
+//      MovingObjectPosition raytrace = raytracer.raytrace(world, player, eyeVector, targetVector);
+//      player.sendMessage(eyeVector + " -> " + targetVector + " = " + raytrace.getBlockPos());
+//      player.playEffect(raytrace.getBlockPos().toLocation(world), org.bukkit.Effect.CLICK1, 0);
+
+      // show particle
+      /*
+      if (raytrace != null) {
+        player.playEffect(raytrace.hitVec.toLocation(world), Effect.HAPPY_VILLAGER, 0);
+      } else {
+        player.playEffect(targetVector.toLocation(world), Effect.HAPPY_VILLAGER, 0);
+      }*/
+
       MovingObjectPosition backup = Raytracing.RAYTRACER.raytrace(world, player, eyeVector, targetVector);
+
+      /*
+      if (backup != null) {
+        player.playEffect(backup.hitVec.toLocation(world), Effect.HAPPY_VILLAGER, 0);
+      } else {
+        player.playEffect(targetVector.toLocation(world), Effect.HAPPY_VILLAGER, 0);
+      }*/
+
+      /*
+      if (raytrace == null || backup == null) {
+//        player.sendMessage(ChatColor.RED + "Raytrace: " + raytrace + " Backup: " + backup);
+      } else if (raytrace.hitVec.distanceTo(backup.hitVec) > 0.0001) {
+        player.sendMessage(ChatColor.RED + "Difference: " + raytrace.hitVec.distanceTo(backup.hitVec));
+      } else if (raytrace.sideHit != backup.sideHit) {
+        player.sendMessage(ChatColor.RED + "Side: " + raytrace.sideHit + " " + backup.sideHit);
+      } else if (raytrace.getBlockPos() != null && backup.getBlockPos() != null && !raytrace.getBlockPos().equals(backup.getBlockPos())) {
+        player.sendMessage(ChatColor.RED + "Block: " + raytrace.getBlockPos() + " " + backup.getBlockPos());
+      }*/
+
       return backup;
     } finally {
       Timings.SERVICE_RAYTRACER_BLOCK.stop();
@@ -351,7 +348,7 @@ public final class Raytracing {
 
   public static double resolvePlayerEyeHeight(Player player) {
     User user = UserRepository.userOf(player);
-    return user.meta().movement().eyeHeight();
+	  return user.meta().movement().eyeHeight();
   }
 
   public static double resolvePlayerEyeHeight(Player player, Pose pose) {
