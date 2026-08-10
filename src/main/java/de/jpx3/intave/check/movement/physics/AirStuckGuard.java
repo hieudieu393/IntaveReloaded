@@ -3,6 +3,7 @@ package de.jpx3.intave.check.movement.physics;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.PacketEvent;
 import de.jpx3.intave.check.MetaCheck;
+import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
@@ -120,7 +121,7 @@ public final class AirStuckGuard extends MetaCheck<AirStuckGuard.Meta> {
       return;
     }
 
-    Violation violation = Violation.builderFor(AirStuckGuard.class)
+    Violation violation = Violation.builderFor(Physics.class)
       .forPlayer(user.player())
       .withMessage("withheld position updates while falling")
       .withDetails("gap=" + elapsed + "ms, dy=" + String.format("%.4f", meta.lastRealDeltaY))
