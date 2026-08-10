@@ -1,0 +1,2 @@
+package com.comphenix.protocol.wrappers;
+public class WrappedChatComponent { private final Object handle; private final String json; public WrappedChatComponent(Object h){handle=h;json=String.valueOf(h);} private WrappedChatComponent(String s,boolean x){handle=s;json=s;} public static WrappedChatComponent fromText(String s){return new WrappedChatComponent(s,true);} public static WrappedChatComponent fromJson(String s){return new WrappedChatComponent(s,true);} public Object getHandle(){return handle;} public String getJson(){return json;} }

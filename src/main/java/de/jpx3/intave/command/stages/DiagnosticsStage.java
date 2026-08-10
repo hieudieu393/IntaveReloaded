@@ -148,14 +148,14 @@ public final class DiagnosticsStage extends CommandStage {
     }
     String intaveVersion = IntavePlugin.fullVersion();
     String serverVersion = Bukkit.getName() + "@" + Bukkit.getVersion();
-    String protocolLibVersion = ProtocolLibrary.getPlugin().getDescription().getVersion();
+    String packetEventsVersion = ProtocolLibrary.getPlugin().getDescription().getVersion();
     sender.sendMessage(ChatColor.GRAY + "Spigot is " + ChatColor.WHITE + serverVersion);
-    sender.sendMessage(ChatColor.GRAY + "ProtocolLib is " + ChatColor.WHITE + protocolLibVersion);
+    sender.sendMessage(ChatColor.GRAY + "PacketEvents is " + ChatColor.WHITE + packetEventsVersion);
     sender.sendMessage(ChatColor.GRAY + "Intave is " + ChatColor.WHITE + intaveVersion);
 
     TextComponent message = new TextComponent("[Copy report message to chat]");
     message.setColor(net.md_5.bungee.api.ChatColor.GRAY);
-    message.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "Environment: `" + playerVersion + "`,`" + serverVersion + "`,`" + protocolLibVersion + "`,`" + intaveVersion + "`"));
+    message.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "Environment: `" + playerVersion + "`,`" + serverVersion + "`,`" + packetEventsVersion + "`,`" + intaveVersion + "`"));
 
     if (player != null) {
       // Send the message to the player
@@ -809,7 +809,7 @@ public final class DiagnosticsStage extends CommandStage {
       printStream.println("Static environment");
       printStream.println(" Time: " + LocalDateTime.now().format(MESSAGE_DATE_FORMATTER));
       printStream.println(" Intave: " + IntavePlugin.fullVersion());
-      printStream.println(" ProtocolLib: " + Bukkit.getPluginManager().getPlugin("ProtocolLib").getDescription().getVersion());
+      printStream.println(" PacketEvents: " + Bukkit.getPluginManager().getPlugin("packetevents").getDescription().getVersion());
       if (Bukkit.getPluginManager().getPlugin("ViaVersion") != null) {
         printStream.println(" ViaVersion: " + Bukkit.getPluginManager().getPlugin("ViaVersion").getDescription().getVersion());
       } else {

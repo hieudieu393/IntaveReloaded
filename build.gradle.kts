@@ -37,7 +37,7 @@ val gitCommitHash by lazy {
   }.standardOutput.asText.get().trim()
 }
 
-val simpleName = "Intave"
+val simpleName = "IntaveReloaded"
 group = "de.jpx3"
 version = "$gitTag-$gitCommitHash"
 description = "Automated cheat detection and prevention"
@@ -66,7 +66,6 @@ dependencies {
 
   testRuntimeOnly("it.unimi.dsi:fastutil:8.5.12")
   testImplementation("org.spigotmc:spigot-api:26.1.2-R0.1-SNAPSHOT")
-  testImplementation("net.dmulloy2:ProtocolLib:5.4.0")
   testImplementation("io.netty:netty-all:4.2.15.Final")
 
   // random shit
@@ -87,6 +86,7 @@ dependencies {
 
   // bytebuddy
   compileOnly("net.bytebuddy:byte-buddy:1.18.2")
+  testRuntimeOnly("net.bytebuddy:byte-buddy:1.18.2")
 
   // floodgate
   compileOnly("org.geysermc.floodgate:api:2.0-SNAPSHOT")
@@ -117,13 +117,14 @@ configurations[benchmarkSourceSet.runtimeOnlyConfigurationName].extendsFrom(
  */
 bukkit {
   name = simpleName
-  authors = listOf("DarkAndBlue", "Jpx3", "vento", "vxcus", "lennoxlotl", "NotLucky", "Trattue")
+  authors = listOf("Onxe", "DarkAndBlue", "Jpx3", "vento", "vxcus", "lennoxlotl", "NotLucky", "Trattue")
   version = "${rootProject.version}"
   description = "${rootProject.description}"
 
   main = "de.jpx3.intave.IntavePlugin"
   apiVersion = "1.13"
-  softDepend = listOf("packetevents", "ProtocolLib", "ViaVersion")
+  depend = listOf("packetevents")
+  softDepend = listOf("ViaVersion")
 
   commands { register("intave") { aliases = listOf("iac") } }
 
@@ -193,6 +194,9 @@ tasks.register<RunServer>("authtest") {
 
   pluginJars.from("build/libs/$simpleName.jar")
   minecraftVersion("1.8.8")
+  downloadPlugins {
+    modrinth("packetevents", "2.13.0+spigot")
+  }
   runDirectory(File("runs/authtest"))
   jvmArgs("-Dcom.mojang.eula.agree=true")
 //  jvmArgs("-Dintave.test.success=shutdown")
@@ -211,6 +215,9 @@ tasks.register<RunServer>("gommetest") {
 
   pluginJars.from("build/libs/$simpleName.jar")
   minecraftVersion("1.8.8")
+  downloadPlugins {
+    modrinth("packetevents", "2.13.0+spigot")
+  }
   runDirectory(File("runs/gommetest"))
   jvmArgs("-Dcom.mojang.eula.agree=true")
 //  jvmArgs("-Dintave.test.success=shutdown")
@@ -231,6 +238,9 @@ tasks.register<RunServer>("authtest_1.20.1") {
 
   pluginJars.from("build/libs/$simpleName.jar")
   minecraftVersion("1.20.1")
+  downloadPlugins {
+    modrinth("packetevents", "2.13.0+spigot")
+  }
   runDirectory(File("runs/authtest_1.20.1"))
   jvmArgs("-Dcom.mojang.eula.agree=true")
 //  jvmArgs("-Dintave.test.success=shutdown")
@@ -630,6 +640,9 @@ fun registerPaperTestTask(serverVersion: String, javaVersion: Int) {
     dependsOn("shadowJar")
     pluginJars.from("build/libs/$simpleName.jar")
     minecraftVersion(serverVersion)
+    downloadPlugins {
+      modrinth("packetevents", "2.13.0+spigot")
+    }
     // Minecraft 1.8.8 requires special patches to work with Java 17
     if (serverVersion == "1.8.8") {
       serverJar(File("libs/servers/panda-1.8.8.jar"))
@@ -679,6 +692,7 @@ fun registerPaperRunTask(serverVersion: String, javaVersion: Int) {
       serverJar(File("libs/servers/paper-1.21.7-15.jar"))
     }
     downloadPlugins {
+      modrinth("packetevents", "2.13.0+spigot")
       modrinth("viaversion", "5.9.1")
       modrinth("viabackwards", "5.9.1")
     }
@@ -701,6 +715,9 @@ fun registerFoliaRunTask(serverVersion: String, javaVersion: Int) {
     dependsOn("shadowJar")
     pluginJars.from("build/libs/$simpleName.jar")
     minecraftVersion(serverVersion)
+    downloadPlugins {
+      modrinth("packetevents", "2.13.0+spigot")
+    }
     runDirectory(File("runs/folia_${serverVersion}-j$javaVersion"))
     jvmArgs("-Dcom.mojang.eula.agree=true")
     args("-o", "false")

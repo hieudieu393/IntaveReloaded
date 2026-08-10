@@ -1,69 +1,80 @@
 
-![Intave](docs/assets/hero_banner.png "Intave")
+![IntaveReloaded](docs/assets/hero_banner.png "IntaveReloaded")
 
+# IntaveReloaded
 
-Intave is an enterprise anticheat plugin for Minecraft servers in development since 2016.
-After almost a decade of use on the world's largest Minecraft servers
-and shutting down in mid-2025, we now decided to give back to the community by making Intave source-available to everyone.
+**IntaveReloaded** is maintained by **Onxe** and is based on the original Intave anticheat project.
+Intave has been developed since 2016 and was used on some of the world's largest Minecraft servers before its source became publicly available.
 
-## Downloads
-- [Auto Loader](https://github.com/intave/loader/releases/download/v1.0.0/IntaveLoader.jar) (Recommended)
-- [Nightly Build](https://github.com/intave/intave/releases/download/nightly/Intave.jar)
-- [Modrinth](https://modrinth.com/plugin/intave)
+This fork keeps the original Intave detection architecture and developer attribution while continuing development under the IntaveReloaded name.
+The packet backend has been migrated from the external ProtocolLib dependency to **PacketEvents 2.13.0+**.
+
+## Credits
+
+Current maintainer / additional development:
+- **Onxe**
+
+Original Intave developers, retained with full credit:
+- DarkAndBlue
+- Jpx3
+- vento
+- vxcus
+- lennoxlotl
+- NotLucky
+- Trattue
+
+## Requirements & compatibility
+
+- **Server:** Minecraft **1.21 or newer** on a supported Bukkit/Spigot/Paper/Folia implementation
+- **Client protocol:** Minecraft **1.17 or newer**
+- **PacketEvents 2.13.0 or newer** is required
+- ViaVersion/ViaBackwards remain optional for native-version clients, but are required when the server needs protocol translation for older supported clients (for example, a 1.17 client joining a 1.21+ server)
+
+IntaveReloaded's server runtime support and client protocol support are intentionally separate: the plugin itself only runs on 1.21+ servers, while its movement and packet compatibility logic supports clients from 1.17 upward.
 
 ## General
 
-Unlike traditional module-based anticheats, Intave accurately simulates player movement, client-side entity and block
-data to detect even the smallest manipulations. Through this approach, Intave successfully prevents any kind of combat,
-movement and interaction exploits, such as speed/fly cheats or reaching beyond the 3.0 block range.
+Unlike traditional module-based anticheats, IntaveReloaded accurately simulates player movement, client-side entity and block
+data to detect even the smallest manipulations. Through this approach, Intave can prevent combat, movement and interaction
+exploits such as speed/fly cheats or reaching beyond the normal interaction range.
 
-Additionally, Intave provides heuristic checks to counter aimbot, auto-clicker, timer, placement, block breaking,
-inventory
-and many other cheats that cannot be detected by solely simulating client logic.
+Additionally, Intave provides heuristic checks for aimbot, auto-clicker, timer, placement, block breaking, inventory and other
+cheats that cannot be detected solely by simulating client logic.
 
-For more information, see the documentation of Intave's
-checks [here](https://docs.intave.ac/mechanics/checks-01-overview.html).
+The original Intave check documentation remains useful for understanding the architecture and detection model.
 
 ## Development
 
 ### Setup
 
-1. Clone the project: `git clone https://github.com/intave/intave.git`.
-2. Open the project as Gradle project; wait a few minutes for IntelliJ to index and build the
-   project.
+1. Clone this repository: `git clone https://github.com/hieudieu393/IntaveReloaded.git`.
+2. Open the project as a Gradle project and allow IntelliJ/Gradle to finish indexing and resolving dependencies.
+3. Install PacketEvents 2.13.0+ on any server where you run the built plugin.
+4. Use a Minecraft 1.21+ server. Add ViaVersion/ViaBackwards when testing older supported clients.
 
 ### Testing
 
-Choose one of the `intave/run_X.X.X` gradle tasks corresponding to the Minecraft server version
-you want to test. Intave is then automatically installed on that server. In case of Intave failing to download
-ProtocolLib, make sure you manually install ProtocolLib on the server by moving it into the `plugins` directory.
+Server run/self-test tasks below Minecraft 1.21 are disabled because they are outside the supported server range.
+MCP-Reborn client tasks are supported from Minecraft 1.17 upward; client targets below 1.17 are disabled.
+The development run/test configuration installs the required PacketEvents dependency for server tasks.
 
-By doing so, you can run the plugin directly in the IDE. Breakpoints and hotswapping is
-enabled!
-We use [this IntelliJ plugin](https://plugins.jetbrains.com/plugin/14832-single-hotswap) for efficient hotswapping, which
-can swap method contents that don't have an indy lambda or anonymous class.
+Breakpoints and hotswapping are supported. The original project recommends the IntelliJ
+[Single Hotswap](https://plugins.jetbrains.com/plugin/14832-single-hotswap) plugin for efficient method-body hotswapping.
 
 ## Contributing
 
-We accept contributions to the project, but please make sure to read the [contributing guidelines](docs/CONTRIBUTING.md) before doing so.
-For a high-level overview of the project organization, see [this document](docs/STRUCTURE.md).
-A cheatsheet can be found [here](docs/CHEATSHEET.md) to quickly find your way around the codebase, contributions welcome!
-Our block system is briefly outlined in [this document](docs/BLOCK_SYSTEM.md).
-If you have any questions, feel free to get in touch with us on [Discord](https://intave.ac/go/discord).
+Please read the existing [contributing guidelines](docs/CONTRIBUTING.md) before contributing.
+For a high-level overview of the project organization, see [docs/STRUCTURE.md](docs/STRUCTURE.md).
+A quick codebase reference is available in [docs/CHEATSHEET.md](docs/CHEATSHEET.md), and the block system is outlined in
+[docs/BLOCK_SYSTEM.md](docs/BLOCK_SYSTEM.md).
+
+## Upstream attribution
+
+IntaveReloaded is derived from the original **Intave** project. The original authors and copyright notices are intentionally
+retained throughout the source tree. This project does not claim authorship of the original Intave code; Onxe is credited for
+IntaveReloaded maintenance and subsequent modifications.
 
 ## License
-We want to make Intave completely free and open, available for everyone, indefinitely.
-However, we don't want you or others to take this work, rebrand it and sell it as their own creation.
-We've seen this happen multiple times with other anticheats, and we explicitly forbid this kind of behavior.
-Still, we want to allow Minecraft servers commercial use of Intave and
-the ability to modify and adapt it to their needs, as long as they don't sell it as a product or publish it.
-Therefore, we decided to use the [Polyform Perimeter License 1.0.0](LICENSE.md),
-prohibiting any form of competitive use.
-We also want to encourage everyone to contribute back to the project instead of creating their personal spin-offs,
-making the project better for everyone instead of fragmenting the community and development efforts.
-This also technically means Intave isn't actually "open-source", but "source-available" for everyone to use and modify, but not to sell,
-rebrand as their own or mix into their own product or project, no matter the respective licenses.
-In case of source stealing or commercial redistribution we will be issuing DMCA takedowns and in blatant cases we will go 
-the extra mile to bring legal action against you, we are not joking about this.
-Please note that Intave uses third-party libraries, which are licensed under their respective licenses and
-may not be covered by the Polyform Perimeter License.
+
+The original Intave source is distributed under the [PolyForm Perimeter License 1.0.0](LICENSE.md). Existing copyright and
+license notices remain in place. Third-party libraries, including PacketEvents, are covered by their respective licenses.
