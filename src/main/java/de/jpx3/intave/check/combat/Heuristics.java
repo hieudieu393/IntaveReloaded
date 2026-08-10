@@ -13,6 +13,7 @@ import de.jpx3.intave.check.combat.heuristics.inventory.PacketInventoryHeuristic
 import de.jpx3.intave.check.combat.heuristics.modern.CombatFreezeHeuristic;
 import de.jpx3.intave.check.combat.heuristics.modern.CombatObstructionHeuristic;
 import de.jpx3.intave.check.combat.heuristics.modern.CombatRotationHeuristic;
+import de.jpx3.intave.check.combat.heuristics.modern.UseItemRotationHeuristic;
 import de.jpx3.intave.check.combat.heuristics.other.*;
 import de.jpx3.intave.check.combat.heuristics.testing.TestingHeuristic;
 import org.bukkit.entity.Player;
@@ -56,6 +57,7 @@ public final class Heuristics extends Check {
     // Modern combat analysis extends the existing Heuristics pipeline rather than creating a
     // parallel combat subsystem. AttackRaytrace remains authoritative for reach/hitbox checks.
     appendCheckPart(new CombatRotationHeuristic(this));
+    appendCheckPart(new UseItemRotationHeuristic(this));
     appendCheckPart(new CombatFreezeHeuristic(this));
     appendCheckPart(new CombatObstructionHeuristic(this));
   }
