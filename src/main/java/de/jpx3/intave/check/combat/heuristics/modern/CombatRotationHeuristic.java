@@ -22,9 +22,7 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Client.POSITION_LOOK;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.USE_ENTITY;
 
 /**
- * Adds attack-correlated rotation analysis on top of Intave's classic rotation heuristics.
- * It tracks the mouse-step mode on both axes, modulo yaw snaps, duplicate look updates and
- * short attack snap-back patterns while keeping the existing Heuristics VL/mitigation pipeline.
+ * Attack-correlated rotation analysis layered onto Intave's existing combat heuristics.
  */
 public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatRotationHeuristic.Meta> {
   private static final int HISTORY_SIZE = 8;
@@ -42,7 +40,6 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
       if (!reader.isAttackPacket()) {
         return;
       }
-
       User user = userOf(event.getPlayer());
       MovementMetadata movement = user.meta().movement();
       Meta meta = metaOf(user);
@@ -50,7 +47,6 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
         resetAttackWindow(meta);
         return;
       }
-
       int index = (meta.historyHead - 2 + HISTORY_SIZE) % HISTORY_SIZE;
       meta.preAttackYaw = meta.yawHistory[index];
       meta.pendingAttackTicks = 0;
@@ -69,37 +65,37 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
     Meta meta = metaOf(user);
 
     float currentYaw = movement.rotationYaw;
-    float deltaYaw = wrapDegrees(currentYaw - movement.lastRotationYaw);
+    float rawDeltaYaw = currentYaw - movement.lastRotationYaw;
+    float wrappedDeltaYaw = wrapDegrees(rawDeltaYaw);
     float deltaPitch = movement.rotationPitch - movement.lastRotationPitch;
-    float absYaw = Math.abs(deltaYaw);
+    float absRawYaw = Math.abs(rawDeltaYaw);
+    float absYaw = Math.abs(wrappedDeltaYaw);
     float absPitch = Math.abs(deltaPitch);
 
     updateMouseProcessor(meta, absYaw, absPitch);
 
-    boolean exempt = movement.ticksPast(TELEPORT) <= 2 || movement.isInVehicle();
-    if (exempt) {
+    if (movement.ticksPast(TELEPORT) <= 2 || movement.isInVehicle()) {
       meta.exemptNext = true;
       meta.duplicateBuffer = 0;
       resetAttackWindow(meta);
-      finishRotation(meta, currentYaw, absYaw);
+      finishRotation(meta, currentYaw, absRawYaw);
       return;
     }
     if (meta.exemptNext) {
       meta.exemptNext = false;
-      finishRotation(meta, currentYaw, absYaw);
+      finishRotation(meta, currentYaw, absRawYaw);
       return;
     }
 
     boolean recentCombat = user.meta().attack().recentlyAttacked(750) || meta.pendingAttackTicks >= 0;
 
-    // Large modulo/reset snap: a normal small turn immediately followed by a 320+ degree yaw delta.
-    if (currentYaw < 360.0f && currentYaw > -360.0f && absYaw > 320.0f && meta.lastDeltaYaw < 30.0f) {
-      flag(user, "rotation-modulo", "large yaw snap=" + format(absYaw) + " previous=" + format(meta.lastDeltaYaw), 4.0);
+    // Preserve the raw delta here. Wrapping before this comparison would make 320+ degree snaps impossible.
+    if (currentYaw < 360.0f && currentYaw > -360.0f && absRawYaw > 320.0f && meta.lastRawDeltaYaw < 30.0f) {
+      flag(user, "rotation-modulo",
+        "large yaw snap=" + format(absRawYaw) + " previous=" + format(meta.lastRawDeltaYaw), 4.0);
     }
 
-    // Duplicate look updates are only considered during combat and need a short buffer. This avoids
-    // treating an isolated redundant rotation packet as automation.
-    if (recentCombat && absYaw == 0.0f && absPitch == 0.0f) {
+    if (recentCombat && absRawYaw == 0.0f && absPitch == 0.0f) {
       if (++meta.duplicateBuffer >= 2) {
         flag(user, "duplicate-look", "repeated identical combat rotations", 2.0);
         meta.duplicateBuffer = 1;
@@ -108,23 +104,21 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
       meta.duplicateBuffer--;
     }
 
-    // Attack snap-back: remember the pre-attack yaw, observe a spike, then detect a rapid return
-    // to essentially the same yaw within three rotation updates.
     if (meta.pendingAttackTicks >= 0) {
       meta.pendingAttackTicks++;
       if (!meta.sawAttackSpike && absYaw > 30.0f) {
         meta.sawAttackSpike = true;
         meta.attackSpike = absYaw;
       }
-
       if (meta.sawAttackSpike) {
         float returnDifference = Math.abs(wrapDegrees(currentYaw - meta.preAttackYaw));
         if (returnDifference < 3.0f) {
-          String details = "spike=" + format(meta.attackSpike)
-            + " return=" + format(returnDifference)
-            + " window=" + meta.pendingAttackTicks
-            + sensitivityDetails(meta);
-          flag(user, "rotation-snap-back", details, 4.0);
+          flag(user, "rotation-snap-back",
+            "spike=" + format(meta.attackSpike)
+              + " return=" + format(returnDifference)
+              + " window=" + meta.pendingAttackTicks
+              + sensitivityDetails(meta),
+            4.0);
           resetAttackWindow(meta);
         } else if (meta.pendingAttackTicks >= 3) {
           resetAttackWindow(meta);
@@ -134,27 +128,27 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
       }
     }
 
-    finishRotation(meta, currentYaw, absYaw);
+    finishRotation(meta, currentYaw, absRawYaw);
   }
 
   private static void updateMouseProcessor(Meta meta, float absYaw, float absPitch) {
-    if (absYaw > 0.0f && absYaw < 5.0f && meta.lastSmallYaw > 0.0f) {
-      double divisor = gcd(absYaw, meta.lastSmallYaw);
-      if (divisor > 1.0E-6) {
-        addModeSample(meta.yawDivisors, divisor);
-      }
-    }
     if (absYaw > 0.0f && absYaw < 5.0f) {
+      if (meta.lastSmallYaw > 0.0f) {
+        double divisor = gcd(absYaw, meta.lastSmallYaw);
+        if (divisor > 1.0E-6) {
+          addModeSample(meta.yawDivisors, divisor);
+        }
+      }
       meta.lastSmallYaw = absYaw;
     }
 
-    if (absPitch > 0.0f && absPitch < 5.0f && meta.lastSmallPitch > 0.0f) {
-      double divisor = gcd(absPitch, meta.lastSmallPitch);
-      if (divisor > 1.0E-6) {
-        addModeSample(meta.pitchDivisors, divisor);
-      }
-    }
     if (absPitch > 0.0f && absPitch < 5.0f) {
+      if (meta.lastSmallPitch > 0.0f) {
+        double divisor = gcd(absPitch, meta.lastSmallPitch);
+        if (divisor > 1.0E-6) {
+          addModeSample(meta.pitchDivisors, divisor);
+        }
+      }
       meta.lastSmallPitch = absPitch;
     }
 
@@ -234,8 +228,8 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
       + " dots=" + format(meta.deltaDotsYaw) + "/" + format(meta.deltaDotsPitch);
   }
 
-  private static void finishRotation(Meta meta, float yaw, float absYaw) {
-    meta.lastDeltaYaw = absYaw;
+  private static void finishRotation(Meta meta, float yaw, float absRawYaw) {
+    meta.lastRawDeltaYaw = absRawYaw;
     meta.yawHistory[meta.historyHead] = yaw;
     meta.historyHead = (meta.historyHead + 1) % HISTORY_SIZE;
     if (meta.historyFilled < HISTORY_SIZE) {
@@ -287,7 +281,7 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
     private boolean exemptNext;
     private float preAttackYaw;
     private float attackSpike;
-    private float lastDeltaYaw;
+    private float lastRawDeltaYaw;
     private float lastSmallYaw;
     private float lastSmallPitch;
     private double modeYaw;
