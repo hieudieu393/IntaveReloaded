@@ -1,6 +1,6 @@
 package de.jpx3.intave.registry;
 
-import com.comphenix.protocol.wrappers.MinecraftKey;
+import de.jpx3.intave.share.MinecraftKey;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.klass.Lookup;
 import de.jpx3.intave.klass.locate.MethodSearchBySignature;

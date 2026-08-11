@@ -6,7 +6,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.wrappers.BlockPosition;
+import de.jpx3.intave.share.BlockPosition;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import com.comphenix.protocol.wrappers.WrappedBlockData;
 import de.jpx3.intave.block.access.BlockInteractionAccess;

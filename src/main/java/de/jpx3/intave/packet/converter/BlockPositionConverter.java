@@ -4,7 +4,7 @@ import com.comphenix.protocol.reflect.EquivalentConverter;
 import com.comphenix.protocol.reflect.FieldAccessException;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.utility.MinecraftReflection;
-import com.comphenix.protocol.wrappers.BlockPosition;
+import de.jpx3.intave.share.BlockPosition;
 
 import java.lang.reflect.Constructor;
 

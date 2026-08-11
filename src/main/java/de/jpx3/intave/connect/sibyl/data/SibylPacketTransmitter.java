@@ -2,7 +2,7 @@ package de.jpx3.intave.connect.sibyl.data;
 
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.MinecraftKey;
+import de.jpx3.intave.share.MinecraftKey;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import de.jpx3.intave.adapter.MinecraftVersions;

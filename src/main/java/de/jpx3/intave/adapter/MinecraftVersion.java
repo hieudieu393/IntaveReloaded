@@ -93,9 +93,7 @@ public final class MinecraftVersion implements Comparable<MinecraftVersion> {
 		this.snapshot = null;
 	}
 
-	public com.comphenix.protocol.utility.MinecraftVersion toProtocolLibVersion() {
-		return new com.comphenix.protocol.utility.MinecraftVersion(this.major, this.minor, this.build);
-	}
+
 
 	public static String extractVersion(String text) {
 		Matcher version = VERSION_PATTERN.matcher(text);

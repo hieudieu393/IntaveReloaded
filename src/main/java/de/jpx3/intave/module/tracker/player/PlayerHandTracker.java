@@ -15,7 +15,7 @@ import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.comphenix.protocol.events.PacketContainer;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
-import com.comphenix.protocol.wrappers.BlockPosition;
+import de.jpx3.intave.share.BlockPosition;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntavePlugin;
