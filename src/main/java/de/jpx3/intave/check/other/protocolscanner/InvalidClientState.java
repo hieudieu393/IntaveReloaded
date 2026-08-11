@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.CheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -27,7 +27,7 @@ public final class InvalidClientState extends CheckPart<ProtocolScanner> {
     ignoreCancelled = false,
     packetsIn = ABILITIES_IN
   )
-  public void receiveAbilities(User user, AbilityInReader reader, PacketEvent event) {
+  public void receiveAbilities(User user, AbilityInReader reader, ProtocolPacketEvent event) {
     if (!reader.requestedFlying() || user.meta().abilities().allowFlying()) {
       return;
     }
@@ -39,7 +39,7 @@ public final class InvalidClientState extends CheckPart<ProtocolScanner> {
     ignoreCancelled = false,
     packetsIn = SPECTATE
   )
-  public void receiveSpectate(User user, PacketEvent event) {
+  public void receiveSpectate(User user, ProtocolPacketEvent event) {
     if (user.meta().abilities().inGameModeIncludePending(SPECTATOR)) {
       return;
     }
@@ -47,7 +47,7 @@ public final class InvalidClientState extends CheckPart<ProtocolScanner> {
     cancelAndFlag(user, event, "sent a spectate packet outside spectator mode", "gamemode is not spectator");
   }
 
-  private void cancelAndFlag(User user, PacketEvent event, String message, String details) {
+  private void cancelAndFlag(User user, ProtocolPacketEvent event, String message, String details) {
     if (event.isReadOnly()) {
       event.setReadOnly(false);
     }

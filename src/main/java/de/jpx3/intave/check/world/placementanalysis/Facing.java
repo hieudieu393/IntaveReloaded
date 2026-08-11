@@ -1,7 +1,7 @@
 package de.jpx3.intave.check.world.placementanalysis;
 
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
 import de.jpx3.intave.check.CheckPart;
 import de.jpx3.intave.check.world.PlacementAnalysis;
@@ -29,7 +29,7 @@ public final class Facing extends CheckPart<PlacementAnalysis> {
 			BLOCK_PLACE
 		}
 	)
-	public void checkPlacementVector(PacketEvent event) {
+	public void checkPlacementVector(ProtocolPacketEvent event) {
 		Player player = event.getPlayer();
 		PacketContainer packet = event.getPacket();
 		if (blockingPlacementPacket(packet)) {

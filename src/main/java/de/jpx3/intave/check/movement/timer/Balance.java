@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.movement.timer;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.annotate.DispatchTarget;
 import de.jpx3.intave.check.CheckStatistics;
 import de.jpx3.intave.check.CheckViolationLevelDecrementer;
@@ -19,7 +19,7 @@ import de.jpx3.intave.user.meta.MovementMetadata;
 import de.jpx3.intave.user.meta.ViolationMetadata;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
+import com.github.retrooper.packetevents.event.CancellableEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
@@ -48,14 +48,14 @@ public final class Balance extends MetaCheckPart<Timer, Balance.BalanceMeta> {
       RESPAWN
     }
   )
-  public void respawnTolerance(PacketEvent event) {
+  public void respawnTolerance(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     metaOf(player).lastRespawn = System.currentTimeMillis();
     metaOf(player).timerBalance -= TimeUnit.MILLISECONDS.toNanos(50);
   }
 
   @DispatchTarget
-  public void receiveMovement(PacketEvent event) {
+  public void receiveMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     if (player == null) {
       return;
@@ -162,11 +162,11 @@ public final class Balance extends MetaCheckPart<Timer, Balance.BalanceMeta> {
   private static final long DEFAULT_DELAY = 500;
   private static final long DEFAULT_THRESHOLD = 5;
 
-  private void cancelOnPacketOverflow(Player player, Cancellable cancellable) {
+  private void cancelOnPacketOverflow(Player player, CancellableEvent cancellable) {
     cancelOnPacketOverflow(player, cancellable, DEFAULT_THRESHOLD, DEFAULT_DELAY);
   }
 
-  private void cancelOnPacketOverflow(Player player, Cancellable cancellable, long threshold, long delay) {
+  private void cancelOnPacketOverflow(Player player, CancellableEvent cancellable, long threshold, long delay) {
     User user = userOf(player);
     BalanceMeta timerData = metaOf(user);
     long lastTimerFlag = timerData.lastTimerFlag;

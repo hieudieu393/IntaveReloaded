@@ -11,7 +11,7 @@
 
 package de.jpx3.intave.check.combat.heuristics.combatpatterns.rotation;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
 import de.jpx3.intave.check.combat.heuristics.HeuristicsClassicType;
@@ -38,7 +38,7 @@ public final class RotationModuloResetHeuristic extends ClassicHeuristic<Rotatio
       LOOK, POSITION_LOOK
     }
   )
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     MovementMetadata movementData = user.meta().movement();

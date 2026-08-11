@@ -2,7 +2,7 @@ package de.jpx3.intave.check.other.protocolscanner;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEditBook;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.CheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -17,7 +17,7 @@ import java.util.List;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.B_EDIT;
 
 /**
- * Modern book-edit sanity checks using PacketEvents' typed wrapper. Intave only supports 1.17+
+ * Modern book-edit sanity checks using ProtocolPacketEvents' typed wrapper. Intave only supports 1.17+
  * clients, so the modern writable-book limits can be enforced directly.
  */
 public final class BookEditGuard extends CheckPart<ProtocolScanner> {
@@ -32,7 +32,7 @@ public final class BookEditGuard extends CheckPart<ProtocolScanner> {
   }
 
   @PacketSubscription(packetsIn = B_EDIT, ignoreCancelled = false)
-  public void receive(PacketEvent event) {
+  public void receive(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) {
       return;
     }

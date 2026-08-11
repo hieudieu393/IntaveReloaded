@@ -1,6 +1,7 @@
 package de.jpx3.intave.check.world.breakspeedlimiter;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
@@ -27,7 +28,7 @@ public final class FarBreakEnvelope extends MetaCheckPart<BreakSpeedLimiter, Far
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
-  public void receive(PacketEvent event) {
+  public void receive(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     if (user.meta().movement().isInVehicle() || user.meta().abilities().hasViewEntity) {
       return;
@@ -35,9 +36,9 @@ public final class FarBreakEnvelope extends MetaCheckPart<BreakSpeedLimiter, Far
 
     BlockDigReader reader = PacketReaders.readerOf(event.getPacket());
     try {
-      EnumWrappers.PlayerDigType action = reader.action();
-      if (action != EnumWrappers.PlayerDigType.START_DESTROY_BLOCK
-        && action != EnumWrappers.PlayerDigType.STOP_DESTROY_BLOCK) {
+      DiggingAction action = reader.action();
+      if (action != DiggingAction.START_DESTROY_BLOCK
+        && action != DiggingAction.STOP_DESTROY_BLOCK) {
         return;
       }
       BlockPosition block = reader.nativeBlockPosition();

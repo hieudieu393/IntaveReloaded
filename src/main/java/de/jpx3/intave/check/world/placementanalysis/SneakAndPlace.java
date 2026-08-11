@@ -1,7 +1,7 @@
 package de.jpx3.intave.check.world.placementanalysis;
 
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.PlayerCheckPart;
 import de.jpx3.intave.check.world.PlacementAnalysis;
 import de.jpx3.intave.module.Modules;
@@ -52,7 +52,7 @@ public final class SneakAndPlace extends PlayerCheckPart<PlacementAnalysis> {
 			FLYING, LOOK, POSITION, POSITION_LOOK
 		}
 	)
-	public void clientTickUpdate(PacketEvent event) {
+	public void clientTickUpdate(ProtocolPacketEvent event) {
 		Player player = event.getPlayer();
 		if (placedInThisTick || sneakChangedInThisTick) {
 //      player.sendMessage(sneakInThisTick + "("+startSneakInThisTick+","+stopSneakInThisTick+")/" + placedInThisTick);
@@ -100,7 +100,7 @@ public final class SneakAndPlace extends PlayerCheckPart<PlacementAnalysis> {
 			BLOCK_PLACE
 		}
 	)
-	public void receivePlacementPacket(PacketEvent event) {
+	public void receivePlacementPacket(ProtocolPacketEvent event) {
 		PacketContainer packet = event.getPacket();
 		Player player = event.getPlayer();
 
@@ -126,7 +126,7 @@ public final class SneakAndPlace extends PlayerCheckPart<PlacementAnalysis> {
 			ENTITY_ACTION_IN
 		}
 	)
-	public void receiveEntityActionPacket(PacketEvent event) {
+	public void receiveEntityActionPacket(ProtocolPacketEvent event) {
 		Player player = event.getPlayer();
 		PacketContainer packet = event.getPacket();
 		PlayerActionReader reader = PacketReaders.readerOf(packet);

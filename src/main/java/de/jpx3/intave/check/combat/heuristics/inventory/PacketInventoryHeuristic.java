@@ -12,7 +12,7 @@
 package de.jpx3.intave.check.combat.heuristics.inventory;
 
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
@@ -45,7 +45,7 @@ public final class PacketInventoryHeuristic extends ClassicHeuristic<PacketInven
       CLIENT_COMMAND
     }
   )
-  public void receiveInventoryOpen(PacketEvent event) {
+  public void receiveInventoryOpen(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     EnumWrappers.ClientCommand clientCommand = event.getPacket().getClientCommands().read(0);
@@ -62,7 +62,7 @@ public final class PacketInventoryHeuristic extends ClassicHeuristic<PacketInven
       CLOSE_WINDOW
     }
   )
-  public void receiveInventoryClose(PacketEvent event) {
+  public void receiveInventoryClose(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     PacketInventoryMeta meta = metaOf(user);
@@ -86,7 +86,7 @@ public final class PacketInventoryHeuristic extends ClassicHeuristic<PacketInven
       POSITION, POSITION_LOOK, FLYING, LOOK
     }
   )
-  public void receiveMovement(PacketEvent event) {
+  public void receiveMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     PacketInventoryMeta meta = metaOf(user);

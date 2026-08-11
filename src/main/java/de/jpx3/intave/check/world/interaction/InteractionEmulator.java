@@ -11,6 +11,7 @@
 
 package de.jpx3.intave.check.world.interaction;
 
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import com.comphenix.protocol.wrappers.BlockPosition;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import de.jpx3.intave.IntaveControl;
@@ -262,10 +263,10 @@ public final class InteractionEmulator implements EventProcessor {
       // only failed, not critical failed, this should not be possible to abuse
       return EmulationResult.FAILED_NON_CRITICAL;
     }
-    EnumWrappers.Hand hand = interaction.hand();
+    InteractionHand hand = interaction.hand();
     boolean access = WorldPermission.blockPlacePermission(
       player, world,
-      hand == null || hand == EnumWrappers.Hand.MAIN_HAND,
+      hand == null || hand == InteractionHand.MAIN_HAND,
       blockX, blockY, blockZ,
       interaction.targetDirectionIndex(),
       placedBlockType, variant

@@ -6,7 +6,7 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientCh
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientChatCommandUnsigned;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientChatMessage;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSettings;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -30,7 +30,7 @@ public final class ChatStateGuard extends MetaCheckPart<ProtocolScanner, ChatSta
   }
 
   @PacketSubscription(packetsIn = SETTINGS, ignoreCancelled = false)
-  public void receiveSettings(PacketEvent event) {
+  public void receiveSettings(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) {
       return;
     }
@@ -43,7 +43,7 @@ public final class ChatStateGuard extends MetaCheckPart<ProtocolScanner, ChatSta
     packetsIn = {CHAT_IN, CHAT_MESSAGE, CHAT_COMMAND, CHAT_COMMAND_UNSIGNED},
     ignoreCancelled = false
   )
-  public void receiveChat(PacketEvent event) {
+  public void receiveChat(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) {
       return;
     }

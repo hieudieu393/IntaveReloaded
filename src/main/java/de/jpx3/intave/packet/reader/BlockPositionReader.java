@@ -11,34 +11,39 @@
 
 package de.jpx3.intave.packet.reader;
 
-import com.comphenix.protocol.wrappers.BlockPosition;
-import com.comphenix.protocol.wrappers.MovingObjectPositionBlock;
-import de.jpx3.intave.adapter.MinecraftVersions;
+import com.github.retrooper.packetevents.util.Vector3i;
 import de.jpx3.intave.annotate.Nullable;
-import de.jpx3.intave.klass.Lookup;
-import de.jpx3.intave.packet.converter.BlockPositionConverter;
+import de.jpx3.intave.share.BlockPosition;
 
+/**
+ * Base reader for packets whose first payload field is a Minecraft block position.
+ * Packet-specific readers whose layout differs (for example placement packets) override
+ * {@link #read()} and {@link #blockPosition()}.
+ */
 public class BlockPositionReader extends AbstractPacketReader {
-  private final boolean MODERN_RESOLVE = MinecraftVersions.VER1_14_0.atOrAbove();
+  private BlockPosition blockPosition;
 
-  public @Nullable de.jpx3.intave.share.BlockPosition nativeBlockPosition() {
-    BlockPosition blockPosition = blockPosition();
-    return blockPosition == null
-      ? null
-      : de.jpx3.intave.share.BlockPosition.fromProtocolLib(blockPosition);
+  @Override
+  protected void read() {
+    Vector3i position = rawPacket().readBlockPosition();
+    blockPosition = position == null ? null : BlockPosition.fromPacketEvents(position);
+  }
+
+  public @Nullable BlockPosition nativeBlockPosition() {
+    return blockPosition;
   }
 
   public @Nullable BlockPosition blockPosition() {
-    if (!MODERN_RESOLVE) {
-      return packet().getModifier()
-        .withType(Lookup.serverClass("BlockPosition"), BlockPositionConverter.threadConverter())
-        .readSafely(0);
-    }
-    BlockPosition directPosition = packet().getBlockPositionModifier().readSafely(0);
-    if (directPosition != null) {
-      return directPosition;
-    }
-    MovingObjectPositionBlock movingObjectPositionBlock = packet().getMovingBlockPositions().readSafely(0);
-    return movingObjectPositionBlock == null ? null : movingObjectPositionBlock.getBlockPosition();
+    return blockPosition;
+  }
+
+  protected final void blockPosition(Vector3i position) {
+    blockPosition = position == null ? null : BlockPosition.fromPacketEvents(position);
+  }
+
+  @Override
+  public void release() {
+    blockPosition = null;
+    super.release();
   }
 }

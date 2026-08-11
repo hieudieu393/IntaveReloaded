@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.world.placementanalysis;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.block.shape.BlockShape;
 import de.jpx3.intave.check.CheckPart;
 import de.jpx3.intave.check.world.PlacementAnalysis;
@@ -35,7 +35,7 @@ public final class FabricatedCursor extends CheckPart<PlacementAnalysis> {
     ignoreCancelled = false,
     packetsIn = {BLOCK_PLACE, USE_ITEM_ON}
   )
-  public void receive(PacketEvent event) {
+  public void receive(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     BlockInteractionReader reader = PacketReaders.readerOf(event.getPacket());
     try {

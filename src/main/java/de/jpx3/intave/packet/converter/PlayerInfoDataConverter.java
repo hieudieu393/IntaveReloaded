@@ -1,6 +1,7 @@
 package de.jpx3.intave.packet.converter;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.reflect.EquivalentConverter;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.utility.MinecraftReflection;
@@ -35,7 +36,7 @@ public final class PlayerInfoDataConverter {
           try {
             List<Class<?>> args = new ArrayList<>();
             if (!MinecraftVersions.VER1_17_0.atOrAbove()) {
-              args.add(PacketType.Play.Server.PLAYER_INFO.getPacketClass());
+              args.add(PacketType.Play.Server.PLAYER_INFO_UPDATE.getPacketClass());
             }
             args.add(MinecraftReflection.getGameProfileClass());
             args.add(Integer.TYPE);

@@ -1,7 +1,8 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -37,7 +38,7 @@ public final class DuplicateMovementGuard extends MetaCheckPart<ProtocolScanner,
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END, VEHICLE_MOVE},
     ignoreCancelled = false
   )
-  public void receive(PacketEvent event) {
+  public void receive(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     int protocol = user.protocolVersion();
@@ -49,7 +50,7 @@ public final class DuplicateMovementGuard extends MetaCheckPart<ProtocolScanner,
       return;
     }
 
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
     if (PacketTypes.isClientEndTick(type) || type == PacketType.Play.Client.VEHICLE_MOVE) {
       meta.duplicates = 0;
       return;

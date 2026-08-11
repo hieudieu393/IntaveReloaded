@@ -1,9 +1,11 @@
 package de.jpx3.intave.check.world.breakspeedlimiter;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.wrappers.BlockPosition;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import com.comphenix.protocol.wrappers.WrappedBlockData;
@@ -45,7 +47,7 @@ public final class CompletionDurationCheck extends MetaCheckPart<BreakSpeedLimit
       POSITION, POSITION_LOOK, LOOK, FLYING, VEHICLE_MOVE
     }
   )
-  public void tickUpdate(PacketEvent event) {
+  public void tickUpdate(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     BreakSpeedFinishMeta meta = metaOf(user);
@@ -61,7 +63,7 @@ public final class CompletionDurationCheck extends MetaCheckPart<BreakSpeedLimit
 //      ARM_ANIMATION
 //    }
 //  )
-//  public void actualTickUpdate(PacketEvent event) {
+//  public void actualTickUpdate(ProtocolPacketEvent event) {
 //    Player player = event.getPlayer();
 //    User user = userOf(player);
 //    BreakSpeedFinishMeta meta = metaOf(user);
@@ -88,7 +90,7 @@ public final class CompletionDurationCheck extends MetaCheckPart<BreakSpeedLimit
       BLOCK_DIG
     }
   )
-  public void receiveBlockAction(PacketEvent event) {
+  public void receiveBlockAction(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     BreakSpeedFinishMeta meta = metaOf(user);
@@ -101,7 +103,7 @@ public final class CompletionDurationCheck extends MetaCheckPart<BreakSpeedLimit
     BlockPosition blockPosition = event.getPacket().getModifier()
       .withType(Lookup.serverClass("BlockPosition"), BlockPositionConverter.threadConverter())
       .read(0);
-    EnumWrappers.PlayerDigType digType = packet.getPlayerDigTypes().read(0);
+    DiggingAction digType = packet.getPlayerDigTypes().read(0);
 
     switch (digType) {
       case START_DESTROY_BLOCK: {

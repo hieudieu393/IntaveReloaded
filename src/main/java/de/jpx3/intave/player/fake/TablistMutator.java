@@ -1,6 +1,7 @@
 package de.jpx3.intave.player.fake;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.events.PacketContainer;
@@ -31,7 +32,7 @@ public final class TablistMutator {
     WrappedGameProfile profile,
     WrappedChatComponent wrappedChatComponent
   ) {
-    PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO);
+    PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO_UPDATE);
     PlayerInfoData playerInfoData = new PlayerInfoData(
       profile, ThreadLocalRandom.current().nextInt(20, 200),
       EnumWrappers.NativeGameMode.SURVIVAL,
@@ -48,7 +49,7 @@ public final class TablistMutator {
     Player player,
     WrappedGameProfile profile
   ) {
-    PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO);
+    PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO_UPDATE);
     WrappedChatComponent wrappedChatComponent = WrappedChatComponent.fromText(profile.getName());
     PlayerInfoData playerInfoData = new PlayerInfoData(
       profile, ThreadLocalRandom.current().nextInt(20, 200),

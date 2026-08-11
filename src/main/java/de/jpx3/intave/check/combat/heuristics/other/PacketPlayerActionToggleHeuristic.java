@@ -12,7 +12,7 @@
 package de.jpx3.intave.check.combat.heuristics.other;
 
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
 import de.jpx3.intave.check.combat.heuristics.HeuristicsClassicType;
@@ -43,7 +43,7 @@ public final class PacketPlayerActionToggleHeuristic extends ClassicHeuristic<Pa
       FLYING, POSITION, POSITION_LOOK, LOOK
     }
   )
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     PacketSprintToggleHeuristicMeta heuristicMeta = metaOf(player);
     heuristicMeta.reset();
@@ -54,7 +54,7 @@ public final class PacketPlayerActionToggleHeuristic extends ClassicHeuristic<Pa
       ENTITY_ACTION_IN
     }
   )
-  public void receiveEntityAction(PacketEvent event) {
+  public void receiveEntityAction(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     MetadataBundle meta = user.meta();

@@ -11,6 +11,7 @@
 
 package de.jpx3.intave.check.world.interaction;
 
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import de.jpx3.intave.check.world.InteractionRaytrace;
 import de.jpx3.intave.share.ClientMath;
 import de.jpx3.intave.share.MovingObjectPosition;
@@ -24,7 +25,7 @@ import org.bukkit.entity.Player;
 
 import java.util.Objects;
 
-import static com.comphenix.protocol.wrappers.EnumWrappers.PlayerDigType.ABORT_DESTROY_BLOCK;
+import static com.comphenix.protocol.wrappers.DiggingAction.ABORT_DESTROY_BLOCK;
 import static de.jpx3.intave.check.world.interaction.InteractionType.EMPTY_INTERACT;
 
 public class RaytraceEvaluation {

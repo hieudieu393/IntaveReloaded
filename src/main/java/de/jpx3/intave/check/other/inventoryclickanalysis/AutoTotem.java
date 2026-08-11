@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.other.inventoryclickanalysis;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.block.type.MaterialSearch;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
@@ -17,7 +17,7 @@ import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
+import com.github.retrooper.packetevents.event.CancellableEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
@@ -43,7 +43,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
     packetsOut = {ENTITY_STATUS},
     ignoreCancelled = false
   )
-  public void receiveEntityStatus(PacketEvent event) {
+  public void receiveEntityStatus(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     EntityStatusReader reader = PacketReaders.readerOf(event.getPacket());
     try {
@@ -80,7 +80,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
     packetsIn = {WINDOW_CLICK}
   )
   public void receiveWindowClick(
-    User user, WindowClickReader reader, Cancellable cancellable
+    User user, WindowClickReader reader, CancellableEvent cancellable
   ) {
     Player player = user.player();
     int slot = reader.slot();
@@ -151,7 +151,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
     packetsIn = {BLOCK_DIG},
     ignoreCancelled = false
   )
-  public void receiveDig(PacketEvent event) {
+  public void receiveDig(ProtocolPacketEvent event) {
     BlockDigReader reader = PacketReaders.readerOf(event.getPacket());
     try {
       if (reader.action() != null && "SWAP_ITEM_WITH_OFFHAND".equals(reader.action().name())) {
@@ -166,7 +166,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void receiveMovement(PacketEvent event) {
+  public void receiveMovement(ProtocolPacketEvent event) {
     AutoTotemMeta meta = metaOf(userOf(event.getPlayer()));
     if (!meta.popConfirmed) {
       return;
@@ -180,7 +180,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
     packetsIn = {CLOSE_WINDOW},
     ignoreCancelled = false
   )
-  public void receiveCloseWindow(PacketEvent event) {
+  public void receiveCloseWindow(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     AutoTotemMeta meta = metaOf(user);
     if (!meta.popConfirmed) {

@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.other.inventoryclickanalysis;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.adapter.ProtocolLibraryAdapter;
@@ -45,7 +45,7 @@ public final class DelayAnalyzer extends MetaCheckPart<InventoryClickAnalysis, D
       WINDOW_CLICK
     }
   )
-  public void windowClickPacket(PacketEvent event) {
+  public void windowClickPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     if (player.getGameMode().equals(GameMode.CREATIVE)) {
       return;

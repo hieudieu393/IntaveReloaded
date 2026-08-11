@@ -11,8 +11,9 @@
 
 package de.jpx3.intave.module.tracker.player;
 
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.wrappers.BlockPosition;
 import com.comphenix.protocol.wrappers.EnumWrappers;
@@ -91,7 +92,7 @@ public class PlayerHandTracker extends Module {
       HELD_ITEM_SLOT_IN
     }
   )
-  public void receiveSlotSwitch(PacketEvent event) {
+  public void receiveSlotSwitch(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     PacketContainer packet = event.getPacket();
 
@@ -136,7 +137,7 @@ public class PlayerHandTracker extends Module {
       HELD_ITEM_SLOT_OUT
     }
   )
-  public void sentSlotSwitch(PacketEvent event) {
+  public void sentSlotSwitch(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     PacketContainer packet = event.getPacket();
@@ -161,7 +162,7 @@ public class PlayerHandTracker extends Module {
       BLOCK_PLACE, USE_ITEM, USE_ITEM_ON
     }
   )
-  public void receiveBlockPlace(PacketEvent event) {
+  public void receiveBlockPlace(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     PacketContainer packet = event.getPacket();
@@ -181,7 +182,7 @@ public class PlayerHandTracker extends Module {
     }
   }
 
-  private void handleItemUseRequest(PacketEvent event, User user) {
+  private void handleItemUseRequest(ProtocolPacketEvent event, User user) {
     InventoryMetadata inventoryData = user.meta().inventory();
     PunishmentMetadata punishmentData = user.meta().punishment();
 
@@ -216,19 +217,19 @@ public class PlayerHandTracker extends Module {
       BLOCK_DIG
     }
   )
-  public void receiveBlockDigging(PacketEvent event) {
+  public void receiveBlockDigging(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     InventoryMetadata inventoryData = user.meta().inventory();
 
     PacketContainer packet = event.getPacket();
-    EnumWrappers.PlayerDigType digType = packet.getPlayerDigTypes().read(0);
+    DiggingAction digType = packet.getPlayerDigTypes().read(0);
 
     BlockPosition blockPosition = event.getPacket().getModifier()
       .withType(Lookup.serverClass("BlockPosition"), BlockPositionConverter.threadConverter())
       .read(0);
 
-    if (digType == EnumWrappers.PlayerDigType.RELEASE_USE_ITEM
+    if (digType == DiggingAction.RELEASE_USE_ITEM
       && !inventoryData.handActive()
       && packet.getDirections().read(0).equals(EnumWrappers.Direction.DOWN)
       && blockPosition.toVector().length() == 0
@@ -251,9 +252,9 @@ public class PlayerHandTracker extends Module {
 
     boolean usedFoodItem = inventoryData.foodItem() && inventoryData.handActive();
     // Fix eating while sprinting bug: https://www.youtube.com/watch?v=5ZHMrVmtdNY
-    if (digType == EnumWrappers.PlayerDigType.DROP_ITEM && usedFoodItem) {
+    if (digType == DiggingAction.DROP_ITEM && usedFoodItem) {
       PacketContainer unblockPacket = packet.shallowClone();
-      unblockPacket.getPlayerDigTypes().write(0, EnumWrappers.PlayerDigType.RELEASE_USE_ITEM);
+      unblockPacket.getPlayerDigTypes().write(0, DiggingAction.RELEASE_USE_ITEM);
       user.ignoreNextInboundPacket();
       PacketSender.receiveClientPacketFrom(player, packet);
     }

@@ -1,8 +1,9 @@
 package de.jpx3.intave.check.combat.heuristics.combatpatterns.accuracy;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
 import de.jpx3.intave.check.combat.heuristics.HeuristicsClassicType;
@@ -28,12 +29,12 @@ public final class AccuracyLongTermHeuristic extends ClassicHeuristic<AccuracyLo
       ATTACK_ENTITY, USE_ENTITY, ARM_ANIMATION
     }
   )
-  public void evaluateFightAccuracy(PacketEvent event) {
+  public void evaluateFightAccuracy(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     AttackMetadata attackData = user.meta().attack();
     ClickAccuracyMeta heuristicMeta = metaOf(user);
-    PacketType packetType = event.getPacketType();
+    PacketTypeCommon packetType = event.getPacketType();
     PacketContainer packet = event.getPacket();
     Entity entity = attackData.lastAttackedEntity();
     if (entity == null || !entity.moving(0.05) || entity.ticksAlive < 200) {
@@ -42,7 +43,7 @@ public final class AccuracyLongTermHeuristic extends ClassicHeuristic<AccuracyLo
     if (!attackData.recentlyAttacked(500) || attackData.recentlySwitchedEntity(1000)) {
       return;
     }
-    if (packetType == PacketType.Play.Client.ARM_ANIMATION) {
+    if (packetType == PacketType.Play.Client.ANIMATION) {
       heuristicMeta.swings++;
     } else {
       boolean isAttack;

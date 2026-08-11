@@ -1,7 +1,8 @@
 package de.jpx3.intave.check.combat.heuristics.modern;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
@@ -33,7 +34,7 @@ public final class CombatMultiActionHeuristic extends ModernCombatHeuristic<Comb
   }
 
   @PacketSubscription(priority = HIGH, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
-  public void attack(PacketEvent event) {
+  public void attack(ProtocolPacketEvent event) {
     EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
     try {
       if (!reader.isAttackPacket()) {
@@ -89,12 +90,12 @@ public final class CombatMultiActionHeuristic extends ModernCombatHeuristic<Comb
   }
 
   @PacketSubscription(priority = HIGH, packetsIn = BLOCK_DIG, ignoreCancelled = false)
-  public void dig(PacketEvent event) {
+  public void dig(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     BlockDigReader reader = PacketReaders.readerOf(event.getPacket());
     try {
-      EnumWrappers.PlayerDigType action = reader.action();
+      DiggingAction action = reader.action();
       String actionName = action == null ? "" : action.name().toUpperCase(Locale.ROOT);
       if (actionName.contains("DROP")) {
         meta.droppingThisTick = true;
@@ -105,7 +106,7 @@ public final class CombatMultiActionHeuristic extends ModernCombatHeuristic<Comb
   }
 
   @PacketSubscription(priority = HIGH, packetsIn = ARM_ANIMATION, ignoreCancelled = false)
-  public void swing(PacketEvent event) {
+  public void swing(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     MovementMetadata movement = user.meta().movement();
     Meta meta = metaOf(user);
@@ -134,9 +135,9 @@ public final class CombatMultiActionHeuristic extends ModernCombatHeuristic<Comb
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void tickBoundary(PacketEvent event) {
+  public void tickBoundary(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    PacketType packetType = event.getPacketType();
+    PacketTypeCommon packetType = event.getPacketType();
     boolean clientTickEnd = PacketTypes.isClientEndTick(packetType);
     if (user.meta().protocol().sendsClientTickEnd()) {
       if (!clientTickEnd) {

@@ -1,6 +1,7 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
@@ -35,7 +36,7 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
     ignoreCancelled = false,
     packetsIn = {BLOCK_PLACE, USE_ITEM_ON}
   )
-  public void receiveBlockInteraction(PacketEvent event) {
+  public void receiveBlockInteraction(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     if (!applicable(user)) {
       return;
@@ -59,7 +60,7 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
     ignoreCancelled = false,
     packetsIn = USE_ITEM
   )
-  public void receiveUseItem(PacketEvent event) {
+  public void receiveUseItem(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     if (!applicable(user)) {
       return;
@@ -79,7 +80,7 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
     ignoreCancelled = false,
     packetsIn = BLOCK_DIG
   )
-  public void receiveDig(PacketEvent event) {
+  public void receiveDig(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     if (!applicable(user)) {
       return;
@@ -87,9 +88,9 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
 
     BlockDigReader reader = PacketReaders.readerOf(event.getPacket());
     try {
-      EnumWrappers.PlayerDigType action = reader.action();
-      if (action != EnumWrappers.PlayerDigType.START_DESTROY_BLOCK
-        && action != EnumWrappers.PlayerDigType.STOP_DESTROY_BLOCK) {
+      DiggingAction action = reader.action();
+      if (action != DiggingAction.START_DESTROY_BLOCK
+        && action != DiggingAction.STOP_DESTROY_BLOCK) {
         return;
       }
 
@@ -111,14 +112,14 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
     ignoreCancelled = false,
     packetsOut = {PacketId.Server.POSITION, PacketId.Server.RESPAWN}
   )
-  public void resetOnWorldState(PacketEvent event) {
+  public void resetOnWorldState(ProtocolPacketEvent event) {
     Meta meta = metaOf(userOf(event.getPlayer()));
     meta.initialized = false;
     meta.lastSequence = 0;
     meta.buffer = 0.0;
   }
 
-  private void hardInvalid(User user, PacketEvent event, String source, int sequence) {
+  private void hardInvalid(User user, ProtocolPacketEvent event, String source, int sequence) {
     if (event.isReadOnly()) {
       event.setReadOnly(false);
     }

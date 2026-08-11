@@ -11,7 +11,8 @@
 
 package de.jpx3.intave.check.movement;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.WrappedBlockData;
@@ -1310,7 +1311,7 @@ public final class Physics extends Check {
 
   private void sendPacketWithExperience(Player player, int level) {
     BackgroundExecutors.execute(() -> {
-      PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.EXPERIENCE);
+      PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.SET_EXPERIENCE);
       packet.getFloat().write(0, 0f);
       packet.getIntegers().write(0, 0);
       packet.getIntegers().write(1, level);

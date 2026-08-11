@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.world.placementanalysis;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.PlacementAnalysis;
 import de.jpx3.intave.module.Modules;
@@ -28,7 +28,7 @@ public final class FarPlaceEnvelope extends MetaCheckPart<PlacementAnalysis, Far
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = {BLOCK_PLACE, USE_ITEM_ON}, ignoreCancelled = false)
-  public void receive(PacketEvent event) {
+  public void receive(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     if (user.meta().movement().isInVehicle() || user.meta().abilities().hasViewEntity) {
       return;

@@ -1,7 +1,7 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
 import de.jpx3.intave.check.CheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
@@ -29,7 +29,7 @@ public final class InvalidNumericData extends CheckPart<ProtocolScanner> {
     ignoreCancelled = false,
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK}
   )
-  public void receiveMovement(PacketEvent event) {
+  public void receiveMovement(ProtocolPacketEvent event) {
     PlayerMoveReader reader = PacketReaders.readerOf(event.getPacket());
     try {
       if (reader.anyNaNOrInfiniteValue()) {
@@ -54,7 +54,7 @@ public final class InvalidNumericData extends CheckPart<ProtocolScanner> {
     ignoreCancelled = false,
     packetsIn = {BLOCK_PLACE, USE_ITEM_ON}
   )
-  public void receiveInteraction(PacketEvent event) {
+  public void receiveInteraction(ProtocolPacketEvent event) {
     PacketContainer packet = event.getPacket();
     StructureModifier<Float> cursor = packet.getFloat();
     int limit = Math.min(3, cursor.size());
@@ -67,7 +67,7 @@ public final class InvalidNumericData extends CheckPart<ProtocolScanner> {
     }
   }
 
-  private void flagAndCancel(PacketEvent event, String details) {
+  private void flagAndCancel(ProtocolPacketEvent event, String details) {
     Player player = event.getPlayer();
     if (event.isReadOnly()) {
       event.setReadOnly(false);

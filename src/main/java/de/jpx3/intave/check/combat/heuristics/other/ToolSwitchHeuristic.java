@@ -1,7 +1,8 @@
 package de.jpx3.intave.check.combat.heuristics.other;
 
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
@@ -27,7 +28,7 @@ public class ToolSwitchHeuristic extends ClassicHeuristic<ToolSwitchHeuristic.To
       POSITION, POSITION_LOOK, LOOK, FLYING, VEHICLE_MOVE
     }
   )
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     ToolSwitchHeuristicMeta meta = metaOf(player);
     meta.ticksSinceLastBreak++;
@@ -40,16 +41,16 @@ public class ToolSwitchHeuristic extends ClassicHeuristic<ToolSwitchHeuristic.To
       PacketId.Client.BLOCK_DIG
     }
   )
-  public void receiveBlockBreakAction(PacketEvent event) {
+  public void receiveBlockBreakAction(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     PacketContainer packet = event.getPacket();
-    EnumWrappers.PlayerDigType digType = packet.getPlayerDigTypes().read(0);
+    DiggingAction digType = packet.getPlayerDigTypes().read(0);
     ToolSwitchHeuristicMeta meta = metaOf(player);
 
     // Update breaking state ticks
-    if (digType == EnumWrappers.PlayerDigType.START_DESTROY_BLOCK) {
+    if (digType == DiggingAction.START_DESTROY_BLOCK) {
       meta.ticksSinceLastBreak = 0;
-    } else if (digType == EnumWrappers.PlayerDigType.STOP_DESTROY_BLOCK) {
+    } else if (digType == DiggingAction.STOP_DESTROY_BLOCK) {
       meta.ticksSinceLastStop = 0;
     }
   }
@@ -60,7 +61,7 @@ public class ToolSwitchHeuristic extends ClassicHeuristic<ToolSwitchHeuristic.To
       PacketId.Client.HELD_ITEM_SLOT_IN
     }
   )
-  public void receiveHeldItemSlotChange(PacketEvent event) {
+  public void receiveHeldItemSlotChange(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     PacketContainer packet = event.getPacket();
     User user = userOf(player);

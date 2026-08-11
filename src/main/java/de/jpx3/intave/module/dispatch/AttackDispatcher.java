@@ -11,10 +11,11 @@
 
 package de.jpx3.intave.module.dispatch;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.wrappers.WrappedAttribute;
 import com.google.common.collect.Lists;
 import de.jpx3.intave.adapter.MinecraftVersions;
@@ -36,7 +37,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
+import com.github.retrooper.packetevents.event.CancellableEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -79,7 +80,7 @@ public final class AttackDispatcher extends Module {
     }
   )
   public void receiveUseEntity(
-    User user, EntityUseReader reader, Cancellable cancellable
+    User user, EntityUseReader reader, CancellableEvent cancellable
   ) {
     Player player = user.player();
     if (player.isDead()) {
@@ -150,7 +151,7 @@ public final class AttackDispatcher extends Module {
       RESPAWN
     }
   )
-  public void sentRespawn(PacketEvent event) {
+  public void sentRespawn(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     Synchronizer.synchronizeDelayed(() -> disableReducing(player), 4);
   }
@@ -161,7 +162,7 @@ public final class AttackDispatcher extends Module {
       SET_SLOT
     }
   )
-  public void filterSharpness(PacketEvent event) {
+  public void filterSharpness(ProtocolPacketEvent event) {
     PacketContainer packet = event.getPacket();
     ItemStack item = packet.getItemModifier().read(0).clone();
     if (REDUCING_DISABLED) {

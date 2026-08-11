@@ -14,7 +14,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
+import com.github.retrooper.packetevents.event.CancellableEvent;
 import org.bukkit.plugin.messaging.Messenger;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 
@@ -75,7 +75,7 @@ public final class MovementDebugTracker extends Module implements PluginMessageL
   )
   public void onCustomPayloadIn(
     User user, PacketContainer packet,
-    Cancellable cancellable
+    CancellableEvent cancellable
   ) {
     if (!ENABLE_MOVEMENT_DEBUGGER_COLLECTOR) {
       return;
@@ -118,7 +118,7 @@ public final class MovementDebugTracker extends Module implements PluginMessageL
   )
   public void onTabCompleteIn(
     User user, PacketContainer packet,
-    Cancellable cancellable
+    CancellableEvent cancellable
   ) {
     if (!ENABLE_MOVEMENT_DEBUGGER_COLLECTOR) {
       return;

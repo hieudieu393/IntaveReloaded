@@ -1,7 +1,8 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -38,10 +39,10 @@ public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPa
       BLOCK_PLACE, USE_ITEM, USE_ITEM_ON, BLOCK_DIG, SPECTATE, ENTITY_ACTION_IN
     }
   )
-  public void receive(PacketEvent event) {
+  public void receive(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
 
     if (isMovement(type)) {
       meta.sentMovement = true;
@@ -95,8 +96,8 @@ public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPa
     }
   }
 
-  private static boolean isExemptEntityAction(User user, PacketEvent event) {
-    PacketType type = event.getPacketType();
+  private static boolean isExemptEntityAction(User user, ProtocolPacketEvent event) {
+    PacketTypeCommon type = event.getPacketType();
     if (type == null || !"ENTITY_ACTION".equalsIgnoreCase(type.name())) {
       return false;
     }
@@ -122,14 +123,14 @@ public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPa
     return average > 0 && average <= 90 && sinceMovement <= 250;
   }
 
-  private static boolean isMovement(PacketType type) {
-    return type == PacketType.Play.Client.FLYING
-      || type == PacketType.Play.Client.LOOK
-      || type == PacketType.Play.Client.POSITION
-      || type == PacketType.Play.Client.POSITION_LOOK;
+  private static boolean isMovement(PacketTypeCommon type) {
+    return type == PacketType.Play.Client.PLAYER_FLYING
+      || type == PacketType.Play.Client.PLAYER_ROTATION
+      || type == PacketType.Play.Client.PLAYER_POSITION
+      || type == PacketType.Play.Client.PLAYER_POSITION_LOOK;
   }
 
-  private static boolean isClientTickEnd(PacketType type) {
+  private static boolean isClientTickEnd(PacketTypeCommon type) {
     try {
       return type == PacketType.Play.Client.CLIENT_TICK_END;
     } catch (NoSuchFieldError ignored) {
@@ -137,12 +138,12 @@ public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPa
     }
   }
 
-  private static boolean isFeedbackBoundary(PacketType type) {
+  private static boolean isFeedbackBoundary(PacketTypeCommon type) {
     String name = type == null ? "" : type.name();
     return "TRANSACTION".equalsIgnoreCase(name) || "PONG".equalsIgnoreCase(name);
   }
 
-  private static boolean isTrackedAction(PacketType type) {
+  private static boolean isTrackedAction(PacketTypeCommon type) {
     String name = type.name();
     return "ABILITIES".equalsIgnoreCase(name)
       || "HELD_ITEM_SLOT".equalsIgnoreCase(name)

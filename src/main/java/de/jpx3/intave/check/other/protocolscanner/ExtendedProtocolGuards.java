@@ -8,7 +8,7 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEn
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSettings;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerOpenWindow;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -28,7 +28,7 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Client.WINDOW_CLICK;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.OPEN_WINDOW;
 
 /**
- * PacketEvents-native guards for protocol fields that Intave's ProtocolLib-shaped reader facade
+ * ProtocolPacketEvents-native guards for protocol fields that Intave's ProtocolLib-shaped reader facade
  * historically did not expose. Keeping them in ProtocolScanner lets us add modern packet coverage
  * without hard-coded field indices or weakening the existing reader compatibility layer.
  */
@@ -41,7 +41,7 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
   }
 
   @PacketSubscription(packetsIn = SETTINGS, ignoreCancelled = false)
-  public void receiveSettings(PacketEvent event) {
+  public void receiveSettings(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) {
       return;
     }
@@ -56,7 +56,7 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
   }
 
   @PacketSubscription(packetsOut = OPEN_WINDOW, ignoreCancelled = false)
-  public void receiveOpenWindow(PacketEvent event) {
+  public void receiveOpenWindow(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketSendEvent)) {
       return;
     }
@@ -67,17 +67,17 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
   }
 
   @PacketSubscription(packetsOut = PacketId.Server.CLOSE_WINDOW, ignoreCancelled = false)
-  public void receiveServerClose(PacketEvent event) {
+  public void receiveServerClose(ProtocolPacketEvent event) {
     metaOf(userOf(event.getPlayer())).lecternWindowId = -1;
   }
 
   @PacketSubscription(packetsIn = PacketId.Client.CLOSE_WINDOW, ignoreCancelled = false)
-  public void receiveClientClose(PacketEvent event) {
+  public void receiveClientClose(ProtocolPacketEvent event) {
     metaOf(userOf(event.getPlayer())).lecternWindowId = -1;
   }
 
   @PacketSubscription(packetsIn = WINDOW_CLICK, ignoreCancelled = false)
-  public void receiveWindowClick(PacketEvent event) {
+  public void receiveWindowClick(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) {
       return;
     }
@@ -99,7 +99,7 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
   }
 
   @PacketSubscription(packetsIn = ENTITY_ACTION_IN, ignoreCancelled = false)
-  public void receiveEntityAction(PacketEvent event) {
+  public void receiveEntityAction(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) {
       return;
     }
@@ -121,7 +121,7 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
   }
 
   @PacketSubscription(packetsIn = USE_ENTITY, ignoreCancelled = false)
-  public void receiveInteractEntity(PacketEvent event) {
+  public void receiveInteractEntity(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) {
       return;
     }

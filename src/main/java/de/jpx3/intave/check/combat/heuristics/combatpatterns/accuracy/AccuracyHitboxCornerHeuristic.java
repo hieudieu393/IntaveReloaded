@@ -1,8 +1,9 @@
 package de.jpx3.intave.check.combat.heuristics.combatpatterns.accuracy;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.google.common.collect.Lists;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
@@ -34,12 +35,12 @@ public final class AccuracyHitboxCornerHeuristic extends ClassicHeuristic<Accura
       ATTACK_ENTITY, USE_ENTITY, ARM_ANIMATION
     }
   )
-  public void evaluateFightAccuracy(PacketEvent event) {
+  public void evaluateFightAccuracy(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     AttackMetadata attackData = user.meta().attack();
     PerfectAttackMeta heuristicMeta = metaOf(user);
-    PacketType packetType = event.getPacketType();
+    PacketTypeCommon packetType = event.getPacketType();
     PacketContainer packet = event.getPacket();
     Entity attackedEntity = attackData.lastAttackedEntity();
 
@@ -50,7 +51,7 @@ public final class AccuracyHitboxCornerHeuristic extends ClassicHeuristic<Accura
       return;
     }
 
-    if (packetType == PacketType.Play.Client.ARM_ANIMATION) {
+    if (packetType == PacketType.Play.Client.ANIMATION) {
       heuristicMeta.swings++;
     } else {
       boolean isAttack;
@@ -72,7 +73,7 @@ public final class AccuracyHitboxCornerHeuristic extends ClassicHeuristic<Accura
       POSITION_LOOK, LOOK
     }
   )
-  public void receiveMovement(PacketEvent event) {
+  public void receiveMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     AttackMetadata attackData = user.meta().attack();

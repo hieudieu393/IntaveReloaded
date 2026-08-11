@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.movement;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.Check;
 import de.jpx3.intave.check.CheckConfiguration.CheckSettings;
 import de.jpx3.intave.check.CheckSignalConfiguration;
@@ -52,7 +52,7 @@ public final class Timer extends Check {
     appendCheckPart(new TickProtocolTimer(this));
   }
 
-  public void receiveMovement(PacketEvent event) {
+  public void receiveMovement(ProtocolPacketEvent event) {
     playerTime.receiveMovement(event);
     if (blinkSignalEnabled) {
       microBlink.receiveMovement(event);

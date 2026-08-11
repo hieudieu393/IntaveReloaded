@@ -11,7 +11,7 @@
 
 package de.jpx3.intave.module.tracker.player;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.*;
 import de.jpx3.intave.IntavePlugin;
@@ -95,8 +95,8 @@ public class PacketLogging extends Module {
       PrintStream printStream = new PrintStream(stream);
 
       UUID finalUserId = userId;
-      List<PacketType> listenerTypes = new ArrayList<>();
-      for (PacketType value : PacketType.values()) {
+      List<PacketTypeCommon> listenerTypes = new ArrayList<>();
+      for (PacketTypeCommon value : PacketTypeCommon.values()) {
         if (value.isSupported()) {
           listenerTypes.add(value);
         }

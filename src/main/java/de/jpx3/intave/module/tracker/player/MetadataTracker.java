@@ -11,7 +11,7 @@
 
 package de.jpx3.intave.module.tracker.player;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.wrappers.EnumWrappers.EntityPose;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.annotate.Nullable;
@@ -35,7 +35,7 @@ public final class MetadataTracker extends Module {
 	)
 	public void trackMetadata(
 		User user, EntityMetadataReader reader,
-		PacketEvent event
+		ProtocolPacketEvent event
 	) {
 		if (!reader.targetEntityIdIsSameAs(user)) {
 			return;

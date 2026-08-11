@@ -11,9 +11,10 @@
 
 package de.jpx3.intave.module.tracker.entity;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.wrappers.WrappedWatchableObject;
 import de.jpx3.intave.IntaveControl;
@@ -118,11 +119,11 @@ public final class EntityTracker extends Module {
     },
     ignoreCancelled = false
   )
-  public void sendAttachEntityPacket(PacketEvent event) {
+  public void sendAttachEntityPacket(ProtocolPacketEvent event) {
     PacketContainer packet = event.getPacket();
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    if (event.getPacketType() == PacketType.Play.Server.MOUNT) {
+    if (event.getPacketType() == PacketType.Play.Server.SET_PASSENGERS) {
       //1.9+ servers
       int vehicleId = packet.getIntegers().read(0);
       Entity vehicle = UserRepository.userOf(player).meta().connection().entityBy(vehicleId);
@@ -250,7 +251,7 @@ public final class EntityTracker extends Module {
     },
     ignoreCancelled = false
   )
-  public void sendEntitySpawn(PacketEvent event) {
+  public void sendEntitySpawn(ProtocolPacketEvent event) {
     /* IMPORTANT: If the entity spawn packet gets synchronized the player could be spammed with transaction packets
      *   which could cause a too many packets kick
      *
@@ -280,8 +281,8 @@ public final class EntityTracker extends Module {
       return;
     }
     boolean isLivingEntity = (event.getPacketType() == PacketType.Play.Server.SPAWN_ENTITY_LIVING ||
-      event.getPacketType() == PacketType.Play.Server.NAMED_ENTITY_SPAWN) && entity.typeData().isLivingEntity();
-    boolean isPlayer = event.getPacketType() == PacketType.Play.Server.NAMED_ENTITY_SPAWN;
+      event.getPacketType() == PacketType.Play.Server.SPAWN_PLAYER) && entity.typeData().isLivingEntity();
+    boolean isPlayer = event.getPacketType() == PacketType.Play.Server.SPAWN_PLAYER;
     boolean hasRedTrustfactor = !user.trustFactor().atLeast(TrustFactor.ORANGE);
     boolean oneInFourChance = ThreadLocalRandom.current().nextInt(4) == 0;
 
@@ -310,7 +311,7 @@ public final class EntityTracker extends Module {
 //      REMOVE_ENTITY_EFFECT, UPDATE_ATTRIBUTES, USE_BED
 //    }
 //  )
-//  public void on(PacketEvent event) {
+//  public void on(ProtocolPacketEvent event) {
 //    Player player = event.getPlayer();
 //    User user = UserRepository.userOf(player);
 //    PacketContainer packet = event.getPacket();
@@ -368,10 +369,10 @@ public final class EntityTracker extends Module {
     }
   }
 
-  private Entity processEntitySpawn(Player player, PacketEvent event) {
+  private Entity processEntitySpawn(Player player, ProtocolPacketEvent event) {
     User user = UserRepository.userOf(player);
     AttackMetadata attackData = user.meta().attack();
-    PacketType packetType = event.getPacketType();
+    PacketTypeCommon packetType = event.getPacketType();
     PacketContainer packet = event.getPacket();
     EntityTypeData typeData;
     boolean entityIsPlayer = false;
@@ -450,7 +451,7 @@ public final class EntityTracker extends Module {
     if (entity != null && entity.duplicationId != 0) {
       connection.duplicatedEntityIds.remove(entity.duplicationId);
       connection.shouldNotBeAttacked.remove(connection.duplicationOwners.remove(entity.duplicationId));
-      PacketContainer packet = new PacketContainer(PacketType.Play.Server.ENTITY_DESTROY);
+      PacketContainer packet = new PacketContainer(PacketType.Play.Server.DESTROY_ENTITIES);
       packet.getIntegerArrays().write(0, new int[]{entity.duplicationId});
       PacketSender.sendServerPacket(player, packet);
     }
@@ -503,10 +504,10 @@ public final class EntityTracker extends Module {
       POSITION, POSITION_LOOK, LOOK, FLYING, STEER_VEHICLE, CLIENT_TICK_END
     }
   )
-  public void receiveMovement(PacketEvent event) {
+  public void receiveMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketType packetType = event.getPacketType();
+    PacketTypeCommon packetType = event.getPacketType();
 
     boolean isClientTickEnd = PacketTypes.isClientEndTick(packetType);
     if (user.meta().protocol().sendsClientTickEnd() && !isClientTickEnd) {
@@ -555,7 +556,7 @@ public final class EntityTracker extends Module {
       ENTITY_POSITION_SYNC
     }
   )
-  public void receivePositionSync(PacketEvent event) {
+  public void receivePositionSync(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     PacketContainer packet = event.getPacket();
@@ -601,7 +602,7 @@ public final class EntityTracker extends Module {
     },
     ignoreCancelled = false
   )
-  public void receiveEntityTeleport(PacketEvent event) {
+  public void receiveEntityTeleport(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     PacketContainer packet = event.getPacket();
@@ -645,7 +646,7 @@ public final class EntityTracker extends Module {
     }
   }
 
-  private Entity wrappedEntityByEntityTeleportPacket(PacketEvent event) {
+  private Entity wrappedEntityByEntityTeleportPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     PacketContainer packet = event.getPacket();
@@ -674,7 +675,7 @@ public final class EntityTracker extends Module {
     },
     ignoreCancelled = false
   )
-  public void receiveEntityMovement(PacketEvent event) {
+  public void receiveEntityMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     PacketContainer packet = event.getPacket();
@@ -910,7 +911,7 @@ public final class EntityTracker extends Module {
     },
     priority = ListenerPriority.LOWEST
   )
-  public void receiveUseEntity(PacketEvent event) {
+  public void receiveUseEntity(ProtocolPacketEvent event) {
     User user = UserRepository.userOf(event.getPlayer());
     PacketContainer packet = event.getPacket();
     ConnectionMetadata connection = user.meta().connection();
@@ -940,7 +941,7 @@ public final class EntityTracker extends Module {
     },
     ignoreCancelled = false
   )
-  public void receiveEntityStatus(PacketEvent event) {
+  public void receiveEntityStatus(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     if (!user.hasPlayer()) {
@@ -976,7 +977,7 @@ public final class EntityTracker extends Module {
     },
     ignoreCancelled = false
   )
-  public void receiveEntityMetadata(PacketEvent event) {
+  public void receiveEntityMetadata(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     PacketContainer packet = event.getPacket();

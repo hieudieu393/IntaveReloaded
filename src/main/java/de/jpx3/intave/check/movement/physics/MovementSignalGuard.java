@@ -2,7 +2,7 @@ package de.jpx3.intave.check.movement.physics;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.CheckSignalConfiguration;
 import de.jpx3.intave.check.MetaCheck;
 import de.jpx3.intave.check.movement.Physics;
@@ -42,7 +42,7 @@ public final class MovementSignalGuard extends MetaCheck<MovementSignalGuard.Met
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = ENTITY_ACTION_IN, ignoreCancelled = false)
-  public void action(PacketEvent event) {
+  public void action(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) return;
     WrapperPlayClientEntityAction action = new WrapperPlayClientEntityAction((PacketReceiveEvent) event.delegate());
     if (action.getAction() == WrapperPlayClientEntityAction.Action.START_SPRINTING) {
@@ -55,7 +55,7 @@ public final class MovementSignalGuard extends MetaCheck<MovementSignalGuard.Met
     ignoreCancelled = false,
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END}
   )
-  public void receive(PacketEvent event) {
+  public void receive(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     MovementMetadata movement = user.meta().movement();
     Meta meta = metaOf(user);

@@ -11,7 +11,7 @@
 
 package de.jpx3.intave.check.movement.timer;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.annotate.DispatchTarget;
 import de.jpx3.intave.check.CheckStatistics;
@@ -36,7 +36,7 @@ import de.jpx3.intave.user.meta.*;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
+import com.github.retrooper.packetevents.event.CancellableEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
@@ -84,7 +84,7 @@ public class PlayerTime extends MetaCheckPart<Timer, PlayerTime.PlayerTimeMeta> 
       LOGIN
     }
   )
-  public void receiveLogin(PacketEvent event) {
+  public void receiveLogin(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     if (player == null) {
       return;
@@ -114,7 +114,7 @@ public class PlayerTime extends MetaCheckPart<Timer, PlayerTime.PlayerTimeMeta> 
   }
 
   @DispatchTarget
-  public void receiveMovement(PacketEvent event) {
+  public void receiveMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     if (player == null) {
       return;
@@ -231,11 +231,11 @@ public class PlayerTime extends MetaCheckPart<Timer, PlayerTime.PlayerTimeMeta> 
     }
   }
 
-  private void cancelOnPacketOverflow(Player player, Cancellable cancellable) {
+  private void cancelOnPacketOverflow(Player player, CancellableEvent cancellable) {
     cancelOnPacketOverflow(player, cancellable, DEFAULT_THRESHOLD, DEFAULT_DELAY);
   }
 
-  private void cancelOnPacketOverflow(Player player, Cancellable cancellable, long threshold, long delay) {
+  private void cancelOnPacketOverflow(Player player, CancellableEvent cancellable, long threshold, long delay) {
     User user = userOf(player);
     PlayerTimeMeta timerData = metaOf(user);
     long lastTimerFlag = timerData.lastTimerFlag;

@@ -1,11 +1,11 @@
 package de.jpx3.intave.packet.reader;
 
-import com.comphenix.protocol.wrappers.BlockPosition;
-import com.comphenix.protocol.wrappers.WrappedBlockData;
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
+import de.jpx3.intave.share.BlockPosition;
 
 import java.util.List;
 
 public interface BlockChanges extends PacketReader {
   List<BlockPosition> blockPositions();
-  List<WrappedBlockData> blockDataList();
+  List<WrappedBlockState> blockDataList();
 }

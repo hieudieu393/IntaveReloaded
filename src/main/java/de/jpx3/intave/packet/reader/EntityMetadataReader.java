@@ -1,204 +1,93 @@
-/*
- * Copyright 2026 Intave
- *
- * This software is licensed under the PolyForm Perimeter License 1.0.0.
- * You may use this software for any purpose, except for providing to
- * others any product that competes with the software.
- *
- * A copy of the license is available at:
- *   https://polyformproject.org/licenses/perimeter/1.0.0/
- */
-
+/* Copyright 2026 Intave */
 package de.jpx3.intave.packet.reader;
 
-import com.comphenix.protocol.reflect.StructureModifier;
-import com.comphenix.protocol.wrappers.WrappedDataValue;
-import com.comphenix.protocol.wrappers.WrappedDataWatcher.WrappedDataWatcherObject;
-import com.comphenix.protocol.wrappers.WrappedWatchableObject;
-import de.jpx3.intave.adapter.MinecraftVersions;
+import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
+import com.github.retrooper.packetevents.util.Vector3i;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
 import de.jpx3.intave.share.BlockPosition;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
-// Inspired from work by lukas81298
-// See https://pastebin.com/EuprZGHe for the blueprint
 public final class EntityMetadataReader extends EntityReader {
-  private static final boolean LEGACY_MODE = !MinecraftVersions.VER1_19_3.atOrAbove();
+  private WrapperPlayServerEntityMetadata wrapper;
+  private List<EntityData<?>> metadata = Collections.emptyList();
+
+  @Override
+  protected void read() {
+    wrapper = new WrapperPlayServerEntityMetadata(sendEvent());
+    entityId(wrapper.getEntityId());
+    metadata = wrapper.getEntityMetadata();
+  }
 
   public Optional<BlockPosition> bedPosition() {
-    int index;
-    if (MinecraftVersions.VER1_17_0.atOrAbove()) {
-      index = 14;
-    } else if (MinecraftVersions.VER1_15_0.atOrAbove()) {
-      index = 13;
-    } else {
-      index = 12;
-    }
-    try {
-      //noinspection unchecked
-      Optional<Object> rawObject = (Optional<Object>) fetchRaw(index);
-      //noinspection OptionalAssignedToNull
-      if (rawObject == null) {
-        return Optional.empty();
-      }
-      return rawObject.map(o -> BlockPosition.fromNative(o).toBlockPosition());
-    } catch (Exception e) {
-      System.err.println("Failed to read bed position from entity metadata, returning empty");
-      System.err.println("Required index: " + index);
-      System.err.println("Target entityid: " + entityId());
-      System.err.println("Entity metadata: " + entryMap());
-      e.printStackTrace();
+    Object raw = fetchRaw(14); // supported runtime/client floor is 1.17+
+    if (!(raw instanceof Optional<?>)) {
       return Optional.empty();
     }
+    Object value = ((Optional<?>) raw).orElse(null);
+    if (value instanceof Vector3i) {
+      return Optional.of(BlockPosition.fromPacketEvents((Vector3i) value));
+    }
+    return Optional.empty();
   }
 
   public Object fetchRaw(int requiredIndex) {
-    if (LEGACY_MODE) {
-      StructureModifier<List<WrappedWatchableObject>> modifier = packet().getWatchableCollectionModifier();
-      List<WrappedWatchableObject> lists = modifier.read(0);
-      if (lists == null || lists.isEmpty()) {
-        return null;
-      }
-      for (WrappedWatchableObject watchable : lists) {
-        if (watchable.getIndex() == requiredIndex) {
-          return watchable.getRawValue();
-        }
-      }
-    } else {
-      List<WrappedDataValue> values = metadataValues();
-      if (values == null || values.isEmpty()) {
-        return null;
-      }
-      for (WrappedDataValue value : values) {
-        if (value.getIndex() == requiredIndex) {
-          return value.getRawValue();
-        }
+    for (EntityData<?> data : metadata) {
+      if (data.getIndex() == requiredIndex) {
+        return data.getValue();
       }
     }
     return null;
   }
 
+  @SuppressWarnings({"rawtypes", "unchecked"})
   public void setRaw(int requiredIndex, Object newValue) {
-    if (LEGACY_MODE) {
-      StructureModifier<List<WrappedWatchableObject>> modifier = packet().getWatchableCollectionModifier();
-      List<WrappedWatchableObject> lists = modifier.read(0);
-      if (lists == null || lists.isEmpty()) {
+    for (int i = 0; i < metadata.size(); i++) {
+      EntityData<?> data = metadata.get(i);
+      if (data.getIndex() == requiredIndex) {
+        metadata.set(i, new EntityData(data.getIndex(), data.getType(), newValue));
+        wrapper.setEntityMetadata(metadata);
+        event().markForReEncode(true);
         return;
-      }
-      for (int i = 0; i < lists.size(); i++) {
-        WrappedWatchableObject watchable = lists.get(i);
-        if (watchable.getIndex() == requiredIndex) {
-          WrappedWatchableObject newWatchable = new WrappedWatchableObject(
-            watchable.getWatcherObject(),
-            newValue
-          );
-          lists.set(i, newWatchable);
-          modifier.write(0, lists);
-          return;
-        }
-      }
-    } else {
-      StructureModifier<List<WrappedDataValue>> modifier = packet().getDataValueCollectionModifier();
-      List<WrappedDataValue> values = modifier.read(0);
-      if (values == null || values.isEmpty()) {
-        return;
-      }
-      for (int i = 0; i < values.size(); i++) {
-        WrappedDataValue value = values.get(i);
-        if (value.getIndex() == requiredIndex) {
-          WrappedDataValue newValueWrapper = new WrappedDataValue(
-            value.getIndex(),
-            value.getSerializer(),
-            newValue
-          );
-          values.set(i, newValueWrapper);
-          modifier.write(0, values);
-          return;
-        }
       }
     }
   }
 
   public Map<Integer, Object> entryMap() {
-    if (LEGACY_MODE) {
-      StructureModifier<List<WrappedWatchableObject>> modifier = packet().getWatchableCollectionModifier();
-      List<WrappedWatchableObject> lists = modifier.read(0);
-      if (lists == null || lists.isEmpty()) {
-        return Collections.emptyMap();
-      }
-      return lists.stream().collect(Collectors.toMap(
-        WrappedWatchableObject::getIndex,
-        WrappedWatchableObject::getRawValue
-      ));
-    } else {
-      List<WrappedDataValue> values = metadataValues();
-      if (values == null || values.isEmpty()) {
-        return Collections.emptyMap();
-      }
-      return values.stream().collect(Collectors.toMap(
-        WrappedDataValue::getIndex,
-        WrappedDataValue::getRawValue
-      ));
+    Map<Integer, Object> result = new LinkedHashMap<>();
+    for (EntityData<?> data : metadata) {
+      result.put(data.getIndex(), data.getValue());
     }
+    return result;
   }
 
   public List<Object> values() {
-    if (LEGACY_MODE) {
-      StructureModifier<List<WrappedWatchableObject>> modifier = packet().getWatchableCollectionModifier();
-      List<WrappedWatchableObject> lists = modifier.read(0);
-      if (lists == null || lists.isEmpty()) {
-        return new ArrayList<>();
-      }
-      return lists.stream().map(WrappedWatchableObject::getRawValue).collect(Collectors.toList());
-    } else {
-      List<WrappedDataValue> values = metadataValues();
-      if (values == null || values.isEmpty()) {
-        return new ArrayList<>();
-      }
-      return values.stream().map(WrappedDataValue::getRawValue).collect(Collectors.toList());
+    List<Object> result = new ArrayList<>(metadata.size());
+    for (EntityData<?> data : metadata) {
+      result.add(data.getValue());
     }
+    return result;
   }
 
-  @Deprecated
-  public List<WrappedWatchableObject> legacyMetadataObjects() {
-    if (LEGACY_MODE) {
-      return packet().getWatchableCollectionModifier().read(0);
-    }
-    List<WrappedWatchableObject> list = new ArrayList<>();
-    for (WrappedDataValue value : metadataValues()) {
-      list.add(convertDataValueToWatchable(value));
-    }
-    return list;
+  public List<EntityData<?>> metadataObjects() {
+    return metadata;
   }
 
-  @Deprecated
-  public void setLegacyMetadataObjects(List<WrappedWatchableObject> watchables) {
-    if (LEGACY_MODE) {
-      packet().getWatchableCollectionModifier().write(0, watchables);
-    } else {
-      packet().getDataValueCollectionModifier().write(0, watchables.stream()
-        .map(EntityMetadataReader::convertWatchableToDataValue)
-        .collect(Collectors.toList()));
-    }
+  public void setMetadataObjects(List<EntityData<?>> data) {
+    metadata = data;
+    wrapper.setEntityMetadata(data);
+    event().markForReEncode(true);
   }
 
-  private List<WrappedDataValue> metadataValues() {
-    return packet().getDataValueCollectionModifier().read(0);
-  }
-
-  private static WrappedWatchableObject convertDataValueToWatchable(WrappedDataValue value) {
-    WrappedDataWatcherObject dataWatcherObject = new WrappedDataWatcherObject(
-      value.getIndex(), value.getSerializer()
-    );
-    return new WrappedWatchableObject(dataWatcherObject, value.getValue());
-  }
-
-  private static WrappedDataValue convertWatchableToDataValue(WrappedWatchableObject object) {
-    return new WrappedDataValue(
-      object.getIndex(),
-      object.getWatcherObject().getSerializer(),
-      object.getValue()
-    );
+  @Override
+  public void release() {
+    wrapper = null;
+    metadata = Collections.emptyList();
+    super.release();
   }
 }

@@ -1,8 +1,9 @@
 package de.jpx3.intave.check.world.placementanalysis;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.PlayerCheckPart;
 import de.jpx3.intave.check.world.PlacementAnalysis;
 import de.jpx3.intave.math.MathHelper;
@@ -58,14 +59,14 @@ public class SmartSpeed extends PlayerCheckPart<PlacementAnalysis> {
 			BLOCK_PLACE, USE_ITEM
 		}
 	)
-	public void receivePlacementPacket(PacketEvent event) {
+	public void receivePlacementPacket(ProtocolPacketEvent event) {
 		Player player = event.getPlayer();
 		User user = userOf(player);
 		PacketContainer packet = event.getPacket();
 
 		BlockInteractionReader reader = PacketReaders.readerOf(packet);
 		try {
-			if (event.getPacketType() == PacketType.Play.Client.BLOCK_PLACE) {
+			if (event.getPacketType() == PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT) {
 				int facing = reader.enumDirection();
 				if (facing == 255) {
 					ticksSinceHardFaultClick = 0;
@@ -161,7 +162,7 @@ public class SmartSpeed extends PlayerCheckPart<PlacementAnalysis> {
 			FLYING, POSITION_LOOK, LOOK, POSITION
 		}
 	)
-	public void on(PacketEvent event) {
+	public void on(ProtocolPacketEvent event) {
 		Player player = event.getPlayer();
 		User user = userOf(player);
 		MovementMetadata movementData = user.meta().movement();
@@ -254,7 +255,7 @@ public class SmartSpeed extends PlayerCheckPart<PlacementAnalysis> {
 			ENTITY_ACTION_IN
 		}
 	)
-	public void receiveEntityActionPacket(PacketEvent event) {
+	public void receiveEntityActionPacket(ProtocolPacketEvent event) {
 		PacketContainer packet = event.getPacket();
 		PlayerActionReader reader = PacketReaders.readerOf(packet);
 		PlayerAction action = reader.playerAction();

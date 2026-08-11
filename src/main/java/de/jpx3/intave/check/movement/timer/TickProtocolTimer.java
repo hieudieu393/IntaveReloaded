@@ -1,7 +1,8 @@
 package de.jpx3.intave.check.movement.timer;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.movement.Timer;
 import de.jpx3.intave.module.Modules;
@@ -31,10 +32,10 @@ public final class TickProtocolTimer extends MetaCheckPart<Timer, TickProtocolTi
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void playerTick(PacketEvent event) {
+  public void playerTick(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
     boolean positionBearing = isPositionBearing(type);
 
     // NegativeTimer cannot safely judge an idle 1.9+ client. Only carry the slow-clock balance
@@ -85,7 +86,7 @@ public final class TickProtocolTimer extends MetaCheckPart<Timer, TickProtocolTi
     packetsIn = {VEHICLE_MOVE, STEER_VEHICLE},
     ignoreCancelled = false
   )
-  public void vehicleTick(PacketEvent event) {
+  public void vehicleTick(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     MovementMetadata movement = user.meta().movement();
     Meta meta = metaOf(user);
@@ -162,8 +163,8 @@ public final class TickProtocolTimer extends MetaCheckPart<Timer, TickProtocolTi
     }
   }
 
-  private static boolean isPositionBearing(PacketType type) {
-    return type == PacketType.Play.Client.POSITION || type == PacketType.Play.Client.POSITION_LOOK;
+  private static boolean isPositionBearing(PacketTypeCommon type) {
+    return type == PacketType.Play.Client.PLAYER_POSITION || type == PacketType.Play.Client.PLAYER_POSITION_LOOK;
   }
 
   private static void resetNegative(Meta meta) {

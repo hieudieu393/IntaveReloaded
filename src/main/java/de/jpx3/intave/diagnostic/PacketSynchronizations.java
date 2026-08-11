@@ -1,6 +1,6 @@
 package de.jpx3.intave.diagnostic;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -8,9 +8,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 public final class PacketSynchronizations {
-  private static final Map<PacketType, AtomicLong> resynchronized = new ConcurrentHashMap<>();
+  private static final Map<PacketTypeCommon, AtomicLong> resynchronized = new ConcurrentHashMap<>();
 
-  public static void enterResynchronization(PacketType type) {
+  public static void enterResynchronization(PacketTypeCommon type) {
     resynchronized.computeIfAbsent(type, ignored -> new AtomicLong()).incrementAndGet();
   }
 

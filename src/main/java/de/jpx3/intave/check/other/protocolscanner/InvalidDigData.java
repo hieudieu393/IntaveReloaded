@@ -1,6 +1,7 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import de.jpx3.intave.check.CheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
@@ -28,8 +29,8 @@ public final class InvalidDigData extends CheckPart<ProtocolScanner> {
     ignoreCancelled = false,
     packetsIn = BLOCK_DIG
   )
-  public void receiveDig(User user, BlockDigReader reader, PacketEvent event) {
-    EnumWrappers.PlayerDigType action = reader.action();
+  public void receiveDig(User user, BlockDigReader reader, ProtocolPacketEvent event) {
+    DiggingAction action = reader.action();
     if (action == null || isBlockMiningAction(action)) {
       return;
     }
@@ -71,9 +72,9 @@ public final class InvalidDigData extends CheckPart<ProtocolScanner> {
     Modules.violationProcessor().processViolation(violation);
   }
 
-  private static boolean isBlockMiningAction(EnumWrappers.PlayerDigType action) {
-    return action == EnumWrappers.PlayerDigType.START_DESTROY_BLOCK
-      || action == EnumWrappers.PlayerDigType.STOP_DESTROY_BLOCK
-      || action == EnumWrappers.PlayerDigType.ABORT_DESTROY_BLOCK;
+  private static boolean isBlockMiningAction(DiggingAction action) {
+    return action == DiggingAction.START_DESTROY_BLOCK
+      || action == DiggingAction.STOP_DESTROY_BLOCK
+      || action == DiggingAction.ABORT_DESTROY_BLOCK;
   }
 }

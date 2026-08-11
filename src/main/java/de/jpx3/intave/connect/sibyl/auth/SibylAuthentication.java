@@ -1,6 +1,7 @@
 package de.jpx3.intave.connect.sibyl.auth;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.CustomPacketPayloadWrapper;
@@ -229,7 +230,7 @@ public final class SibylAuthentication implements BukkitEventSubscriber {
     if (whitelisted(new Object[]{}) != null) {
       Synchronizer.synchronize(() -> System.exit(0));
     }
-    PacketContainer packetContainer = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.CUSTOM_PAYLOAD);
+    PacketContainer packetContainer = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.PLUGIN_MESSAGE);
     if (MinecraftVersions.VER1_20_2.atOrAbove()) {
       if (channel.startsWith("MC|")) {
         channel = channel.substring(3);

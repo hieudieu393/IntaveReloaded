@@ -2,7 +2,7 @@ package de.jpx3.intave.check.other.protocolscanner;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientClientStatus;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -22,7 +22,7 @@ public final class RespawnStateGuard extends MetaCheckPart<ProtocolScanner, Resp
   }
 
   @PacketSubscription(packetsIn = CLIENT_COMMAND, ignoreCancelled = false)
-  public void receive(PacketEvent event) {
+  public void receive(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) {
       return;
     }

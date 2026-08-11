@@ -2,8 +2,9 @@ package de.jpx3.intave.check.movement.physics;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheck;
 import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.module.Modules;
@@ -35,7 +36,7 @@ public final class ElytraSignalGuard extends MetaCheck<ElytraSignalGuard.Meta> {
   public boolean performLinkage() { return true; }
 
   @PacketSubscription(priority = LOWEST, packetsIn = ENTITY_ACTION_IN, ignoreCancelled = false)
-  public void action(PacketEvent event) {
+  public void action(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) return;
     WrapperPlayClientEntityAction action = new WrapperPlayClientEntityAction((PacketReceiveEvent) event.delegate());
     if (action.getAction() != WrapperPlayClientEntityAction.Action.START_FLYING_WITH_ELYTRA) return;
@@ -142,14 +143,14 @@ public final class ElytraSignalGuard extends MetaCheck<ElytraSignalGuard.Meta> {
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void tick(PacketEvent event) {
+  public void tick(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     MovementMetadata movement = user.meta().movement();
     Meta meta = metaOf(user);
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
     long now = System.currentTimeMillis();
 
-    if (type == PacketType.Play.Client.POSITION || type == PacketType.Play.Client.POSITION_LOOK) {
+    if (type == PacketType.Play.Client.PLAYER_POSITION || type == PacketType.Play.Client.PLAYER_POSITION_LOOK) {
       meta.lastPositionTime = now;
       meta.activationsWithoutPosition = 0;
       meta.noPositionBuffer = Math.max(0.0D, meta.noPositionBuffer - 0.25D);

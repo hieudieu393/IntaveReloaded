@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.movement.physics;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheck;
 import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.module.Modules;
@@ -43,7 +43,7 @@ public final class GroundSpoofGuard extends MetaCheck<GroundSpoofGuard.Meta> {
     ignoreCancelled = false,
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK}
   )
-  public void receive(PacketEvent event) {
+  public void receive(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     MovementMetadata movement = user.meta().movement();
     AbilityMetadata abilities = user.meta().abilities();

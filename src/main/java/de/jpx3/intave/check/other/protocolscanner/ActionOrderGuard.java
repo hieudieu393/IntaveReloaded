@@ -8,8 +8,8 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientCl
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -39,7 +39,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = ARM_ANIMATION, ignoreCancelled = false)
-  public void animation(PacketEvent event) {
+  public void animation(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) return;
     WrapperPlayClientAnimation animation = new WrapperPlayClientAnimation((PacketReceiveEvent) event.delegate());
     if (animation.getHand() != InteractionHand.MAIN_HAND) return;
@@ -50,7 +50,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
-  public void interact(PacketEvent event) {
+  public void interact(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     String packetName = packetName(event.getPacketType());
@@ -129,7 +129,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = {BLOCK_PLACE, USE_ITEM, USE_ITEM_ON}, ignoreCancelled = false)
-  public void use(PacketEvent event) {
+  public void use(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     boolean plainUse = isName(packetName(event.getPacketType()), "USE_ITEM");
@@ -152,7 +152,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
-  public void dig(PacketEvent event) {
+  public void dig(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
@@ -202,7 +202,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = PICK_ITEM, ignoreCancelled = false)
-  public void pick(PacketEvent event) {
+  public void pick(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     if (meta.attack || meta.use || meta.release || meta.dig) {
@@ -214,7 +214,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = HELD_ITEM_SLOT_IN, ignoreCancelled = false)
-  public void heldSlot(PacketEvent event) {
+  public void heldSlot(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     if (meta.attack || meta.use || meta.release || meta.dig || meta.drop || meta.swap || meta.entityAction) {
@@ -225,7 +225,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = ENTITY_ACTION_IN, ignoreCancelled = false)
-  public void entityAction(PacketEvent event) {
+  public void entityAction(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
@@ -256,7 +256,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = WINDOW_CLICK, ignoreCancelled = false)
-  public void windowClick(PacketEvent event) {
+  public void windowClick(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
@@ -279,7 +279,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = CLOSE_WINDOW, ignoreCancelled = false)
-  public void close(PacketEvent event) {
+  public void close(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     if (meta.closeWindow) conflict(user, meta, "window-order", "duplicate close-window in same tick", 0.5D, 1.5D);
@@ -289,10 +289,10 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END}, ignoreCancelled = false)
-  public void boundary(PacketEvent event) {
+  public void boundary(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
     boolean hasTickEnd = user.meta().protocol().sendsClientTickEnd();
 
     if (hasTickEnd) {
@@ -374,7 +374,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
       || user.meta().movement().isInVehicle();
   }
 
-  private static String packetName(PacketType type) {
+  private static String packetName(PacketTypeCommon type) {
     return type == null || type.name() == null ? "" : type.name().toUpperCase(Locale.ROOT);
   }
 

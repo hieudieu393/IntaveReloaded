@@ -4,8 +4,8 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
 import de.jpx3.intave.module.Modules;
@@ -32,7 +32,7 @@ public final class BreakProtocolGuard extends MetaCheckPart<BreakSpeedLimiter, B
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
-  public void dig(PacketEvent event) {
+  public void dig(ProtocolPacketEvent event) {
     if (!(event.delegate() instanceof PacketReceiveEvent)) {
       return;
     }
@@ -77,9 +77,9 @@ public final class BreakProtocolGuard extends MetaCheckPart<BreakSpeedLimiter, B
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void tick(PacketEvent event) {
+  public void tick(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
     boolean modernBoundary = user.meta().protocol().sendsClientTickEnd();
     boolean boundary = modernBoundary ? PacketTypes.isClientEndTick(type) : !PacketTypes.isClientEndTick(type);
     if (!boundary) {

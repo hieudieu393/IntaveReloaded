@@ -11,10 +11,13 @@
 
 package de.jpx3.intave.check.world;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.reflect.StructureModifier;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import com.comphenix.protocol.wrappers.MovingObjectPositionBlock;
@@ -75,7 +78,7 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
-import static com.comphenix.protocol.wrappers.EnumWrappers.PlayerDigType.*;
+import static com.comphenix.protocol.wrappers.DiggingAction.*;
 import static de.jpx3.intave.check.world.interaction.InteractionType.*;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.BLOCK_BREAK_ANIMATION;
@@ -97,7 +100,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
       BLOCK_PLACE, USE_ITEM, USE_ITEM_ON
     }
   )
-  public void receiveInteractionAndPlace(PacketEvent event) {
+  public void receiveInteractionAndPlace(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     InteractionMeta interactionMeta = metaOf(user);
@@ -148,13 +151,13 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
         return;
       }
 
-      EnumWrappers.Hand handSlot = packet.getHands().readSafely(0);
-      handSlot = handSlot == null ? EnumWrappers.Hand.MAIN_HAND : handSlot;
+      InteractionHand handSlot = packet.getHands().readSafely(0);
+      handSlot = handSlot == null ? InteractionHand.MAIN_HAND : handSlot;
 
       ItemStack heldItem = inventory.heldItem();
       Material heldItemType = heldItem == null ? Material.AIR : heldItem.getType();
       Material offHandItemType = inventory.offhandItemType();
-      Material typeUsedInHand = handSlot == EnumWrappers.Hand.MAIN_HAND ? heldItemType : offHandItemType;
+      Material typeUsedInHand = handSlot == InteractionHand.MAIN_HAND ? heldItemType : offHandItemType;
       if (typeUsedInHand == null) {
         typeUsedInHand = Material.AIR;
       }
@@ -207,7 +210,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
           world, player,
           blockPosition, enumDirection, type,
           typeUsedInHand,
-          handSlot == EnumWrappers.Hand.MAIN_HAND
+          handSlot == InteractionHand.MAIN_HAND
             ? heldItem
             : inventory.offhandItem(),
           handSlot, null, facingX, facingY, facingZ,
@@ -309,7 +312,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
       BLOCK_DIG
     }
   )
-  public void receiveBreak(PacketEvent event) {
+  public void receiveBreak(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
 
@@ -336,7 +339,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
       return;
     }
 
-    EnumWrappers.PlayerDigType playerDigType = packet.getPlayerDigTypes().readSafely(0);
+    DiggingAction playerDigType = packet.getPlayerDigTypes().readSafely(0);
     boolean blockInteraction = playerDigType == START_DESTROY_BLOCK || playerDigType == STOP_DESTROY_BLOCK || playerDigType == ABORT_DESTROY_BLOCK;
     ItemStack heldItemStack = inventoryData.heldItem();
     Material heldItemType = inventoryData.heldItemType();
@@ -381,7 +384,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
       interactionMeta.nextInteractionId++,
       packet.shallowClone(), player.getWorld(), player,
       blockPosition, enumDirection, type,
-      heldItemType, heldItemStack, EnumWrappers.Hand.MAIN_HAND, playerDigType,
+      heldItemType, heldItemStack, InteractionHand.MAIN_HAND, playerDigType,
       Float.NaN, Float.NaN, Float.NaN, -1
     );
 
@@ -438,7 +441,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
   }
 
   @DispatchTarget
-  public boolean receiveMovement(PacketEvent event) {
+  public boolean receiveMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     World world = player.getWorld();
     User user = userOf(player);
@@ -477,10 +480,10 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
       LOOK,
     }
   )
-  public void receiveAnyTickContextPacket(PacketEvent event) {
+  public void receiveAnyTickContextPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
-    receivedAnyTickContextPacket(user, event.getPacket().getType() == PacketType.Play.Client.ARM_ANIMATION, event.getPacketType().name());
+    receivedAnyTickContextPacket(user, event.getPacket().getType() == PacketType.Play.Client.ANIMATION, event.getPacketType().name());
   }
 
   private void receivedAnyTickContextPacket(
@@ -1133,7 +1136,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
   @PacketSubscription(
     packetsOut = BLOCK_BREAK_ANIMATION
   )
-  public void clearInvalidBreakingUpdates(PacketEvent event) {
+  public void clearInvalidBreakingUpdates(ProtocolPacketEvent event) {
     PacketContainer packet = event.getPacket();
     EntityReader entityReader = PacketReaders.readerOf(packet);
     Entity entity = entityReader.entityBy(event);
@@ -1230,7 +1233,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
   private static final boolean BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION = MinecraftVersions.VER1_14_0.atOrAbove();
 
   private void writeBlockPosition(PacketContainer packet, com.comphenix.protocol.wrappers.BlockPosition blockPosition) {
-    if (BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION && !packet.getType().equals(PacketType.Play.Client.BLOCK_DIG)) {
+    if (BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION && !packet.getType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
       MovingObjectPositionBlock raytraceSent = packet.getMovingBlockPositions().readSafely(0);
       raytraceSent.setBlockPosition(blockPosition);
       packet.getMovingBlockPositions().write(0, raytraceSent);
@@ -1240,7 +1243,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
   }
 
   private void writeEnumDirection(PacketContainer packet, Direction direction) {
-    if (BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION && !packet.getType().equals(PacketType.Play.Client.BLOCK_DIG)) {
+    if (BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION && !packet.getType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
       MovingObjectPositionBlock raytraceSent = packet.getMovingBlockPositions().readSafely(0);
       raytraceSent.setDirection(direction.toDirection());
       packet.getMovingBlockPositions().write(0, raytraceSent);

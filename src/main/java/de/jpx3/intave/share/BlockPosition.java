@@ -11,6 +11,7 @@
 
 package de.jpx3.intave.share;
 
+import com.github.retrooper.packetevents.util.Vector3i;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import de.jpx3.intave.codec.ByteBufStreamCodecs;
@@ -63,7 +64,7 @@ public final class BlockPosition extends RawVector3d {
     this(source.getBlockX(), source.getBlockY(), source.getBlockZ());
   }
 
-  public BlockPosition(com.comphenix.protocol.wrappers.BlockPosition blockPosition) {
+  public BlockPosition(Vector3i blockPosition) {
     this(blockPosition.getX(), blockPosition.getY(), blockPosition.getZ());
   }
 
@@ -303,16 +304,10 @@ public final class BlockPosition extends RawVector3d {
       | ((long) this.z & Z_MASK);
   }
 
-  public static BlockPosition fromProtocolLib(com.comphenix.protocol.wrappers.BlockPosition blockPosition) {
+  public static BlockPosition fromPacketEvents(Vector3i blockPosition) {
     return new BlockPosition(blockPosition.getX(), blockPosition.getY(), blockPosition.getZ());
   }
 
-  public static BlockPosition fromNative(Object nativeBlockPosition) {
-    if (nativeBlockPosition instanceof com.comphenix.protocol.wrappers.BlockPosition) {
-      return fromProtocolLib((com.comphenix.protocol.wrappers.BlockPosition) nativeBlockPosition);
-    }
-    return fromProtocolLib(com.comphenix.protocol.wrappers.BlockPosition.getConverter().getSpecific(nativeBlockPosition));
-  }
 
   /**
    * Create a BlockPos from a serialized long value (created by toLong)

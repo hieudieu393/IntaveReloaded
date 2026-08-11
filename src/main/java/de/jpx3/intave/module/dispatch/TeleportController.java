@@ -11,10 +11,12 @@
 
 package de.jpx3.intave.module.dispatch;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.comphenix.protocol.wrappers.BukkitConverters;
 import com.comphenix.protocol.wrappers.WrappedParticle;
 import de.jpx3.intave.IntaveControl;
@@ -54,7 +56,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.comphenix.protocol.wrappers.EnumWrappers.PlayerDigType.DROP_ITEM;
+import static com.comphenix.protocol.wrappers.DiggingAction.DROP_ITEM;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.LONG_TELEPORT;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.TELEPORT;
 import static de.jpx3.intave.math.MathHelper.formatDouble;
@@ -90,7 +92,7 @@ public final class TeleportController implements PacketEventSubscriber {
           POSITION
       }
   )
-  public void receiveOutgoingTeleport(PacketEvent event) {
+  public void receiveOutgoingTeleport(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     PacketContainer packet = event.getPacket();
     User user = UserRepository.userOf(player);
@@ -209,7 +211,7 @@ public final class TeleportController implements PacketEventSubscriber {
           TELEPORT_ACCEPT
       }
   )
-  public void receiveTeleportAccept(PacketEvent event) {
+  public void receiveTeleportAccept(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     MovementMetadata movementData = user.meta().movement();
@@ -234,7 +236,7 @@ public final class TeleportController implements PacketEventSubscriber {
           BLOCK_DIG
       }
   )
-  public void clientClickUpdate(PacketEvent event) {
+  public void clientClickUpdate(ProtocolPacketEvent event) {
 
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
@@ -349,7 +351,7 @@ public final class TeleportController implements PacketEventSubscriber {
   }
 
   @DispatchTarget
-  void receiveMovement(PacketEvent event) {
+  void receiveMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     MovementMetadata movementData = user.meta().movement();
@@ -359,7 +361,7 @@ public final class TeleportController implements PacketEventSubscriber {
     }
   }
 
-  private void resendIfLimitsExceeded(PacketEvent event) {
+  private void resendIfLimitsExceeded(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     MovementMetadata movementData = user.meta().movement();

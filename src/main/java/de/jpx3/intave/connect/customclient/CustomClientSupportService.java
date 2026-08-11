@@ -1,6 +1,7 @@
 package de.jpx3.intave.connect.customclient;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.MinecraftKey;
@@ -82,7 +83,7 @@ public final class CustomClientSupportService implements EventProcessor {
   }
 
   private void sendCustomDataPacket(Player player, String channel, String data, String prefix, String key) {
-    PacketContainer packetContainer = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.CUSTOM_PAYLOAD);
+    PacketContainer packetContainer = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.PLUGIN_MESSAGE);
     if (MinecraftVersions.VER1_13_0.atOrAbove()) {
       packetContainer.getMinecraftKeys().write(0, new MinecraftKey(prefix, key));
     } else {

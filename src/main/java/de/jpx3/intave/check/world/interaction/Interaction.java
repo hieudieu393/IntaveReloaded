@@ -1,5 +1,7 @@
 package de.jpx3.intave.check.world.interaction;
 
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.BlockPosition;
 import com.comphenix.protocol.wrappers.EnumWrappers;
@@ -20,8 +22,8 @@ public final class Interaction {
   private InteractionType type;
   private final Material itemTypeInHand;
   private final ItemStack itemInHand;
-  private final EnumWrappers.Hand hand;
-  private final EnumWrappers.PlayerDigType digType;
+  private final InteractionHand hand;
+  private final DiggingAction digType;
   private final float facingX, facingY, facingZ;
   private boolean entered = false;
 
@@ -40,7 +42,7 @@ public final class Interaction {
     BlockPosition targetBlock, int targetDirection,
     InteractionType type,
     Material itemTypeInHand, ItemStack itemInHand,
-    EnumWrappers.Hand hand, EnumWrappers.PlayerDigType digType,
+    InteractionHand hand, DiggingAction digType,
     float facingX, float facingY, float facingZ,
     int sequenceNumber
   ) {
@@ -93,7 +95,7 @@ public final class Interaction {
     return itemInHand;
   }
 
-  public EnumWrappers.Hand hand() {
+  public InteractionHand hand() {
     return hand;
   }
 
@@ -120,7 +122,7 @@ public final class Interaction {
     return targetDirection;
   }
 
-  public EnumWrappers.PlayerDigType digType() {
+  public DiggingAction digType() {
     return digType;
   }
 

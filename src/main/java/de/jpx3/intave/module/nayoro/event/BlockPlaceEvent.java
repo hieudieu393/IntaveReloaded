@@ -1,6 +1,7 @@
 package de.jpx3.intave.module.nayoro.event;
 
-import com.comphenix.protocol.wrappers.EnumWrappers.Hand;
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import de.jpx3.intave.annotate.Nullable;
 import de.jpx3.intave.module.nayoro.Environment;
 import de.jpx3.intave.module.nayoro.event.sink.EventSink;

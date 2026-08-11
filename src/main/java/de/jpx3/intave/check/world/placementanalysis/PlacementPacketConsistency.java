@@ -1,7 +1,7 @@
 package de.jpx3.intave.check.world.placementanalysis;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.PlacementAnalysis;
 import de.jpx3.intave.module.Modules;
@@ -32,7 +32,7 @@ public final class PlacementPacketConsistency extends MetaCheckPart<PlacementAna
     ignoreCancelled = false,
     packetsIn = {BLOCK_PLACE, USE_ITEM_ON}
   )
-  public void receivePlacement(PacketEvent event) {
+  public void receivePlacement(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     BlockInteractionReader reader = PacketReaders.readerOf(event.getPacket());
     try {
@@ -85,7 +85,7 @@ public final class PlacementPacketConsistency extends MetaCheckPart<PlacementAna
     ignoreCancelled = false,
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END}
   )
-  public void receiveTick(PacketEvent event) {
+  public void receiveTick(ProtocolPacketEvent event) {
     Meta meta = metaOf(userOf(event.getPlayer()));
     meta.hasPlacement = false;
     if (meta.buffer > 0) {
