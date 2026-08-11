@@ -1,8 +1,6 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
-import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
-import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEditBook;
 import com.comphenix.protocol.events.PacketEvent;
 import de.jpx3.intave.check.CheckPart;
@@ -11,14 +9,23 @@ import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.user.User;
+import de.jpx3.intave.user.meta.InventoryMetadata;
+import org.bukkit.Material;
 
 import java.util.List;
 
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.B_EDIT;
 
-/** Modern (1.17.1+) book-edit sanity checks using PacketEvents' typed wrapper. */
+/**
+ * Modern book-edit sanity checks using PacketEvents' typed wrapper. Intave only supports 1.17+
+ * clients, so the modern writable-book limits can be enforced directly.
+ */
 public final class BookEditGuard extends CheckPart<ProtocolScanner> {
+  private static final int OFFHAND_SLOT = 40;
   private static final int MAX_HOTBAR_SLOT = 8;
+  private static final int MAX_PAGES = 100;
+  private static final int MAX_PAGE_CHARS = 1023;
+  private static final int MAX_TITLE_CHARS = 15;
 
   public BookEditGuard(ProtocolScanner parentCheck) {
     super(parentCheck);
@@ -30,42 +37,49 @@ public final class BookEditGuard extends CheckPart<ProtocolScanner> {
       return;
     }
 
+    User user = userOf(event.getPlayer());
     WrapperPlayClientEditBook wrapper = new WrapperPlayClientEditBook((PacketReceiveEvent) event.delegate());
-    boolean modernLimits = PacketEvents.getAPI().getServerManager().getVersion()
-      .isNewerThanOrEquals(ServerVersion.V_1_21_2);
-    int maxPages = modernLimits ? 100 : 200;
-    int maxPageChars = modernLimits ? 1024 : 8192;
-    int maxTitleChars = modernLimits ? 32 : 128;
-
     int slot = wrapper.getSlot();
     List<String> pages = wrapper.getPages();
     String title = wrapper.getTitle();
 
-    String reason = null;
-    if (slot < 0 || slot > MAX_HOTBAR_SLOT) {
-      reason = "slot=" + slot;
-    } else if (pages == null) {
+    String reason = validateSlotAndBook(user, slot);
+    if (reason == null && pages == null) {
       reason = "missing pages";
-    } else if (pages.size() > maxPages) {
-      reason = "pages=" + pages.size() + "/" + maxPages;
-    } else {
+    } else if (reason == null && pages.size() > MAX_PAGES) {
+      reason = "pages=" + pages.size() + "/" + MAX_PAGES;
+    } else if (reason == null) {
       for (int i = 0; i < pages.size(); i++) {
         String page = pages.get(i);
-        if (page == null || page.length() > maxPageChars) {
-          reason = "page=" + i + " length=" + (page == null ? -1 : page.length()) + "/" + maxPageChars;
+        if (page == null || page.length() > MAX_PAGE_CHARS) {
+          reason = "page=" + i + " length=" + (page == null ? -1 : page.length()) + "/" + MAX_PAGE_CHARS;
           break;
         }
       }
     }
-    if (reason == null && title != null && title.length() > maxTitleChars) {
-      reason = "title=" + title.length() + "/" + maxTitleChars;
+
+    // Modern vanilla never appends a second-or-later empty page to an edit packet. Keeping the
+    // single empty first page valid avoids rejecting a newly opened blank book.
+    if (reason == null && pages.size() > 1 && pages.get(pages.size() - 1).isEmpty()) {
+      reason = "empty last page";
     }
+
+    if (reason == null && title != null) {
+      if (title.length() > MAX_TITLE_CHARS) {
+        reason = "title=" + title.length() + "/" + MAX_TITLE_CHARS;
+      } else if (title.isEmpty() || !title.trim().equals(title) || containsInvalidCharacters(title)) {
+        reason = "invalid title";
+      }
+    }
+
     if (reason == null) {
       return;
     }
 
+    if (event.isReadOnly()) {
+      event.setReadOnly(false);
+    }
     event.setCancelled(true);
-    User user = userOf(event.getPlayer());
     Violation violation = Violation.builderFor(ProtocolScanner.class)
       .forPlayer(user.player())
       .withCheckName("BadPackets")
@@ -74,5 +88,39 @@ public final class BookEditGuard extends CheckPart<ProtocolScanner> {
       .withVL(20.0)
       .build();
     Modules.violationProcessor().processViolation(violation);
+  }
+
+  private static String validateSlotAndBook(User user, int slot) {
+    InventoryMetadata inventory = user.meta().inventory();
+    if ((slot < 0 || slot > MAX_HOTBAR_SLOT) && slot != OFFHAND_SLOT) {
+      return "slot=" + slot;
+    }
+
+    if (slot != OFFHAND_SLOT && slot != inventory.handSlot()) {
+      return "slot=" + slot + ", selected=" + inventory.handSlot();
+    }
+
+    // Bukkit/Paper inventory reads can be implementation-sensitive off the main thread. If an
+    // implementation refuses the read, skip only the item-type assertion; slot/contents limits
+    // above remain authoritative and Physics/Inventory tracking is not disturbed.
+    try {
+      Material type = slot == OFFHAND_SLOT ? inventory.offhandItemType() : inventory.heldItemType();
+      if (type != Material.WRITABLE_BOOK) {
+        return "not editing writable book, item=" + type;
+      }
+    } catch (Throwable ignored) {
+      return null;
+    }
+    return null;
+  }
+
+  private static boolean containsInvalidCharacters(String string) {
+    for (int i = 0; i < string.length(); i++) {
+      char character = string.charAt(i);
+      if (character == 167 || character < 32 || character == 127) {
+        return true;
+      }
+    }
+    return false;
   }
 }
