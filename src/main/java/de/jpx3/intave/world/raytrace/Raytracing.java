@@ -39,6 +39,10 @@ public final class Raytracing {
   private static final Raytracer RAYTRACER = new UniversalRaytracer();
   private static final boolean[] PESSIMISTIC_BOOLEAN_ORDER = new boolean[]{false, true};
   private static final double MAX_TRACKED_INTERACTION_RANGE = 64.0D;
+  // AttackRaytrace historically uses reach == 10 as its miss sentinel. Once a custom range would
+  // make the ray itself approach that sentinel, preserve safety by treating a pure miss as neutral;
+  // actual intersections beyond the configured range are still returned and classified as REACH.
+  private static final double LEGACY_MISS_SENTINEL_SAFE_RANGE = 9.0D;
 
   public static float reachDistanceOf(Player player) {
     return reachDistanceOf(UserRepository.userOf(player));
@@ -160,7 +164,8 @@ public final class Raytracing {
     Timings.SERVICE_RAYTRACER_ENTITY.start();
     double attackReachDistance = reachDistanceOf(player);
     double rayLength = Math.max(6.0D, Math.min(MAX_TRACKED_INTERACTION_RANGE + 1.0D, attackReachDistance + 1.0D));
-    double missDistance = rayLength + 1.0D;
+    boolean extendedRange = attackReachDistance >= LEGACY_MISS_SENTINEL_SAFE_RANGE;
+    double missDistance = extendedRange ? rayLength + 1.0D : 10.0D;
     double lastReach = missDistance;
     RawVector3d lastHitVec = null;
     RawVector3d lastEyeVector = null;
@@ -232,8 +237,15 @@ public final class Raytracing {
       lastEyeVector = positionEyes(player, Pose.STANDING, prevPosX, prevPosY, prevPosZ);
     }
 
+    // For extended ranges the enclosing AttackRaytrace still has a legacy numeric MISS sentinel.
+    // Returning a neutral result for a pure miss prevents a legitimate custom range from becoming a
+    // false REACH/MISS. If an entity was actually intersected outside the allowed range, lastHitVec is
+    // non-null and the real distance is preserved, so the normal REACH path remains fully active.
+    double reportedReach = extendedRange && lastHitVec == null && lastReach > attackReachDistance
+      ? 0.0D : lastReach;
+
     Timings.SERVICE_RAYTRACER_ENTITY.stop();
-    return Raytrace.ofNative(lastEyeVector, lastHitVec, lastReach);
+    return Raytrace.ofNative(lastEyeVector, lastHitVec, reportedReach);
   }
 
   private static RawVector3d wrappedVectorForRotation(float pitch, float prevYaw, boolean fastMath) {
@@ -284,8 +296,7 @@ public final class Raytracing {
   public static MovingObjectPosition blockRayTrace(World world, Player player, RawVector3d eyeVector, RawVector3d targetVector) {
     try {
       Timings.SERVICE_RAYTRACER_BLOCK.start();
-      MovingObjectPosition backup = Raytracing.RAYTRACER.raytrace(world, player, eyeVector, targetVector);
-      return backup;
+      return Raytracing.RAYTRACER.raytrace(world, player, eyeVector, targetVector);
     } finally {
       Timings.SERVICE_RAYTRACER_BLOCK.stop();
     }
@@ -322,7 +333,7 @@ public final class Raytracing {
 
   private static RawVector3d resolveVectorForRotation(float pitch, float yaw) {
     float f = SinusCache.cos(-yaw * 0.017453292f - 3.1415927f, false);
-    float f2 = SinusCache.sin(-yaw * 0.017453292f - 3.1415927f, false);
+    float f2 = SinusCache.sin(-yaw * 0.017453292F - 3.1415927f, false);
     float f3 = -SinusCache.cos(-pitch * 0.017453292f, false);
     float f4 = SinusCache.sin(-pitch * 0.017453292f, false);
     return new RawVector3d(f2 * f3, f4, f * f3);
