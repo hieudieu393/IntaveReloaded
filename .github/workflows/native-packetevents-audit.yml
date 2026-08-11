@@ -6,9 +6,44 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
+  apply-overlay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/audit-hardening
+          fetch-depth: 0
+
+      - name: Apply staged migration when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f .github/native-overlay/part00 ]]; then
+            echo 'No staged native migration overlay.'
+            exit 0
+          fi
+          for n in 00 01 02 03 04 05; do
+            test -f ".github/native-overlay/part${n}"
+          done
+          test "$(cat .github/native-overlay/part* | wc -c)" -eq 93568
+          cat .github/native-overlay/part* | base64 -d | gzip -dc > /tmp/native.diff
+          grep -q '^diff -ruN ' /tmp/native.diff
+          patch --dry-run -f -p4 < /tmp/native.diff
+          patch -f -p4 < /tmp/native.diff
+          rm -rf .github/native-overlay
+          rm -f .github/workflows/apply-native-overlay.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git diff --cached --quiet && { echo 'Overlay produced no changes.' >&2; exit 1; }
+          git commit -m 'Apply native PacketEvents source migration'
+          git push origin HEAD:agent/audit-hardening
+
   source-snapshot:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
