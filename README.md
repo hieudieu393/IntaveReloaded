@@ -1,4 +1,4 @@
-![IntaveReloaded](docs/assets/hero_banner.png "IntaveReloaded")
+![IntaveReloaded](docs/assets/hero_banner_reload.svg "IntaveReloaded")
 
 # IntaveReloaded
 
