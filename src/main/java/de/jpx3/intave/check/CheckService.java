@@ -41,11 +41,23 @@ public final class CheckService {
 
   public void setup() {
     addCheck(Physics.class);
-    addCheck(AirStuckGuard.class);
-    addCheck(GroundSpoofGuard.class);
-    addCheck(MovementSignalGuard.class);
-    addCheck(ElytraSignalGuard.class);
-    addCheck(VehicleSignalGuard.class);
+
+    if (CheckSignalConfiguration.enabled("physics", "nofall")) {
+      addCheck(AirStuckGuard.class);
+      addCheck(GroundSpoofGuard.class);
+    }
+    if (CheckSignalConfiguration.enabled("physics", "noslow")
+      || CheckSignalConfiguration.enabled("physics", "phase")
+      || CheckSignalConfiguration.enabled("physics", "sprint")) {
+      addCheck(MovementSignalGuard.class);
+    }
+    if (CheckSignalConfiguration.enabled("physics", "elytra")) {
+      addCheck(ElytraSignalGuard.class);
+    }
+    if (CheckSignalConfiguration.enabled("physics", "vehicle")) {
+      addCheck(VehicleSignalGuard.class);
+    }
+
     addCheck(InteractionRaytrace.class);
     addCheck(Heuristics.class);
     addCheck(AttackRaytrace.class);
@@ -106,12 +118,29 @@ public final class CheckService {
       nameRequestCache.put(internal.toLowerCase(Locale.ROOT), check);
       nameRequestCache.putIfAbsent(canonical.toLowerCase(Locale.ROOT), check);
     }
+
+    // Public Matrix/NCP-style aliases always resolve to the stable parent check, even if an
+    // optional signal implementation is disabled and therefore not linked at startup.
     putAlias("Aim", Heuristics.class);
+    putAlias("NoSwing", Heuristics.class);
+    putAlias("HitBox", AttackRaytrace.class);
+    putAlias("NoFall", Physics.class);
     putAlias("NoSlow", Physics.class);
     putAlias("Phase", Physics.class);
     putAlias("Sprint", Physics.class);
+    putAlias("Elytra", Physics.class);
+    putAlias("Vehicle", Physics.class);
+    putAlias("Speed", Physics.class);
+    putAlias("Fly", Physics.class);
+    putAlias("Step", Physics.class);
+    putAlias("Jesus", Physics.class);
+    putAlias("Velocity", Physics.class);
+    putAlias("Blink", Timer.class);
+    putAlias("PacketOrder", ProtocolScanner.class);
+    putAlias("InventoryMove", InventoryClickAnalysis.class);
     putAlias("AutoTotem", InventoryClickAnalysis.class);
     putAlias("AutoSwap", InventoryClickAnalysis.class);
+    putAlias("FastPlace", PlacementAnalysis.class);
 
     classRequestCache = ImmutableMap.copyOf(classRequestCache);
     nameRequestCache = ImmutableMap.copyOf(nameRequestCache);
