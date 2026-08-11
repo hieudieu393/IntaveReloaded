@@ -13,6 +13,7 @@ package de.jpx3.intave.check.other;
 
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.check.Check;
+import de.jpx3.intave.check.CheckSignalConfiguration;
 import de.jpx3.intave.check.other.protocolscanner.*;
 
 public final class ProtocolScanner extends Check {
@@ -32,17 +33,24 @@ public final class ProtocolScanner extends Check {
       new InvalidDigData(this),
       new InvalidWindowClick(this),
       new DuplicateInputGuard(this),
-      new DuplicateMovementGuard(this),
       new RespawnStateGuard(this),
-      new PostPacketOrder(this),
-      new ActionOrderGuard(this),
       new ExploitGuard(this),
-      new ChatStateGuard(this),
-      new BookEditGuard(this),
       new SequenceGuard(this),
       new ExtendedProtocolGuards(this)
-//      ,
-//      new PacketConstraint(this)
     );
+
+    if (CheckSignalConfiguration.enabled("protocolscanner", "duplicate-movement")) {
+      appendCheckPart(new DuplicateMovementGuard(this));
+    }
+    if (CheckSignalConfiguration.enabled("protocolscanner", "packetorder")) {
+      appendCheckPart(new PostPacketOrder(this));
+      appendCheckPart(new ActionOrderGuard(this));
+    }
+    if (CheckSignalConfiguration.enabled("protocolscanner", "chat")) {
+      appendCheckPart(new ChatStateGuard(this));
+    }
+    if (CheckSignalConfiguration.enabled("protocolscanner", "book-edit")) {
+      appendCheckPart(new BookEditGuard(this));
+    }
   }
 }

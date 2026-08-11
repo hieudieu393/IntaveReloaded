@@ -3,6 +3,7 @@ package de.jpx3.intave.check.movement;
 import com.comphenix.protocol.events.PacketEvent;
 import de.jpx3.intave.check.Check;
 import de.jpx3.intave.check.CheckConfiguration.CheckSettings;
+import de.jpx3.intave.check.CheckSignalConfiguration;
 import de.jpx3.intave.check.CheckViolationLevelDecrementer;
 import de.jpx3.intave.check.movement.timer.MicroBlink;
 import de.jpx3.intave.check.movement.timer.PlayerTime;
@@ -15,6 +16,7 @@ public final class Timer extends Check {
   private final boolean reverseBlink;
   private final boolean reverseLag;
   private final boolean lowTolerance;
+  private final boolean blinkSignalEnabled;
   private int blinkLimit;
   private final int timerTolerance;
   private final boolean detectPulseBlink;
@@ -30,6 +32,7 @@ public final class Timer extends Check {
     highToleranceMode = settings.boolBy("high-tolerance", false);
     lowTolerance = settings.boolBy("low-tolerance", false);
     reverseLag = settings.boolBy("reverse-lag", false);
+    blinkSignalEnabled = CheckSignalConfiguration.enabled("timer", "blink");
 
     blinkLimit = settings.intBy("blink-limit", (lowTolerance ? 100 : -1));
     if (blinkLimit < 60 && blinkLimit >= 0) {
@@ -42,14 +45,18 @@ public final class Timer extends Check {
     appendCheckPart(playerTime);
 
     this.microBlink = new MicroBlink(this);
-    appendCheckPart(microBlink);
+    if (blinkSignalEnabled) {
+      appendCheckPart(microBlink);
+    }
 
     appendCheckPart(new TickProtocolTimer(this));
   }
 
   public void receiveMovement(PacketEvent event) {
     playerTime.receiveMovement(event);
-    microBlink.receiveMovement(event);
+    if (blinkSignalEnabled) {
+      microBlink.receiveMovement(event);
+    }
   }
 
   @Override

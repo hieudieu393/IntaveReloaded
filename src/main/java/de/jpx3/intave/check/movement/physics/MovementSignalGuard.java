@@ -3,6 +3,7 @@ package de.jpx3.intave.check.movement.physics;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
 import com.comphenix.protocol.events.PacketEvent;
+import de.jpx3.intave.check.CheckSignalConfiguration;
 import de.jpx3.intave.check.MetaCheck;
 import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.module.Modules;
@@ -183,6 +184,9 @@ public final class MovementSignalGuard extends MetaCheck<MovementSignalGuard.Met
   }
 
   private void flag(User user, String name, String details, double vl) {
+    if (!CheckSignalConfiguration.enabled("physics", name)) {
+      return;
+    }
     Violation violation = Violation.builderFor(Physics.class)
       .forPlayer(user.player())
       .withCheckName(name)

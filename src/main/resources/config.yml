@@ -5,13 +5,11 @@
 #   ADVANCED - use plugins/Intave/advanced.yml directly
 #   LEGACY   - use settings.yml when migrating an older Intave installation
 #
-# Reload the server/plugin after changing the config mode.
+# Per-check signal toggles such as Aim, KillAura, NoFall, Elytra, AutoTotem and
+# PacketOrder are available in advanced.yml under check.<owner>.signals.
 config: THIS
 
-# ---------------------------------------------------------------------------
 # Actions
-# ---------------------------------------------------------------------------
-
 kick-commands:
   - "intave internals kickip {player} &cYou have been kicked, as an account with your ip address was removed from the game"
   - "kick {player} &cYou have been removed from the game based on data that was collected by the anti-cheat ({log-id})"
@@ -20,29 +18,18 @@ ban-commands:
   - "intave internals kickip {player} &cYou have been kicked, as an account with your ip address was removed from the game"
   - "ban {player} Cheating / {log-id}"
 
-# ---------------------------------------------------------------------------
 # Movement / timer
-# ---------------------------------------------------------------------------
-
-# Physics mitigation sensitivity.
-# Choose between AGGRESSIVE, CAREFUL, LENIENT, BARELY and SILENT.
+# Physics mitigation: AGGRESSIVE, CAREFUL, LENIENT, BARELY or SILENT.
 physics-mm: BARELY
 
 # Base Timer tolerance. 1 is the normal/default value.
-# Higher values make the classic timer clock more tolerant.
 timer-tolerance: 1
 
-# ---------------------------------------------------------------------------
 # Session
-# ---------------------------------------------------------------------------
-
 # Rejoin delay after an issued kick, in seconds.
 rejoin-delay: 3600
 
-# ---------------------------------------------------------------------------
 # Layout
-# ---------------------------------------------------------------------------
-
 prefix: "&8[&c&lIntaveReloaded&8]&7 "
-verbose: "{prefix} &c{player}&7/{trust-color}&7 {message} {details} (+{vladded} -> {vl})"
+verbose: "{prefix} &c{player}&7/{trust-color}&7 &c{check}&7: {message} {details} (+{vladded} -> {vl})"
 notify: "{prefix} &c&lInfo&8: &7{text}"

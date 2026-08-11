@@ -3,14 +3,15 @@
 # The layout intentionally follows the original Intave 14 configuration so existing
 # administrators and integrations keep familiar internal keys.
 #
-# Reloaded adds supplemental checks on top of the original parent pipelines. Unless a
-# dedicated setting is documented below, these guards report into the parent check VL:
-#   Simulate/NoFall/NoSlow/Phase/Sprint/Elytra/Vehicle -> check.physics
-#   KillAura/Aim                                      -> check.heuristics
-#   BadPackets                                        -> check.protocolscanner
-#   AutoTotem/AutoSwap/Inventory                      -> check.inventoryclickanalysis
-#   Scaffold                                          -> check.placementanalysis
-#   FastBreak                                         -> check.breakspeedlimiter
+# Reloaded adds supplemental checks on top of the original parent pipelines. Public
+# signal names can be toggled under the owning check's `signals` section.
+#
+# Simulate/NoFall/NoSlow/Phase/Sprint/Elytra/Vehicle -> check.physics
+# KillAura/Aim                                      -> check.heuristics
+# BadPackets/PacketOrder                            -> check.protocolscanner
+# AutoTotem/AutoSwap/InventoryMove                  -> check.inventoryclickanalysis
+# Scaffold                                          -> check.placementanalysis
+# FastBreak                                         -> check.breakspeedlimiter
 #
 # Do not blindly lower thresholds. Reloaded deliberately buffers modern signals and
 # applies exemptions for teleport, vehicle, latency and uncertain client state.
@@ -20,7 +21,16 @@ state: 0
 
 check:
   physics:
-    # The physics simulator is mandatory. This setting only increases tolerance.
+    # The core simulator remains active. These switches control supplemental public signals.
+    signals:
+      nofall: true
+      noslow: true
+      phase: true
+      sprint: true
+      elytra: true
+      vehicle: true
+
+    # This setting increases simulator tolerance.
     high-tolerance: false
 
     # Mitigation mode: AGGRESSIVE, CAREFUL, LENIENT, BARELY or SILENT.
@@ -39,8 +49,7 @@ check:
       close-inventory: true
       refresh-nearby-blocks: true
 
-    # Reloaded supplemental movement guards (MovementSignalGuard, GroundSpoofGuard,
-    # ElytraSignalGuard and VehicleSignalGuard) report into this same Physics pipeline.
+    # Supplemental movement guards report into this same Physics pipeline.
     thresholds:
       100: "intave internals sendnotify &c{player}&7/{trust-color}&7 is moving incorrectly"
       400: "intave internals sendnotify &c{player}&7/{trust-color}&7 is moving incorrectly #2"
@@ -48,23 +57,23 @@ check:
       999:
         - $kick$
 
-  # AirStuckGuard is separately configurable because its useful timing window depends
-  # on how aggressively a server wants to treat withheld position updates.
-  # Violations still feed the Physics/NoFall pipeline.
+  # AirStuckGuard has separate timing controls but still belongs to the NoFall/Physics pipeline.
   airstuckguard:
     enabled: true
     max-gap-ms: 2500
     flag-cooldown-ms: 4000
 
   timer:
-    # Core Timer is mandatory and also owns Reloaded's TickProtocolTimer.
+    # Timer's core clock remains active. Blink can be toggled independently.
+    signals:
+      blink: true
+
     reverse-blink: true
     high-tolerance: false
     low-tolerance: false
     reverse-lag: false
 
-    # Maximum ticks a player may remain behind the server clock ("blink").
-    # -1 disables the hard blink limit.
+    # Maximum ticks a player may remain behind the server clock. -1 disables the hard limit.
     blink-limit: -1
 
     # Classic timer clock tolerance. 1 is the default.
@@ -73,8 +82,7 @@ check:
     # Detect/buffer pulse blinking.
     block-pulse-blink: true
 
-    # Reloaded additionally checks client tick-end invariants, vehicle drift and a
-    # conservative negative/slow client clock under this same Timer pipeline.
+    # TickProtocolTimer also checks client tick-end invariants, vehicle drift and slow clocks.
     thresholds:
       50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is speeding up their game"
       75: "intave internals sendnotify &c{player}&7/{trust-color}&7 is speeding up their game #2"
@@ -84,8 +92,12 @@ check:
   heuristics:
     enabled: true
 
-    # Original Intave heuristic weights remain the public tuning surface.
-    # Modern Reloaded heuristics are layered into the same KillAura/Aim VL pipeline.
+    # These switches gate the classic and modern combat signals without changing the owner key.
+    signals:
+      killaura: true
+      aim: true
+
+    # Original Intave heuristic weights remain available for fine tuning.
     classic:
       # Attack heuristics
       attack-accuracy: 4
@@ -118,8 +130,7 @@ check:
           - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been kicked for attacking suspiciously"
           - $kick$
 
-    # Kept for compatibility with the original config layout. Cloud heuristics are
-    # currently not required by Reloaded's local modern combat signals.
+    # Retained for compatibility with the original configuration layout.
     cloud:
       thresholds:
         50:
@@ -130,7 +141,7 @@ check:
   attackraytrace:
     enabled: true
 
-    # AttackRaytrace remains split by reach / hitbox / timeout thresholds.
+    # Reach, HitBox and timeout evidence keep separate thresholds under the same engine.
     applicable-thresholds:
       reach:
         50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is attacking suspiciously (reach)"
@@ -173,23 +184,27 @@ check:
   breakspeedlimiter:
     enabled: true
 
-    # Reloaded adds packet-protocol, far-envelope, no-swing, air/liquid and use-item
-    # guards while keeping the original FastBreak parent threshold.
+    # Reloaded layers protocol, range, no-swing, air/liquid and use-item evidence here.
     thresholds:
       100: "intave internals sendnotify &c{player}&7/{trust-color}&7 is breaking blocks too quickly"
 
   protocolscanner:
     enabled: true
 
-    # SentSlotTwice primary/legacy compatible controls.
+    # Optional BadPackets sub-groups. Core protocol sanity checks still follow `enabled`.
+    signals:
+      packetorder: true
+      duplicate-movement: true
+      chat: true
+      book-edit: true
+
+    # SentSlotTwice controls.
     sst-vl: 100
     invalid-slot-vl: 100
 
-    # Existing packet-order tuning used by the BadPackets family.
+    # Packet-order VL used by the BadPackets family.
     packet-order-vl: 5
 
-    # Reloaded's ActionOrder, BookEdit, ChatState, DuplicateInput/Movement,
-    # Exploit, Sequence, Respawn and invalid-data guards share this parent.
     thresholds:
       50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is sending invalid packets"
       100:
@@ -199,13 +214,13 @@ check:
   placementanalysis:
     enabled: true
 
-    # Hyphenated key is the current name; code still accepts the old check_timings alias.
+    # Hyphenated key is current; code also accepts the old check_timings alias.
     check-timings: false
 
     # Cumulative rotation limit in a five-second window.
     rotation-limit: 3000
 
-    # Reloaded placement packet/cursor/range/rotation guards feed the same Scaffold pipeline.
+    # Placement packet/cursor/range/rotation guards feed the same Scaffold pipeline.
     cloud-thresholds:
       on-premise:
         200:
@@ -223,7 +238,12 @@ check:
     enabled: true
     high-tolerance: true
 
-    # InventoryStateGuard, AutoTotem and AutoSwap report into this parent pipeline.
+    # Optional public inventory signals.
+    signals:
+      inventorymove: true
+      autototem: true
+      autoswap: true
+
     thresholds:
       50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is performing invalid item-operations"
       100:
@@ -300,6 +320,6 @@ analytics:
   usageReporting: true
 
 layout:
-  verbose: "{prefix} &c{player}&7/{trust-color}&7 {message} {details} (+{vladded} -> {vl})"
+  verbose: "{prefix} &c{player}&7/{trust-color}&7 &c{check}&7: {message} {details} (+{vladded} -> {vl})"
   notify: "{prefix} &c&lNotify&8: &7{text}"
   prefix: "&8[&c&lIntaveReloaded&8]&7 "

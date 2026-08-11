@@ -2,6 +2,7 @@ package de.jpx3.intave.check.other;
 
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.check.Check;
+import de.jpx3.intave.check.CheckSignalConfiguration;
 import de.jpx3.intave.check.CheckViolationLevelDecrementer;
 import de.jpx3.intave.check.other.inventoryclickanalysis.*;
 import de.jpx3.intave.executor.TaskTracker;
@@ -36,7 +37,11 @@ public final class InventoryClickAnalysis extends Check {
     appendCheckPart(new RegrDelayAnalyzer(this));
     appendCheckPart(new PacketDelayAnalyzer(this));
     appendCheckPart(new InventoryStateGuard(this));
-    appendCheckPart(new AutoTotem(this));
-    appendCheckPart(new AutoSwap(this));
+    if (CheckSignalConfiguration.enabled("inventoryclickanalysis", "autototem")) {
+      appendCheckPart(new AutoTotem(this));
+    }
+    if (CheckSignalConfiguration.enabled("inventoryclickanalysis", "autoswap")) {
+      appendCheckPart(new AutoSwap(this));
+    }
   }
 }
