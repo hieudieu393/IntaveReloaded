@@ -1,9 +1,10 @@
 # Selected config
-#   THIS     - use this config, disregard advanced.yml if it exists
-#   ADVANCED - use advanced.yml, disregard the rest of this file.
-#              The advanced.yml file will be generated when first selected,
-#              with the placeholders from this file
+#   THIS     - use this simple config; advanced.yml is used as the default base internally
+#   ADVANCED - use advanced.yml directly for per-check thresholds and signal toggles
 #   ONLINE/[config-name] (planned) - use the cloud config
+#
+# The detailed Matrix/NCP-style check controls (Aim, KillAura, NoFall, NoSlow, Elytra,
+# AutoTotem, PacketOrder, etc.) live in advanced.yml under check.<owner>.signals.
 config: THIS
 
 prefix: "&8[&c&lIntave&8]&7 "
@@ -18,7 +19,6 @@ ban-commands:
 
 # Movement setback sensitivity
 #   Choose between AGGRESSIVE, CAREFUL, LENIENT, BARELY and SILENT
-#   FALSE POSITIVES? -> REPORT THEM
 physics-mm: BARELY
 
 # Rejoin delay after issued kick (in seconds)
@@ -29,8 +29,10 @@ rejoin-delay: 3600
 #   BEST_DETECTION  - also share IP address for long-term cross-account analysis & detection
 #
 # BEST_DETECTION requires you to update your server's privacy policy or let players know
-#                the first time they join, as it is considered personal data under GDPR.
+# the first time they join, as it is considered personal data under GDPR.
 privacy: HIGHEST_PRIVACY
 
-verbose: "{prefix} &c{player}&7/{trust-color}&7 {message} {details} (+{vladded} -> {vl})"
+# {check} now uses public names such as Reach, HitBox, KillAura, Aim, NoFall, Simulate,
+# AutoTotem, Scaffold, BadPackets, PacketOrder, ...
+verbose: "{prefix} &c{player}&7/{trust-color}&7 &c{check}&7: {message} {details} (+{vladded} -> {vl})"
 notify: "{prefix} &c&lInfo&8: &7{text}"
