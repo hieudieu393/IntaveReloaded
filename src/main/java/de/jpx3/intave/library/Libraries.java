@@ -26,11 +26,11 @@ public final class Libraries {
 
     boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
 
-    // javacpp
-    loadLibrary(fromMavenGradle("org.bytedeco", "javacpp", "1.5.6"));
-    loadLibrary(fromMavenGradle("org.bytedeco", "javacpp", "1.5.6", isWindows ? "-windows-x86_64" : "-linux-x86_64"));
-    loadLibrary(fromMavenGradle("org.bytedeco", "openblas", "0.3.17-1.5.6"));
-    loadLibrary(fromMavenGradle("org.bytedeco", "openblas", "0.3.17-1.5.6", isWindows ? "-windows-x86_64" : "-linux-x86_64"));
+    // Keep runtime download versions exactly aligned with the Gradle compile classpath.
+    loadLibrary(fromMavenGradle("org.bytedeco", "javacpp", "1.5.9"));
+    loadLibrary(fromMavenGradle("org.bytedeco", "javacpp", "1.5.9", isWindows ? "-windows-x86_64" : "-linux-x86_64"));
+    loadLibrary(fromMavenGradle("org.bytedeco", "openblas", "0.3.23-1.5.9"));
+    loadLibrary(fromMavenGradle("org.bytedeco", "openblas", "0.3.23-1.5.9", isWindows ? "-windows-x86_64" : "-linux-x86_64"));
 
     List<String> smileProjects = Arrays.asList("smile-core", "smile-base");
     for (String smileProject : smileProjects) {
@@ -39,8 +39,7 @@ public final class Libraries {
 
     loadLibrary(fromMavenGradle("com.mortennobel", "java-image-scaling", "0.8.6"));
 
-    // load fastutil
-    loadLibrary(fromMavenGradle("it.unimi.dsi", "fastutil", "8.5.6"));
+    loadLibrary(fromMavenGradle("it.unimi.dsi", "fastutil", "8.5.12"));
   }
 
   public static void loadLibrary(Library library) {
