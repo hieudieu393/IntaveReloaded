@@ -23,8 +23,8 @@ jobs:
           test -f .github/native-fix/patch.b64
           base64 -d .github/native-fix/patch.b64 | gzip -dc > /tmp/native-fix.diff
           grep -q '^diff -ruN ' /tmp/native-fix.diff
-          patch --dry-run -f -p3 < /tmp/native-fix.diff
-          patch -f -p3 < /tmp/native-fix.diff
+          patch --dry-run -f -p1 < /tmp/native-fix.diff
+          patch -f -p1 < /tmp/native-fix.diff
           rm -rf .github/native-fix
           rm -f .github/workflows/apply-native-fix.yml
           git config user.name 'github-actions[bot]'
