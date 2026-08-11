@@ -1,16 +1,16 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
-import com.comphenix.protocol.events.PacketContainer;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.reflect.StructureModifier;
 import de.jpx3.intave.check.CheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
+import de.jpx3.intave.packet.reader.BlockInteractionReader;
 import de.jpx3.intave.packet.reader.PacketReaders;
 import de.jpx3.intave.packet.reader.PlayerMoveReader;
 import org.bukkit.entity.Player;
+import org.bukkit.util.Vector;
 
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 
@@ -25,10 +25,7 @@ public final class InvalidNumericData extends CheckPart<ProtocolScanner> {
     super(parentCheck);
   }
 
-  @PacketSubscription(
-    ignoreCancelled = false,
-    packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK}
-  )
+  @PacketSubscription(ignoreCancelled = false, packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK})
   public void receiveMovement(ProtocolPacketEvent event) {
     PlayerMoveReader reader = PacketReaders.readerOf(event);
     try {
@@ -36,7 +33,6 @@ public final class InvalidNumericData extends CheckPart<ProtocolScanner> {
         flagAndCancel(event, "sent non-finite movement data");
         return;
       }
-
       if (reader.hasMovement()) {
         double x = reader.positionX();
         double y = reader.positionY();
@@ -50,30 +46,22 @@ public final class InvalidNumericData extends CheckPart<ProtocolScanner> {
     }
   }
 
-  @PacketSubscription(
-    ignoreCancelled = false,
-    packetsIn = {BLOCK_PLACE, USE_ITEM_ON}
-  )
+  @PacketSubscription(ignoreCancelled = false, packetsIn = {BLOCK_PLACE, USE_ITEM_ON})
   public void receiveInteraction(ProtocolPacketEvent event) {
-    PacketContainer packet = event.getPacket();
-    StructureModifier<Float> cursor = packet.getFloat();
-    int limit = Math.min(3, cursor.size());
-    for (int i = 0; i < limit; i++) {
-      Float value = cursor.readSafely(i);
-      if (value != null && !Float.isFinite(value)) {
+    BlockInteractionReader reader = PacketReaders.readerOf(event);
+    try {
+      Vector cursor = reader.facingVector();
+      if (cursor != null && (!Double.isFinite(cursor.getX()) || !Double.isFinite(cursor.getY()) || !Double.isFinite(cursor.getZ()))) {
         flagAndCancel(event, "sent non-finite block cursor");
-        return;
       }
+    } finally {
+      reader.release();
     }
   }
 
   private void flagAndCancel(ProtocolPacketEvent event, String details) {
     Player player = event.getPlayer();
-    if (event.isReadOnly()) {
-      event.setReadOnly(false);
-    }
     event.setCancelled(true);
-
     Violation violation = Violation.builderFor(ProtocolScanner.class)
       .forPlayer(player)
       .withMessage("sent invalid packet data")
