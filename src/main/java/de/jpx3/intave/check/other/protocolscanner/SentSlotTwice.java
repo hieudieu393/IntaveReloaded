@@ -1,7 +1,8 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
-import com.comphenix.protocol.events.PacketContainer;
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientHeldItemChange;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -26,26 +27,15 @@ public final class SentSlotTwice extends MetaCheckPart<ProtocolScanner, SentSlot
     this.invalidSlotVl = parentCheck.configuration().settings().intBy("invalid-slot-vl", 100);
   }
 
-  @PacketSubscription(
-    packetsIn = {
-      HELD_ITEM_SLOT_IN
-    }
-  )
+  @PacketSubscription(packetsIn = HELD_ITEM_SLOT_IN)
   public void receiveSlotSwitch(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    PacketContainer packet = event.getPacket();
     User user = userOf(player);
     SentSlotTwiceMeta meta = metaOf(user);
-    int slot = packet.getIntegers().read(0);
+    int slot = new WrapperPlayClientHeldItemChange((PacketReceiveEvent) event).getSlot();
 
-    // Vanilla hotbar indices are always 0..8. Reject impossible values before trackers/server
-    // code can consume them.
     if (slot < 0 || slot > 8) {
-      if (event.isReadOnly()) {
-        event.setReadOnly(false);
-      }
       event.setCancelled(true);
-
       if (invalidSlotVl > 0) {
         Violation violation = Violation.builderFor(ProtocolScanner.class)
           .forPlayer(player)
@@ -58,17 +48,14 @@ public final class SentSlotTwice extends MetaCheckPart<ProtocolScanner, SentSlot
       return;
     }
 
-    // Slot zero is a normal hotbar slot and must be treated like every other slot here.
-    if (meta.initialized && meta.lastSlot == slot) {
-      if (duplicateVl > 0) {
-        Violation violation = Violation.builderFor(ProtocolScanner.class)
-          .forPlayer(player)
-          .withMessage("sent slot twice")
-          .withDetails("slot " + slot)
-          .withVL(meta.slotPacketsSent > 4 ? duplicateVl : 0)
-          .build();
-        Modules.violationProcessor().processViolation(violation);
-      }
+    if (meta.initialized && meta.lastSlot == slot && duplicateVl > 0) {
+      Violation violation = Violation.builderFor(ProtocolScanner.class)
+        .forPlayer(player)
+        .withMessage("sent slot twice")
+        .withDetails("slot " + slot)
+        .withVL(meta.slotPacketsSent > 4 ? duplicateVl : 0)
+        .build();
+      Modules.violationProcessor().processViolation(violation);
     }
 
     meta.initialized = true;
