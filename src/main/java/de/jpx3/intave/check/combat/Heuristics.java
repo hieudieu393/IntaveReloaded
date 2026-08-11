@@ -3,6 +3,7 @@ package de.jpx3.intave.check.combat;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.check.Check;
 import de.jpx3.intave.check.CheckConfiguration;
+import de.jpx3.intave.check.CheckSignalConfiguration;
 import de.jpx3.intave.check.combat.heuristics.HeuristicsClassicType;
 import de.jpx3.intave.check.combat.heuristics.combatpatterns.AttackRequiredHeuristic;
 import de.jpx3.intave.check.combat.heuristics.combatpatterns.PreAttackHeuristic;
@@ -56,13 +57,22 @@ public final class Heuristics extends Check {
     appendCheckPart(new NoSwingHeuristic(this));
     appendCheckPart(new CivbreakHeuristic(this));
 
-    // Layer independent modern signals onto the same KillAura/Aim VL pipeline.
-    appendCheckPart(new CombatRotationHeuristic(this));
-    appendCheckPart(new UseItemRotationHeuristic(this));
-    appendCheckPart(new CombatFreezeHeuristic(this));
-    appendCheckPart(new CombatObstructionHeuristic(this));
-    appendCheckPart(new CombatMultiActionHeuristic(this));
-    appendCheckPart(new CombatBehaviorHeuristic(this));
+    // Layer independent modern signals onto the same KillAura/Aim VL pipeline. Classes which may
+    // cancel/hold attacks are not linked at all when the owning public signal is disabled.
+    boolean aimEnabled = CheckSignalConfiguration.enabled("heuristics", "aim");
+    boolean killAuraEnabled = CheckSignalConfiguration.enabled("heuristics", "killaura");
+    if (aimEnabled) {
+      appendCheckPart(new CombatRotationHeuristic(this));
+      appendCheckPart(new UseItemRotationHeuristic(this));
+    }
+    if (killAuraEnabled) {
+      appendCheckPart(new CombatFreezeHeuristic(this));
+      appendCheckPart(new CombatObstructionHeuristic(this));
+      appendCheckPart(new CombatMultiActionHeuristic(this));
+    }
+    if (aimEnabled || killAuraEnabled) {
+      appendCheckPart(new CombatBehaviorHeuristic(this));
+    }
   }
 
   private void loadClassicConfiguration() {
