@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: agent/audit-hardening
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Apply staged migration when present
         shell: bash
@@ -32,8 +32,29 @@ jobs:
           test "$(cat .github/native-overlay/part* | wc -c)" -eq 93568
           cat .github/native-overlay/part* | base64 -d | gzip -dc > /tmp/native.diff
           grep -q '^diff -ruN ' /tmp/native.diff
-          patch --dry-run -f -p4 < /tmp/native.diff
-          patch -f -p4 < /tmp/native.diff
+
+          # PacketSubscriptionLinker and PacketTypeResolver were already migrated directly before
+          # this bulk overlay was staged. Drop only those two patch blocks so the remaining source
+          # migration can be applied atomically without weakening the patch checks.
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('/tmp/native.diff').read_text()
+          excluded = {
+              'PacketSubscriptionLinker.java',
+              'PacketTypeResolver.java',
+          }
+          chunks = source.split('diff -ruN ')
+          output = []
+          for chunk in chunks[1:]:
+              header = chunk.splitlines()[0]
+              if any(name in header for name in excluded):
+                  continue
+              output.append('diff -ruN ' + chunk)
+          Path('/tmp/native-rest.diff').write_text(''.join(output))
+          PY
+
+          patch --dry-run -f -p4 < /tmp/native-rest.diff
+          patch -f -p4 < /tmp/native-rest.diff
           rm -rf .github/native-overlay
           rm -f .github/workflows/apply-native-overlay.yml
           git config user.name 'github-actions[bot]'
@@ -44,73 +65,6 @@ jobs:
           git commit -m 'Apply native PacketEvents source migration'
           git push origin HEAD:agent/audit-hardening
 
-  source-snapshot:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Record branch tree
-        shell: bash
-        run: |
-          set -euo pipefail
-          git rev-parse HEAD > branch-head.txt
-          git rev-parse 'HEAD^{tree}' > branch-tree.txt
-
-      - name: Resolve PacketEvents compile dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          ./gradlew --no-daemon -q dependencies --configuration compileClasspath >/tmp/compile-classpath.txt
-          mkdir -p packetevents-jars
-          while IFS= read -r -d '' jar; do
-            cp "$jar" "packetevents-jars/$(basename "$jar")"
-          done < <(find "$HOME" "$GITHUB_WORKSPACE" -type f \
-            \( -name 'packetevents-spigot-2.13.0.jar' -o -name 'packetevents-api-2.13.0.jar' -o -name 'packetevents-netty-common-2.13.0.jar' \) \
-            -print0 2>/dev/null)
-          if ! find packetevents-jars -type f -name '*.jar' -print -quit | grep -q .; then
-            echo 'PacketEvents jars were resolved by Gradle but their cache location could not be discovered.' >&2
-            find "$HOME" "$GITHUB_WORKSPACE" -type f -name '*packetevents*.jar' -print 2>/dev/null | head -100 >&2 || true
-            cat /tmp/compile-classpath.txt >&2
-            exit 1
-          fi
-          find packetevents-jars -type f -name '*.jar' -printf '%f\n' | sort
-
-      - name: Package source snapshot
-        shell: bash
-        run: |
-          set -euo pipefail
-          tar -czf native-packetevents-source.tar.gz \
-            src \
-            build.gradle.kts \
-            settings.gradle.kts \
-            gradle.properties \
-            gradlew \
-            gradlew.bat \
-            gradle \
-            .github \
-            README.md \
-            branch-head.txt \
-            branch-tree.txt
-
-      - name: Upload source snapshot
-        uses: actions/upload-artifact@v7
-        with:
-          name: native-packetevents-source
-          path: native-packetevents-source.tar.gz
-          if-no-files-found: error
-          retention-days: 2
-
-      - name: Upload PacketEvents jars
-        uses: actions/upload-artifact@v7
-        with:
-          name: native-packetevents-jars
-          path: packetevents-jars/*.jar
-          if-no-files-found: error
-          retention-days: 2
-
   no-protocollib-bridge:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -118,6 +72,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
 
       - name: Inventory ProtocolLib compatibility usage
         shell: bash
