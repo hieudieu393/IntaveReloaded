@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.check.Check;
 import de.jpx3.intave.check.CheckNames;
+import de.jpx3.intave.check.combat.AttackRaytrace;
 import de.jpx3.intave.module.violation.placeholder.PlaceholderContext;
 import de.jpx3.intave.user.User;
 import org.bukkit.Bukkit;
@@ -67,9 +68,15 @@ public final class Violation {
    * while {@link #check()} continues to resolve the legacy parent check that owns config/VL.
    */
   public String checkName() {
-    return checkNameOverride == null || checkNameOverride.trim().isEmpty()
-      ? CheckNames.canonicalFor(check())
-      : checkNameOverride;
+    if (checkNameOverride != null && !checkNameOverride.trim().isEmpty()) {
+      return checkNameOverride;
+    }
+    if (checkClass == AttackRaytrace.class
+      && threshold != null
+      && threshold.toLowerCase(Locale.ROOT).contains("hitbox")) {
+      return "HitBox";
+    }
+    return CheckNames.canonicalFor(check());
   }
 
   public Class<? extends Check> checkClass() {
