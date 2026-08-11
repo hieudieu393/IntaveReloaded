@@ -42,26 +42,17 @@ public final class MinecraftVersion implements Comparable<MinecraftVersion> {
 	private MinecraftVersion atCurrentOrAboveFor;
 	private boolean atCurrentOrAbove;
 
-	public MinecraftVersion(Server server) {
-		this(extractVersion(server.getVersion()));
-	}
-
-	public MinecraftVersion(String versionOnly) {
-		this(versionOnly, true);
-	}
+	public MinecraftVersion(Server server) { this(extractVersion(server.getVersion())); }
+	public MinecraftVersion(String versionOnly) { this(versionOnly, true); }
 
 	private MinecraftVersion(String versionOnly, boolean parseSnapshot) {
 		String[] section = versionOnly.split("-");
 		SnapshotVersion snapshot = null;
 		int[] numbers = new int[3];
-
 		try {
 			numbers = this.parseVersion(section[0]);
 		} catch (NumberFormatException cause) {
-			if (!parseSnapshot) {
-				throw cause;
-			}
-
+			if (!parseSnapshot) throw cause;
 			try {
 				snapshot = new SnapshotVersion(section[0]);
 				SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
@@ -73,7 +64,6 @@ public final class MinecraftVersion implements Comparable<MinecraftVersion> {
 				throw new IllegalStateException("Cannot parse " + section[0], e);
 			}
 		}
-
 		this.major = numbers[0];
 		this.minor = numbers[1];
 		this.build = numbers[2];
@@ -81,10 +71,7 @@ public final class MinecraftVersion implements Comparable<MinecraftVersion> {
 		this.snapshot = snapshot;
 	}
 
-	public MinecraftVersion(int major, int minor, int build) {
-		this(major, minor, build, null);
-	}
-
+	public MinecraftVersion(int major, int minor, int build) { this(major, minor, build, null); }
 	public MinecraftVersion(int major, int minor, int build, String development) {
 		this.major = major;
 		this.minor = minor;
@@ -93,81 +80,37 @@ public final class MinecraftVersion implements Comparable<MinecraftVersion> {
 		this.snapshot = null;
 	}
 
-
-
 	public static String extractVersion(String text) {
 		Matcher version = VERSION_PATTERN.matcher(text);
-		if (version.matches() && version.group(1) != null) {
-			return version.group(1);
-		} else {
-			throw new IllegalStateException("Cannot parse version String '" + text + "'");
-		}
+		if (version.matches() && version.group(1) != null) return version.group(1);
+		throw new IllegalStateException("Cannot parse version String '" + text + "'");
 	}
 
-	public static MinecraftVersion fromServerVersion(String serverVersion) {
-		return new MinecraftVersion(extractVersion(serverVersion));
-	}
-
+	public static MinecraftVersion fromServerVersion(String serverVersion) { return new MinecraftVersion(extractVersion(serverVersion)); }
 	public static MinecraftVersion current() {
-		if (currentVersion == null) {
-			currentVersion = fromServerVersion(Bukkit.getVersion());
-		}
-
+		if (currentVersion == null) currentVersion = fromServerVersion(Bukkit.getVersion());
 		return currentVersion;
 	}
-
-	public static void setCurrent(MinecraftVersion version) {
-		currentVersion = version;
-		com.comphenix.protocol.utility.MinecraftVersion.setCurrentVersion(
-			version.toProtocolLibVersion()
-		);
-	}
-
-	private static boolean atOrAbove(MinecraftVersion version) {
-		return current().isAtLeast(version);
-	}
+	public static void setCurrent(MinecraftVersion version) { currentVersion = version; }
+	private static boolean atOrAbove(MinecraftVersion version) { return current().isAtLeast(version); }
 
 	private int[] parseVersion(String version) {
 		String[] elements = version.split("\\.");
 		int[] numbers = new int[3];
-		if (elements.length < 1) {
-			throw new IllegalStateException("Corrupt MC version: " + version);
-		} else {
-			for (int i = 0; i < Math.min(numbers.length, elements.length); ++i) {
-				try {
-					numbers[i] = Integer.parseInt(elements[i].trim());
-				} catch (NumberFormatException e) {
-					throw new IllegalStateException("Corrupt MC version: " + version, e);
-				}
-			}
-			return numbers;
+		if (elements.length < 1) throw new IllegalStateException("Corrupt MC version: " + version);
+		for (int i = 0; i < Math.min(numbers.length, elements.length); ++i) {
+			try { numbers[i] = Integer.parseInt(elements[i].trim()); }
+			catch (NumberFormatException e) { throw new IllegalStateException("Corrupt MC version: " + version, e); }
 		}
+		return numbers;
 	}
 
-	public int getMajor() {
-		return this.major;
-	}
-
-	public int getMinor() {
-		return this.minor;
-	}
-
-	public int getBuild() {
-		return this.build;
-	}
-
-	public String getDevelopmentStage() {
-		return this.development;
-	}
-
-	public SnapshotVersion getSnapshot() {
-		return this.snapshot;
-	}
-
-	public boolean isSnapshot() {
-		return this.snapshot != null;
-	}
-
+	public int getMajor() { return this.major; }
+	public int getMinor() { return this.minor; }
+	public int getBuild() { return this.build; }
+	public String getDevelopmentStage() { return this.development; }
+	public SnapshotVersion getSnapshot() { return this.snapshot; }
+	public boolean isSnapshot() { return this.snapshot != null; }
 	public boolean atOrAbove() {
 		MinecraftVersion current = current();
 		if (atCurrentOrAboveFor != current) {
@@ -176,82 +119,40 @@ public final class MinecraftVersion implements Comparable<MinecraftVersion> {
 		}
 		return atCurrentOrAbove;
 	}
-
 	public String getVersion() {
 		return this.getDevelopmentStage() == null ? String.format("%s.%s.%s", this.getMajor(), this.getMinor(), this.getBuild()) : String.format("%s.%s.%s-%s%s", this.getMajor(), this.getMinor(), this.getBuild(), this.getDevelopmentStage(), this.isSnapshot() ? this.snapshot : "");
 	}
 
-	@Override
-	public int compareTo(MinecraftVersion o) {
-		if (o == null) {
-			return 1;
-		}
-
-		int cmp = Integer.compare(this.getMajor(), o.getMajor());
-		if (cmp != 0) return cmp;
-
-		cmp = Integer.compare(this.getMinor(), o.getMinor());
-		if (cmp != 0) return cmp;
-
-		cmp = Integer.compare(this.getBuild(), o.getBuild());
-		if (cmp != 0) return cmp;
-
-		// development stage: Ordering.natural().nullsLast()
-		String aDev = this.getDevelopmentStage();
-		String bDev = o.getDevelopmentStage();
-		if (!Objects.equals(aDev, bDev)) { // handles when one is null and/or different
-			if (aDev == null) return 1; // nulls last => null > non-null
+	@Override public int compareTo(MinecraftVersion o) {
+		if (o == null) return 1;
+		int cmp = Integer.compare(this.getMajor(), o.getMajor()); if (cmp != 0) return cmp;
+		cmp = Integer.compare(this.getMinor(), o.getMinor()); if (cmp != 0) return cmp;
+		cmp = Integer.compare(this.getBuild(), o.getBuild()); if (cmp != 0) return cmp;
+		String aDev = this.getDevelopmentStage(), bDev = o.getDevelopmentStage();
+		if (!Objects.equals(aDev, bDev)) {
+			if (aDev == null) return 1;
 			if (bDev == null) return -1;
-			cmp = aDev.compareTo(bDev);
-			if (cmp != 0) return cmp;
+			cmp = aDev.compareTo(bDev); if (cmp != 0) return cmp;
 		}
-
-		// snapshot: Ordering.natural().nullsFirst()
-		SnapshotVersion aSnap = this.getSnapshot();
-		SnapshotVersion bSnap = o.getSnapshot();
+		SnapshotVersion aSnap = this.getSnapshot(), bSnap = o.getSnapshot();
 		if (!Objects.equals(aSnap, bSnap)) {
-			if (aSnap == null) return -1; // nulls first => null < non-null
+			if (aSnap == null) return -1;
 			if (bSnap == null) return 1;
 			return aSnap.compareTo(bSnap);
 		}
-
 		return 0;
 	}
 
-	public boolean isAtLeast(MinecraftVersion other) {
-		if (other == null) {
-			return false;
-		} else {
-			return this.compareTo(other) >= 0;
-		}
+	public boolean isAtLeast(MinecraftVersion other) { return other != null && this.compareTo(other) >= 0; }
+	@Override public boolean equals(Object obj) {
+		if (obj == null) return false;
+		if (obj == this) return true;
+		if (!(obj instanceof MinecraftVersion)) return false;
+		MinecraftVersion other = (MinecraftVersion) obj;
+		return this.getMajor() == other.getMajor() && this.getMinor() == other.getMinor() && this.getBuild() == other.getBuild() && Objects.equals(this.getDevelopmentStage(), other.getDevelopmentStage()) && Objects.equals(this.getSnapshot(), other.getSnapshot());
 	}
+	@Override public int hashCode() { return Objects.hash(this.getMajor(), this.getMinor(), this.getBuild(), this.getDevelopmentStage(), this.getSnapshot()); }
+	@Override public String toString() { return String.format("(MC: %s)", this.getVersion()); }
 
-	@Override
-	public boolean equals(Object obj) {
-		if (obj == null) {
-			return false;
-		} else if (obj == this) {
-			return true;
-		} else if (!(obj instanceof MinecraftVersion)) {
-			return false;
-		} else {
-			MinecraftVersion other = (MinecraftVersion) obj;
-			return this.getMajor() == other.getMajor() && this.getMinor() == other.getMinor() && this.getBuild() == other.getBuild() && Objects.equals(this.getDevelopmentStage(), other.getDevelopmentStage()) && Objects.equals(this.getSnapshot(), other.getSnapshot());
-		}
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash(this.getMajor(), this.getMinor(), this.getBuild(), this.getDevelopmentStage(), this.getSnapshot());
-	}
-
-	@Override
-	public String toString() {
-		return String.format("(MC: %s)", this.getVersion());
-	}
-
-	static {
-//    LATEST = v26_1;
-		VERSION_PATTERN = Pattern.compile(".*\\(.*MC.\\s*([a-zA-Z0-9\\-.]+).*");
-	}
+	static { VERSION_PATTERN = Pattern.compile(".*\\(.*MC.\\s*([a-zA-Z0-9\\-.]+).*"); }
 }
