@@ -18,6 +18,9 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 /** Extra packet-clock invariants layered on Timer's transaction-synchronized PlayerTime. */
 public final class TickProtocolTimer extends MetaCheckPart<Timer, TickProtocolTimer.Meta> {
   private static final long VEHICLE_DRIFT_NS = 150_000_000L;
+  private static final long NEGATIVE_DRIFT_NS = 1_200_000_000L;
+  private static final long NEGATIVE_IDLE_RESET_NS = 250_000_000L;
+  private static final long CLIENT_TICK_NS = 50_000_000L;
 
   public TickProtocolTimer(Timer parentCheck) {
     super(parentCheck, Meta.class);
@@ -30,9 +33,20 @@ public final class TickProtocolTimer extends MetaCheckPart<Timer, TickProtocolTi
   )
   public void playerTick(PacketEvent event) {
     User user = userOf(event.getPlayer());
-    if (!user.meta().protocol().sendsClientTickEnd()) return;
     Meta meta = metaOf(user);
     PacketType type = event.getPacketType();
+    boolean positionBearing = isPositionBearing(type);
+
+    // NegativeTimer cannot safely judge an idle 1.9+ client. Only carry the slow-clock balance
+    // across consecutive position-bearing ticks, and reset it on long silence/state uncertainty.
+    if (positionBearing) {
+      meta.positionSeenThisTick = true;
+      if (!user.meta().protocol().sendsClientTickEnd()) {
+        sampleNegativeClock(user, meta);
+      }
+    }
+
+    if (!user.meta().protocol().sendsClientTickEnd()) return;
 
     if (PacketTypes.isClientEndTick(type)) {
       if (meta.flyingPackets > 1 && stable(user)) {
@@ -41,6 +55,10 @@ public final class TickProtocolTimer extends MetaCheckPart<Timer, TickProtocolTi
       } else {
         meta.tickBuffer = Math.max(0.0D, meta.tickBuffer - 0.2D);
       }
+      if (meta.positionSeenThisTick) {
+        sampleNegativeClock(user, meta);
+      }
+      meta.positionSeenThisTick = false;
       meta.receivedTickEnd = true;
       meta.flyingPackets = 0;
       return;
@@ -50,6 +68,7 @@ public final class TickProtocolTimer extends MetaCheckPart<Timer, TickProtocolTi
     if (movement.awaitTeleport || movement.expectTeleport) {
       meta.receivedTickEnd = true;
       meta.flyingPackets = 0;
+      resetNegative(meta);
       return;
     }
 
@@ -94,7 +113,7 @@ public final class TickProtocolTimer extends MetaCheckPart<Timer, TickProtocolTi
       meta.vehicleClock = now;
       return;
     }
-    meta.vehicleClock += 50_000_000L;
+    meta.vehicleClock += CLIENT_TICK_NS;
     if (meta.vehicleClock > now + VEHICLE_DRIFT_NS) {
       meta.vehicleBuffer += 1.0D;
       if (meta.vehicleBuffer >= 2.0D) {
@@ -102,12 +121,56 @@ public final class TickProtocolTimer extends MetaCheckPart<Timer, TickProtocolTi
           "ahead=" + ((meta.vehicleClock - now) / 1_000_000L) + "ms", 2.0D);
         meta.vehicleBuffer = 1.0D;
       }
-      meta.vehicleClock -= 50_000_000L;
+      meta.vehicleClock -= CLIENT_TICK_NS;
     } else {
       meta.vehicleBuffer = Math.max(0.0D, meta.vehicleBuffer - 0.1D);
       // Limit the amount of lag credit a high-ping/paused client can bank.
       meta.vehicleClock = Math.max(meta.vehicleClock, now - 1_000_000_000L);
     }
+  }
+
+  private void sampleNegativeClock(User user, Meta meta) {
+    MovementMetadata movement = user.meta().movement();
+    long now = System.nanoTime();
+    if (movement.awaitTeleport || movement.expectTeleport || movement.isInVehicle()
+      || user.meta().abilities().ignoringMovementPackets() || !stable(user)) {
+      resetNegative(meta);
+      return;
+    }
+
+    if (meta.lastNegativeSample == 0L || now - meta.lastNegativeSample > NEGATIVE_IDLE_RESET_NS) {
+      meta.negativeClock = now;
+      meta.lastNegativeSample = now;
+      meta.negativeBuffer = Math.max(0.0D, meta.negativeBuffer - 0.25D);
+      return;
+    }
+
+    meta.lastNegativeSample = now;
+    meta.negativeClock += CLIENT_TICK_NS;
+    long behind = now - meta.negativeClock;
+    if (behind > NEGATIVE_DRIFT_NS) {
+      meta.negativeBuffer += 1.0D;
+      if (meta.negativeBuffer >= 2.0D) {
+        flag(user, "movement packets are running behind the client clock",
+          "behind=" + (behind / 1_000_000L) + "ms", 1.5D);
+        meta.negativeBuffer = 1.0D;
+      }
+      // Mirror the source check's gradual recovery instead of snapping the clock to real time.
+      meta.negativeClock += CLIENT_TICK_NS;
+    } else {
+      meta.negativeBuffer = Math.max(0.0D, meta.negativeBuffer - 0.10D);
+    }
+  }
+
+  private static boolean isPositionBearing(PacketType type) {
+    return type == PacketType.Play.Client.POSITION || type == PacketType.Play.Client.POSITION_LOOK;
+  }
+
+  private static void resetNegative(Meta meta) {
+    meta.negativeClock = 0L;
+    meta.lastNegativeSample = 0L;
+    meta.positionSeenThisTick = false;
+    meta.negativeBuffer = Math.max(0.0D, meta.negativeBuffer - 0.5D);
   }
 
   private void maybeFlag(User user, Meta meta, String details) {
@@ -139,5 +202,9 @@ public final class TickProtocolTimer extends MetaCheckPart<Timer, TickProtocolTi
     private boolean vehicleDummy;
     private long vehicleClock;
     private double vehicleBuffer;
+    private boolean positionSeenThisTick;
+    private long negativeClock;
+    private long lastNegativeSample;
+    private double negativeBuffer;
   }
 }
