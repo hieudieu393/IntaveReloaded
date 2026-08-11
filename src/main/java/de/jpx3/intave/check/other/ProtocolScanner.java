@@ -36,6 +36,7 @@ public final class ProtocolScanner extends Check {
       new PostPacketOrder(this),
       new ActionOrderGuard(this),
       new ExploitGuard(this),
+      new ChatStateGuard(this),
       new BookEditGuard(this),
       new SequenceGuard(this),
       new ExtendedProtocolGuards(this)
