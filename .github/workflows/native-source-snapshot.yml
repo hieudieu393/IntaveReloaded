@@ -1,0 +1,31 @@
+name: Native source snapshot
+
+on:
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Package exact branch source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD > branch-head.txt
+          tar -czf native-source.tar.gz src build.gradle.kts settings.gradle.kts gradle.properties gradle .github branch-head.txt
+      - name: Upload exact source
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-source-exact
+          path: native-source.tar.gz
+          if-no-files-found: error
+          retention-days: 2
