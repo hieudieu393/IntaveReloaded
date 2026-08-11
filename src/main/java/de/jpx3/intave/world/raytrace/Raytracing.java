@@ -11,6 +11,10 @@
 
 package de.jpx3.intave.world.raytrace;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.protocol.component.ComponentTypes;
+import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemAttackRange;
 import de.jpx3.intave.check.movement.physics.environment.Pose;
 import de.jpx3.intave.diagnostic.timings.Timings;
 import de.jpx3.intave.math.SinusCache;
@@ -23,12 +27,16 @@ import de.jpx3.intave.share.RawVector3d;
 import de.jpx3.intave.user.MessageChannel;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
+import de.jpx3.intave.user.meta.InventoryMetadata;
 import de.jpx3.intave.user.meta.MetadataBundle;
+import de.jpx3.intave.user.meta.ProtocolMetadata;
 import de.jpx3.intave.world.Particles;
+import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,9 +47,6 @@ public final class Raytracing {
   private static final Raytracer RAYTRACER = new UniversalRaytracer();
   private static final boolean[] PESSIMISTIC_BOOLEAN_ORDER = new boolean[]{false, true};
   private static final double MAX_TRACKED_INTERACTION_RANGE = 64.0D;
-  // AttackRaytrace historically uses reach == 10 as its miss sentinel. Once a custom range would
-  // make the ray itself approach that sentinel, preserve safety by treating a pure miss as neutral;
-  // actual intersections beyond the configured range are still returned and classified as REACH.
   private static final double LEGACY_MISS_SENTINEL_SAFE_RANGE = 9.0D;
 
   public static float reachDistanceOf(Player player) {
@@ -53,7 +58,23 @@ public final class Raytracing {
   }
 
   public static float reachDistanceOf(MetadataBundle meta) {
+    ItemAttackRangeContext itemRange = resolveItemAttackRange(meta);
+    return reachDistanceOf(meta, itemRange);
+  }
+
+  private static float reachDistanceOf(MetadataBundle meta, ItemAttackRangeContext itemRange) {
     float fallback = meta.abilities().inGameMode(GameMode.CREATIVE) ? 5.0F : 3.0F;
+
+    // During the one compensated slot-transition state where the old start-of-tick stack is no
+    // longer recoverable, do not guess. A single transition tick is allowed and other combat/order
+    // checks continue to run; this prevents a legitimate custom weapon from being false-flagged.
+    if (itemRange.ambiguousTransition) {
+      return (float) MAX_TRACKED_INTERACTION_RANGE;
+    }
+    if (itemRange.hasRange) {
+      return (float) clamp(itemRange.maxRange, 0.0D, MAX_TRACKED_INTERACTION_RANGE);
+    }
+
     if (!meta.protocol().supportsInteractionRangeAttributes()) {
       return fallback;
     }
@@ -70,9 +91,7 @@ public final class Raytracing {
   }
 
   /**
-   * Calculates the reach with and without mouse delay fix and returns the smallest calculated reach
-   *
-   * @return
+   * Calculates the reach with and without mouse delay fix and returns the smallest calculated reach.
    */
   public static Raytrace doubleMDFBlockConstraintEntityRaytrace(
     Player player, Entity entity, boolean alternativePositionY,
@@ -145,13 +164,6 @@ public final class Raytracing {
     );
   }
 
-  /**
-   * Takes a entity and returns the range between the player and the entity. (Client side its called "getMouseOver" and
-   * is from EntityRenderer.java)
-   *
-   * @return distance the distance between the entity and the eyes of the player 0 means the player is inside of the
-   * entity -1 means the player hit outside the hitbox of the entity greater than 0 means the reach of the player
-   */
   public static Raytrace entityRaytrace(
     Player player,
     BoundingBox entityBoundingBox,
@@ -162,7 +174,14 @@ public final class Raytracing {
     EntityRaytraceBlockConstraint rayTraceBlocks
   ) {
     Timings.SERVICE_RAYTRACER_ENTITY.start();
-    double attackReachDistance = reachDistanceOf(player);
+    User user = UserRepository.userOf(player);
+    MetadataBundle meta = user.meta();
+    ItemAttackRangeContext itemRange = resolveItemAttackRange(meta);
+    double attackReachDistance = reachDistanceOf(meta, itemRange);
+    double itemHitboxMargin = itemRange.hasRange
+      ? clamp(itemRange.hitboxMargin, -1.0D, 1.0D) : 0.0D;
+    double effectiveExpansion = boundingBoxExpansion + itemHitboxMargin;
+
     double rayLength = Math.max(6.0D, Math.min(MAX_TRACKED_INTERACTION_RANGE + 1.0D, attackReachDistance + 1.0D));
     boolean extendedRange = attackReachDistance >= LEGACY_MISS_SENTINEL_SAFE_RANGE;
     double missDistance = extendedRange ? rayLength + 1.0D : 10.0D;
@@ -170,10 +189,9 @@ public final class Raytracing {
     RawVector3d lastHitVec = null;
     RawVector3d lastEyeVector = null;
 
-    User user = UserRepository.userOf(player);
-    Pose assumedPose = user.meta().movement().pose();
-    boolean sneakUncertainty = user.meta().protocol().delayedSneak() &&
-      user.meta().movement().ticksPast(SNEAKING) <= 2 &&
+    Pose assumedPose = meta.movement().pose();
+    boolean sneakUncertainty = meta.protocol().delayedSneak() &&
+      meta.movement().ticksPast(SNEAKING) <= 2 &&
       assumedPose == Pose.STANDING;
 
     for (int i = 0; i < 2; i++) {
@@ -189,12 +207,8 @@ public final class Raytracing {
       RawVector3d eyeVector = positionEyes(player, selectedPose, prevPosX, prevPosY, prevPosZ);
 
       for (boolean fastMath : PESSIMISTIC_BOOLEAN_ORDER) {
-        if (lastReach < attackReachDistance)
-          break;
-
-        if (lastEyeVector == null) {
-          lastEyeVector = eyeVector;
-        }
+        if (lastReach < attackReachDistance) break;
+        if (lastEyeVector == null) lastEyeVector = eyeVector;
 
         RawVector3d interpolatedLookVec = wrappedVectorForRotation(pitch, prevYaw, fastMath);
         RawVector3d lookVector = eyeVector.addVector(
@@ -202,7 +216,7 @@ public final class Raytracing {
           interpolatedLookVec.y() * rayLength,
           interpolatedLookVec.z() * rayLength
         );
-        BoundingBox hitBox = entityBoundingBox.grow(boundingBoxExpansion, boundingBoxExpansion, boundingBoxExpansion);
+        BoundingBox hitBox = entityBoundingBox.grow(effectiveExpansion, effectiveExpansion, effectiveExpansion);
         if (alternativeYDifference != 0) {
           hitBox = hitBox.addJustMaxY(alternativeYDifference);
         }
@@ -237,15 +251,60 @@ public final class Raytracing {
       lastEyeVector = positionEyes(player, Pose.STANDING, prevPosX, prevPosY, prevPosZ);
     }
 
-    // For extended ranges the enclosing AttackRaytrace still has a legacy numeric MISS sentinel.
-    // Returning a neutral result for a pure miss prevents a legitimate custom range from becoming a
-    // false REACH/MISS. If an entity was actually intersected outside the allowed range, lastHitVec is
-    // non-null and the real distance is preserved, so the normal REACH path remains fully active.
     double reportedReach = extendedRange && lastHitVec == null && lastReach > attackReachDistance
       ? 0.0D : lastReach;
 
     Timings.SERVICE_RAYTRACER_ENTITY.stop();
     return Raytrace.ofNative(lastEyeVector, lastHitVec, reportedReach);
+  }
+
+  private static ItemAttackRangeContext resolveItemAttackRange(MetadataBundle meta) {
+    if (meta.protocol().protocolVersion() < ProtocolMetadata.VER_1_21_11) {
+      return ItemAttackRangeContext.NONE;
+    }
+    try {
+      if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_21_11)) {
+        return ItemAttackRangeContext.NONE;
+      }
+
+      InventoryMetadata inventory = meta.inventory();
+      ItemStack startBukkit = inventory.heldItem();
+      ItemStack currentBukkit = inventory.slotSwitchData == null ? startBukkit : inventory.slotSwitchData.item();
+
+      // updateSlotSwitch() has already committed the new stack but the old start-of-tick stack is no
+      // longer available. Exempt this exact transition rather than inventing a range.
+      if (inventory.slotSwitchData == null && inventory.pastHotBarSlotChange <= 0) {
+        return ItemAttackRangeContext.AMBIGUOUS;
+      }
+
+      ItemAttackRange startRange = componentRange(startBukkit);
+      if (startRange == null) {
+        return ItemAttackRangeContext.NONE;
+      }
+      ItemAttackRange currentRange = componentRange(currentBukkit);
+
+      double maxRange = startRange.getMaxRange();
+      double margin = startRange.getHitboxMargin();
+      if (currentRange != null) {
+        maxRange = Math.min(maxRange, currentRange.getMaxRange());
+        margin = Math.min(margin, currentRange.getHitboxMargin());
+      }
+      if (!Double.isFinite(maxRange) || maxRange <= 0.0D || !Double.isFinite(margin)) {
+        return ItemAttackRangeContext.NONE;
+      }
+      return new ItemAttackRangeContext(true, false, maxRange, margin);
+    } catch (Throwable ignored) {
+      // Components are version/reflection sensitive. Falling back to the transaction-compensated
+      // interaction-range attribute is safer than failing the combat pipeline.
+      return ItemAttackRangeContext.NONE;
+    }
+  }
+
+  private static ItemAttackRange componentRange(ItemStack bukkitStack) {
+    if (bukkitStack == null || bukkitStack.getAmount() <= 0) return null;
+    com.github.retrooper.packetevents.protocol.item.ItemStack stack =
+      SpigotConversionUtil.fromBukkitItemStack(bukkitStack);
+    return stack == null ? null : stack.getComponentOr(ComponentTypes.ATTACK_RANGE, null);
   }
 
   private static RawVector3d wrappedVectorForRotation(float pitch, float prevYaw, boolean fastMath) {
@@ -333,7 +392,7 @@ public final class Raytracing {
 
   private static RawVector3d resolveVectorForRotation(float pitch, float yaw) {
     float f = SinusCache.cos(-yaw * 0.017453292f - 3.1415927f, false);
-    float f2 = SinusCache.sin(-yaw * 0.017453292F - 3.1415927f, false);
+    float f2 = SinusCache.sin(-yaw * 0.017453292f - 3.1415927f, false);
     float f3 = -SinusCache.cos(-pitch * 0.017453292f, false);
     float f4 = SinusCache.sin(-pitch * 0.017453292f, false);
     return new RawVector3d(f2 * f3, f4, f * f3);
@@ -361,5 +420,26 @@ public final class Raytracing {
       return fallback;
     }
     return Math.min(MAX_TRACKED_INTERACTION_RANGE, Math.max(fallback, attribute));
+  }
+
+  private static double clamp(double value, double min, double max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  private static final class ItemAttackRangeContext {
+    private static final ItemAttackRangeContext NONE = new ItemAttackRangeContext(false, false, 0.0D, 0.0D);
+    private static final ItemAttackRangeContext AMBIGUOUS = new ItemAttackRangeContext(false, true, 0.0D, 0.0D);
+
+    private final boolean hasRange;
+    private final boolean ambiguousTransition;
+    private final double maxRange;
+    private final double hitboxMargin;
+
+    private ItemAttackRangeContext(boolean hasRange, boolean ambiguousTransition, double maxRange, double hitboxMargin) {
+      this.hasRange = hasRange;
+      this.ambiguousTransition = ambiguousTransition;
+      this.maxRange = maxRange;
+      this.hitboxMargin = hitboxMargin;
+    }
   }
 }
