@@ -1,19 +1,27 @@
 package de.jpx3.intave.check.other.inventoryclickanalysis;
 
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerOpenWindow;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.PacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
+import de.jpx3.intave.executor.Synchronizer;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.packet.PacketId;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.packet.PacketTypes;
+import de.jpx3.intave.packet.reader.EntityUseReader;
 import de.jpx3.intave.packet.reader.WindowClickReader;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
+import de.jpx3.intave.user.meta.InventoryMetadata;
+import de.jpx3.intave.user.meta.MovementMetadata;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,8 +33,8 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Server.OPEN_WINDOW;
 /**
  * Inventory protocol/state invariants layered on the existing movement/timing analyzers. This guard
  * deliberately does not score click speed; it verifies container ownership, open/close ordering,
- * special slot bounds and impossible per-tick click bursts while the existing DelayAnalyzer,
- * RegrDelayAnalyzer and OnMoveCheck continue to own timing/movement evidence.
+ * action-vs-GUI state, special slot bounds and impossible per-tick click bursts while the existing
+ * DelayAnalyzer/RegrDelayAnalyzer continue to own click timing evidence.
  */
 public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnalysis, InventoryStateGuard.Meta> {
   private static final int OUTSIDE_SLOT = -999;
@@ -43,6 +51,7 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
       meta.activeWindowId = wrapper.getContainerId();
       meta.serverWindowKnown = true;
       meta.closedThisTick = false;
+      meta.openGraceTicks = 2;
       return;
     }
 
@@ -51,6 +60,7 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
       meta.activeWindowId = id;
       meta.serverWindowKnown = true;
       meta.closedThisTick = false;
+      meta.openGraceTicks = 2;
     }
   }
 
@@ -60,6 +70,7 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     meta.activeWindowId = 0;
     meta.serverWindowKnown = true;
     meta.closedThisTick = true;
+    meta.openGraceTicks = 0;
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = PacketId.Client.CLOSE_WINDOW, ignoreCancelled = false)
@@ -74,6 +85,7 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     meta.activeWindowId = 0;
     meta.serverWindowKnown = true;
     meta.closedThisTick = true;
+    meta.openGraceTicks = 0;
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = WINDOW_CLICK, ignoreCancelled = false)
@@ -99,16 +111,17 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
         "clicked window=" + container + " after close in same client tick", 0.75D, 2.0D);
     }
 
+    // A native inventory is client-opened and has no server OPEN_WINDOW. A click is the first hard
+    // evidence that the server can observe, so give the movement check a short transition grace.
+    if (container == 0 && user.meta().inventory().inventoryOpen()) {
+      meta.openGraceTicks = Math.max(meta.openGraceTicks, 1);
+    }
+
     // Vanilla uses -999 as the outside/cursor drop slot. Values below that are not meaningful.
     // Other negative values are reserved by some old inventory paths, so keep the hard bound wide.
     if (slot < OUTSIDE_SLOT) {
-      if (!event.isReadOnly()) {
-        event.setCancelled(true);
-      } else {
-        event.setReadOnly(false);
-        event.setCancelled(true);
-      }
-      flag(user, "invalid inventory slot", "slot=" + slot + ", type=" + type, 8.0D);
+      makeWritableAndCancel(event);
+      flag(user, "Inventory", "invalid inventory slot", "slot=" + slot + ", type=" + type, 8.0D);
       return;
     }
 
@@ -134,6 +147,66 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     }
   }
 
+  @PacketSubscription(priority = LOWEST, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
+  public void attack(User user, EntityUseReader reader, PacketEvent event) {
+    if (!reader.isAttackPacket()) return;
+    Meta meta = metaOf(user);
+    if (!inventoryOpen(user, meta)) return;
+
+    makeWritableAndCancel(event);
+    score(user, meta, "attack-while-open", "attacked entity=" + reader.entityId() + " while inventory open",
+      1.25D, 3.0D);
+    closeInventory(user);
+  }
+
+  @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
+  public void dig(PacketEvent event) {
+    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+    WrapperPlayClientPlayerDigging wrapper = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event.delegate());
+    if (wrapper.getAction() != DiggingAction.START_DIGGING) return;
+
+    User user = userOf(event.getPlayer());
+    Meta meta = metaOf(user);
+    if (!inventoryOpen(user, meta)) return;
+
+    makeWritableAndCancel(event);
+    score(user, meta, "dig-while-open", "started digging while inventory open", 1.25D, 3.0D);
+    closeInventory(user);
+  }
+
+  @PacketSubscription(priority = LOWEST, packetsIn = {BLOCK_PLACE, USE_ITEM_ON}, ignoreCancelled = false)
+  public void place(PacketEvent event) {
+    User user = userOf(event.getPlayer());
+    Meta meta = metaOf(user);
+    if (!inventoryOpen(user, meta)) return;
+
+    makeWritableAndCancel(event);
+    score(user, meta, "place-while-open", "used/placed a block while inventory open", 1.25D, 3.0D);
+    closeInventory(user);
+  }
+
+  @PacketSubscription(priority = LOWEST, packetsIn = ENTITY_ACTION_IN, ignoreCancelled = false)
+  public void entityAction(PacketEvent event) {
+    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+    User user = userOf(event.getPlayer());
+    Meta meta = metaOf(user);
+    if (!inventoryOpen(user, meta) || user.meta().movement().awaitTeleport || user.meta().movement().expectTeleport) {
+      return;
+    }
+
+    WrapperPlayClientEntityAction wrapper = new WrapperPlayClientEntityAction((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientEntityAction.Action action = wrapper.getAction();
+    if (action == WrapperPlayClientEntityAction.Action.STOP_SNEAKING
+      || action == WrapperPlayClientEntityAction.Action.STOP_SPRINTING) {
+      return;
+    }
+
+    // Match vanilla/source behaviour: stopping sprint/sneak is expected when a GUI captures input,
+    // while new/start actions are suspicious. Do not cancel entity action to avoid state desync.
+    score(user, meta, "entity-action-while-open", "action=" + action, 0.75D, 2.0D);
+    closeInventory(user);
+  }
+
   @PacketSubscription(
     priority = LOWEST,
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
@@ -147,15 +220,52 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     if (!boundary) return;
 
     Meta meta = metaOf(user);
+    checkMovementWhileOpen(user, meta);
     meta.clicksThisTick = 0;
     meta.clickTypes.clear();
     meta.closedThisTick = false;
+    if (meta.openGraceTicks > 0) meta.openGraceTicks--;
     for (Map.Entry<String, Double> entry : meta.buffers.entrySet()) {
       entry.setValue(Math.max(0.0D, entry.getValue() - 0.04D));
     }
   }
 
+  private void checkMovementWhileOpen(User user, Meta meta) {
+    if (!inventoryOpen(user, meta) || meta.openGraceTicks > 0 || !stable(user)) {
+      decayRule(meta, "movement-while-open", 0.20D);
+      return;
+    }
+
+    MovementMetadata movement = user.meta().movement();
+    InventoryMetadata inventory = user.meta().inventory();
+    if (movement.awaitTeleport || movement.expectTeleport || movement.inRespawnScreen
+      || movement.isInVehicle() || movement.inWater || movement.inWeb || inventory.handActive()) {
+      decayRule(meta, "movement-while-open", 0.25D);
+      return;
+    }
+
+    boolean movingInput = movement.keyForward != 0 || movement.keyStrafe != 0;
+    boolean jumping = movement.physicsJumped;
+    if (!movingInput && !jumping) {
+      decayRule(meta, "movement-while-open", 0.15D);
+      return;
+    }
+
+    score(user, meta, "movement-while-open",
+      "input=" + movement.keyForward + "/" + movement.keyStrafe + ", jumping=" + jumping,
+      0.55D, 2.0D, "InventoryMove");
+  }
+
+  private boolean inventoryOpen(User user, Meta meta) {
+    if (meta.closedThisTick) return false;
+    return (meta.serverWindowKnown && meta.activeWindowId > 0) || user.meta().inventory().inventoryOpen();
+  }
+
   private void score(User user, Meta meta, String rule, String details, double weight, double vl) {
+    score(user, meta, rule, details, weight, vl, "Inventory");
+  }
+
+  private void score(User user, Meta meta, String rule, String details, double weight, double vl, String checkName) {
     if (user.meta().movement().awaitTeleport || user.meta().movement().expectTeleport
       || user.meta().movement().inRespawnScreen) {
       return;
@@ -167,19 +277,38 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
       meta.buffers.put(rule, next);
       return;
     }
-    flag(user, rule, details, vl);
+    flag(user, checkName, rule, details, vl);
     meta.buffers.put(rule, 1.0D);
   }
 
-  private void flag(User user, String rule, String details, double vl) {
+  private static void decayRule(Meta meta, String rule, double amount) {
+    double value = meta.buffers.getOrDefault(rule, 0.0D);
+    if (value > 0.0D) meta.buffers.put(rule, Math.max(0.0D, value - amount));
+  }
+
+  private void flag(User user, String checkName, String rule, String details, double vl) {
     Violation violation = Violation.builderFor(InventoryClickAnalysis.class)
       .forPlayer(user.player())
-      .withCheckName("Inventory")
+      .withCheckName(checkName)
       .withMessage("invalid inventory state")
       .withDetails(rule + ": " + details)
       .withVL(vl)
       .build();
     Modules.violationProcessor().processViolation(violation);
+  }
+
+  private static void makeWritableAndCancel(PacketEvent event) {
+    if (event.isReadOnly()) event.setReadOnly(false);
+    event.setCancelled(true);
+  }
+
+  private static void closeInventory(User user) {
+    try {
+      Synchronizer.synchronize(user.player()::closeInventory);
+    } catch (Throwable ignored) {
+      // Inventory state validation must not become a packet-thread crash if a platform refuses the
+      // close operation. The cancelled action and state buffer remain effective.
+    }
   }
 
   private static boolean stable(User user) {
@@ -194,5 +323,6 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     private boolean serverWindowKnown;
     private boolean closedThisTick;
     private int clicksThisTick;
+    private int openGraceTicks;
   }
 }
