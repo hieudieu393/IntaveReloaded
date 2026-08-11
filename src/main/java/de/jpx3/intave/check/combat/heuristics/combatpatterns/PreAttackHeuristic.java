@@ -2,17 +2,12 @@
  * Copyright 2026 Intave
  *
  * This software is licensed under the PolyForm Perimeter License 1.0.0.
- * You may use this software for any purpose, except for providing to
- * others any product that competes with the software.
- *
- * A copy of the license is available at:
- *   https://polyformproject.org/licenses/perimeter/1.0.0/
  */
-
 package de.jpx3.intave.check.combat.heuristics.combatpatterns;
 
-import com.comphenix.protocol.events.PacketContainer;
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientHeldItemChange;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
 import de.jpx3.intave.check.combat.heuristics.HeuristicsClassicType;
@@ -35,62 +30,24 @@ import static de.jpx3.intave.module.mitigate.AttackNerfStrategy.DMG_MEDIUM;
 import static de.jpx3.intave.user.meta.ProtocolMetadata.VER_1_8;
 
 public final class PreAttackHeuristic extends ClassicHeuristic<PreAttackHeuristic.PreAttackMeta> {
+  public PreAttackHeuristic(Heuristics parentCheck) { super(parentCheck, HeuristicsClassicType.PRE_ATTACK, PreAttackMeta.class); }
 
-	public PreAttackHeuristic(Heuristics parentCheck) {
-    super(parentCheck, HeuristicsClassicType.PRE_ATTACK, PreAttackMeta.class);
-	}
+  @PacketSubscription(priority = ListenerPriority.HIGH, packetsIn = ARM_ANIMATION)
+  public void receiveSwing(ProtocolPacketEvent event) { metaOf((Player) event.getPlayer()).didSwing = true; }
 
-  @PacketSubscription(
-    priority = ListenerPriority.HIGH,
-    packetsIn = {
-      ARM_ANIMATION
-    }
-  )
-  public void receiveSwing(ProtocolPacketEvent event) {
-    Player player = event.getPlayer();
-    User user = userOf(player);
-    metaOf(user).didSwing = true;
-  }
+  @PacketSubscription(priority = ListenerPriority.HIGH, packetsIn = {ATTACK_ENTITY, USE_ENTITY})
+  public void receiveAttack(Player player, EntityUseReader reader) { if (reader.isAttackPacket()) metaOf(player).didAttack = true; }
 
-  @PacketSubscription(
-    priority = ListenerPriority.HIGH,
-    packetsIn = {
-      ATTACK_ENTITY, USE_ENTITY
-    }
-  )
-  public void receiveAttack(
-    Player player, EntityUseReader reader
-  ) {
-    if (reader.isAttackPacket()) {
-      metaOf(player).didAttack = true;
-    }
-  }
-
-  @PacketSubscription(
-    priority = ListenerPriority.HIGH,
-    packetsIn = {
-      HELD_ITEM_SLOT_IN
-    }
-  )
+  @PacketSubscription(priority = ListenerPriority.HIGH, packetsIn = HELD_ITEM_SLOT_IN)
   public void receiveSlotSwitch(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    PreAttackMeta meta = metaOf(player);
-    PacketContainer packet = event.getPacket();
-    Integer slot = packet.getIntegers().read(0);
-
+    int slot = new WrapperPlayClientHeldItemChange((PacketReceiveEvent) event).getSlot();
+    if (slot < 0 || slot >= player.getInventory().getSize()) return;
     ItemStack item = player.getInventory().getItem(slot);
-    if (item == null) {
-      return;
-    }
-    meta.ticksSinceFishingRodItemSwitch = 0;
+    if (item != null) metaOf(player).ticksSinceFishingRodItemSwitch = 0;
   }
 
-  @PacketSubscription(
-    priority = ListenerPriority.NORMAL,
-    packetsIn = {
-      FLYING, LOOK, POSITION, POSITION_LOOK, VEHICLE_MOVE
-    }
-  )
+  @PacketSubscription(priority = ListenerPriority.NORMAL, packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, VEHICLE_MOVE})
   public void receiveMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
@@ -98,37 +55,16 @@ public final class PreAttackHeuristic extends ClassicHeuristic<PreAttackHeuristi
     AttackMetadata attackData = user.meta().attack();
     SimulationEnvironment movementData = user.meta().movement();
     Entity entity = attackData.lastAttackedEntity();
-    if (entity == null || !entity.clientSynchronized || movementData.ticksPast(TELEPORT) < 5) {
-      return;
-    }
-    if (clientData.outdatedClient()) {
-      return;
-    }
-    boolean dead = entity.fakeDead || entity.dead;
-    if (dead) {
-      return;
-    }
+    if (entity == null || !entity.clientSynchronized || movementData.ticksPast(TELEPORT) < 5 || clientData.outdatedClient() || entity.fakeDead || entity.dead) return;
     PreAttackMeta meta = metaOf(player);
     try {
-      if (!entity.moving(0.1) || attackData.lastReach() < 1.0 || entity.ticksAlive < 200) {
-        return;
-      }
-      // FishingRod overrides onItemRightClick and sends an arm-animation packet
-      boolean recentlyUsedRot = meta.ticksSinceFishingRodItemSwitch < 5;
-      if (!recentlyUsedRot && meta.didSwing && !meta.didAttack) {
-        // Raytrace if cursor is upon entity
-        boolean cursorUponEntity = cursorUponEntity(player, user, entity);
-        if (cursorUponEntity) {
-          meta.preAttacks++;
-        }
-      }
-      if (meta.didAttack) {
-        meta.attacks++;
-      }
+      if (!entity.moving(0.1) || attackData.lastReach() < 1.0 || entity.ticksAlive < 200) return;
+      boolean recentlyUsedRod = meta.ticksSinceFishingRodItemSwitch < 5;
+      if (!recentlyUsedRod && meta.didSwing && !meta.didAttack && cursorUponEntity(player, user, entity)) meta.preAttacks++;
+      if (meta.didAttack) meta.attacks++;
       if (meta.attacks >= 100) {
         if (meta.preAttacks < 4) {
-          String description = "attacks seem automated (" + meta.preAttacks + "f) | " + clientData.versionString();
-          flag(player, description);
+          flag(player, "attacks seem automated (" + meta.preAttacks + "f) | " + clientData.versionString());
           user.nerf(DMG_MEDIUM, nerfId);
         }
         meta.attacks = 0;
@@ -141,52 +77,29 @@ public final class PreAttackHeuristic extends ClassicHeuristic<PreAttackHeuristi
     }
   }
 
-  private boolean cursorUponEntity(
-    Player player,
-    User user,
-    Entity entity
-  ) {
+  private boolean cursorUponEntity(Player player, User user, Entity entity) {
     MetadataBundle meta = user.meta();
     MovementMetadata movementData = meta.movement();
     ProtocolMetadata clientData = meta.protocol();
-    float expandHitbox = 0.25f /* EXPAND */;
-    double blockReachDistance = reachDistance(player.getGameMode() == GameMode.CREATIVE) + 1f /* RANGE */;
+    float expandHitbox = 0.25f;
+    double blockReachDistance = reachDistance(player.getGameMode() == GameMode.CREATIVE) + 1f;
     float lastRotationYaw = movementData.lastRotationYaw % 360;
     float rotationYaw = movementData.rotationYaw % 360;
     boolean alternativePositionY = clientData.protocolVersion() == VER_1_8;
     boolean hasAlwaysMouseDelayFix = clientData.protocolVersion() >= 314;
-    // mouse delay fix
-    Raytrace distanceOfResult = Raytracing.blockConstraintEntityRaytrace(
-      player,
-      entity, alternativePositionY,
-      movementData.lastPositionX, movementData.lastPositionY, movementData.lastPositionZ,
-      rotationYaw, movementData.rotationPitch,
-      expandHitbox
-    );
-    if (distanceOfResult.reach() > blockReachDistance) {
-      return false;
-    }
+    Raytrace distanceOfResult = Raytracing.blockConstraintEntityRaytrace(player, entity, alternativePositionY, movementData.lastPositionX, movementData.lastPositionY, movementData.lastPositionZ, rotationYaw, movementData.rotationPitch, expandHitbox);
+    if (distanceOfResult.reach() > blockReachDistance) return false;
     if (!hasAlwaysMouseDelayFix) {
-      // normal
-      distanceOfResult = Raytracing.blockConstraintEntityRaytrace(
-        player,
-        entity, true,
-        movementData.lastPositionX, movementData.lastPositionY, movementData.lastPositionZ,
-        lastRotationYaw, movementData.rotationPitch,
-        expandHitbox
-      );
+      distanceOfResult = Raytracing.blockConstraintEntityRaytrace(player, entity, true, movementData.lastPositionX, movementData.lastPositionY, movementData.lastPositionZ, lastRotationYaw, movementData.rotationPitch, expandHitbox);
     }
     return distanceOfResult.reach() <= blockReachDistance;
   }
 
-  private float reachDistance(boolean creative) {
-    return (creative ? 5.0F : 3.0F) - 0.005f;
-  }
+  private float reachDistance(boolean creative) { return (creative ? 5.0F : 3.0F) - 0.005f; }
 
   public static final class PreAttackMeta extends CheckCustomMetadata {
     public boolean didAttack, didSwing;
     public int ticksSinceFishingRodItemSwitch;
-
     public int preAttacks, attacks;
   }
 }
