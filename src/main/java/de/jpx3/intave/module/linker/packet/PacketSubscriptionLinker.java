@@ -2,21 +2,17 @@
  * Copyright 2026 Intave
  *
  * This software is licensed under the PolyForm Perimeter License 1.0.0.
- * You may use this software for any purpose, except for providing to
- * others any product that competes with the software.
- *
- * A copy of the license is available at:
- *   https://polyformproject.org/licenses/perimeter/1.0.0/
  */
-
 package de.jpx3.intave.module.linker.packet;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.ConnectionSide;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.injector.packet.PacketRegistry;
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.CancellableEvent;
+import com.github.retrooper.packetevents.event.PacketListenerAbstract;
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import de.jpx3.intave.IntaveLogger;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.klass.create.IRXClassFactory;
@@ -25,34 +21,39 @@ import de.jpx3.intave.module.Module;
 import de.jpx3.intave.module.linker.OneForAll;
 import de.jpx3.intave.module.linker.OneForOne;
 import de.jpx3.intave.module.linker.SubscriptionInstanceProvider;
-import de.jpx3.intave.module.linker.packet.tinyprotocol.InjectionService;
 import de.jpx3.intave.packet.reader.PacketReader;
 import de.jpx3.intave.packet.reader.PacketReaders;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
 
-import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.IntFunction;
 import java.util.function.IntUnaryOperator;
 
 import static de.jpx3.intave.IntaveControl.IGNORE_CHUNK_PACKETS;
 
+/** Links Intave packet subscriptions directly to PacketEvents. */
 public final class PacketSubscriptionLinker extends Module {
-  private static boolean IGNORE_CHAT_PACKETS = false;
-  private static boolean IGNORE_SCOREBOARD_TEAM_PACKETS = false;
+  private static boolean IGNORE_CHAT_PACKETS;
+  private static boolean IGNORE_SCOREBOARD_TEAM_PACKETS;
+
   private final IntavePlugin plugin;
-  private final Map<PacketType, SCOWAList<FilteringPacketAdapter>> customEngineListenerMappings = new ConcurrentHashMap<>();
-  private final Map<PacketType, SCOWAList<FilteringPacketAdapter>> internalPacketListenerMappings = new ConcurrentHashMap<>();
-  private final List<WeakReferencePacketAdapter> internalPacketListener = new ArrayList<>();
-  private final List<WeakReferencePacketAdapter> externalPacketListener = new ArrayList<>();
-  private InjectionService customInjector;
+  private final Map<PacketTypeCommon, SCOWAList<FilteringPacketAdapter>> internalMappings = new ConcurrentHashMap<>();
+  private final List<PacketListenerAbstract> registeredListeners = new ArrayList<>();
+  private final Set<String> exclusionNoted = ConcurrentHashMap.newKeySet();
 
   public PacketSubscriptionLinker(IntavePlugin plugin) {
     this.plugin = plugin;
@@ -60,101 +61,72 @@ public final class PacketSubscriptionLinker extends Module {
 
   @Override
   public void enable() {
-    this.customInjector = new InjectionService(plugin);
-    boolean protocolLib4 = ProtocolLibrary.getPlugin().getDescription().getVersion().startsWith("4");
-    IGNORE_CHAT_PACKETS = IGNORE_SCOREBOARD_TEAM_PACKETS = plugin.getConfig().getBoolean("compatibility.ignore-scoreboard-packets", !protocolLib4);
+    boolean defaultIgnore = true;
+    IGNORE_CHAT_PACKETS = plugin.getConfig().getBoolean("compatibility.ignore-scoreboard-packets", defaultIgnore);
+    IGNORE_SCOREBOARD_TEAM_PACKETS = plugin.getConfig().getBoolean("compatibility.ignore-scoreboard-packets", defaultIgnore);
   }
 
   @Override
-  public void disable() {
-    for (WeakReferencePacketAdapter packetListener : internalPacketListener) {
-      unlinkAdapter(packetListener);
-      packetListener.tryRemovePluginReference();
-    }
-    internalPacketListener.clear();
-    for (WeakReferencePacketAdapter packetListener : externalPacketListener) {
-      unlinkAdapter(packetListener);
-      packetListener.tryRemovePluginReference();
-    }
-    externalPacketListener.clear();
-    ProtocolLibrary.getProtocolManager().removePacketListeners(plugin);
-    internalPacketListenerMappings.values().forEach(SCOWAList::clear);
-    internalPacketListenerMappings.clear();
-    customEngineListenerMappings.values().forEach(SCOWAList::clear);
-    customEngineListenerMappings.clear();
-    customInjector.reset();
-    customInjector.uninjectAll();
+  public synchronized void disable() {
+    unregisterAllListeners();
+    internalMappings.values().forEach(SCOWAList::clear);
+    internalMappings.clear();
+    argumentPools.remove();
   }
 
   public void linkSubscriptionsIn(PacketEventSubscriber subscriber) {
-    SubscriptionInstanceProvider<User, ?, PacketEventSubscriber> instanceProvider = instanceProviderFor(subscriber);
-    for (Method method : instanceProvider.type().getMethods()) {
+    SubscriptionInstanceProvider<User, ?, PacketEventSubscriber> provider = instanceProviderFor(subscriber);
+    for (Method method : provider.type().getMethods()) {
       if (methodRequestsSubscription(method)) {
-        linkSubscription(instanceProvider, method);
+        linkSubscription(provider, method);
       }
     }
   }
 
   public void removeSubscriptionsOf(PacketEventSubscriber subscriber) {
     Class<? extends PacketEventSubscriber> subscriberClass = subscriber.getClass();
-    for (SCOWAList<FilteringPacketAdapter> value : internalPacketListenerMappings.values()) {
-      value.removeIf(localPacketAdapter -> localPacketAdapter.subscriber() != null && localPacketAdapter.subscriber().getClass().equals(subscriberClass));
+    for (SCOWAList<FilteringPacketAdapter> handlers : internalMappings.values()) {
+      handlers.removeIf(handler -> handler.subscriber() != null && handler.subscriber().getClass().equals(subscriberClass));
     }
   }
 
-  public void refreshLinkages() {
-    ProtocolLibrary.getProtocolManager().removePacketListeners(plugin);
-    for (PacketType packetType : internalPacketListenerMappings.keySet()) {
-      bakeSubscriptions(packetType, internalPacketListenerMappings.get(packetType));
+  public synchronized void refreshLinkages() {
+    unregisterAllListeners();
+    for (Map.Entry<PacketTypeCommon, SCOWAList<FilteringPacketAdapter>> entry : internalMappings.entrySet()) {
+      if (!entry.getValue().isEmpty()) {
+        registerListener(new ForwardingPacketAdapter(entry.getKey(), entry.getValue()));
+      }
     }
-    for (WeakReferencePacketAdapter weakReferencePacketAdapter : externalPacketListener) {
-      linkAdapter(weakReferencePacketAdapter);
+  }
+
+  private void unregisterAllListeners() {
+    for (PacketListenerAbstract listener : registeredListeners) {
+      PacketEvents.getAPI().getEventManager().unregisterListener(listener);
     }
-    customInjector.reset();
-    customEngineListenerMappings.forEach(customInjector::setupSubscriptions);
+    registeredListeners.clear();
   }
 
-  private void bakeSubscriptions(PacketType type, SCOWAList<FilteringPacketAdapter> filteringPacketAdapters) {
-    ForwardingPacketAdapter adapter = new ForwardingPacketAdapter(plugin, type, filteringPacketAdapters);
-    internalPacketListener.add(adapter);
-    linkAdapter(adapter);
-  }
-
-  private void linkAdapter(WeakReferencePacketAdapter adapter) {
-    ProtocolLibrary.getProtocolManager().addPacketListener(adapter);
-  }
-
-  private void unlinkAdapter(WeakReferencePacketAdapter adapter) {
-    ProtocolLibrary.getProtocolManager().removePacketListener(adapter);
+  private void registerListener(PacketListenerAbstract listener) {
+    PacketEvents.getAPI().getEventManager().registerListener(listener);
+    registeredListeners.add(listener);
   }
 
   private boolean methodRequestsSubscription(Method method) {
-    return annotatedAsSubscription(method) && validParameters(method) && validModifiers(method);
+    return method.getAnnotation(PacketSubscription.class) != null && validParameters(method) && validModifiers(method);
   }
 
-  private boolean annotatedAsSubscription(Method method) {
-    return method.getAnnotation(PacketSubscription.class) != null;
-  }
-
-  private final Set<Class<?>> validParameterTypes = new HashSet<>();
-  {
-    validParameterTypes.add(PacketEvent.class);
-    validParameterTypes.add(Cancellable.class);
-    validParameterTypes.add(User.class);
-    validParameterTypes.add(Player.class);
-    validParameterTypes.add(PacketContainer.class);
-    validParameterTypes.add(PacketReader.class);
-    validParameterTypes.add(PacketType.class);
-  }
+  private final Set<Class<?>> validParameterTypes = new HashSet<>(Arrays.asList(
+    ProtocolPacketEvent.class,
+    CancellableEvent.class,
+    User.class,
+    Player.class,
+    PacketReader.class,
+    PacketTypeCommon.class
+  ));
 
   private boolean validParameters(Method method) {
-	  if (method.getParameterCount() == 1 && method.getParameterTypes()[0] == PacketEvent.class) {
-		  return true;
-	  }
-	  if (Arrays.stream(method.getParameterTypes()).allMatch(type -> validParameterTypes.stream().anyMatch(aClass -> aClass.isAssignableFrom(type) /*|| type.isAssignableFrom(aClass)*/))) {
-		  return true;
-	  }
-	  return false;
+    return Arrays.stream(method.getParameterTypes())
+      .allMatch(type -> validParameterTypes.stream().anyMatch(valid -> valid.isAssignableFrom(type)));
   }
 
   private boolean validModifiers(Method method) {
@@ -162,27 +134,34 @@ public final class PacketSubscriptionLinker extends Module {
     return !Modifier.isStatic(modifiers) && Modifier.isPublic(modifiers);
   }
 
-  private void linkSubscription(SubscriptionInstanceProvider<User, ?, PacketEventSubscriber> instanceProvider, Method method) {
+  private void linkSubscription(
+    SubscriptionInstanceProvider<User, ?, PacketEventSubscriber> provider,
+    Method method
+  ) {
     PacketSubscription metadata = method.getAnnotation(PacketSubscription.class);
-    String methodName = method.getName();
-    ListenerPriority priority = metadata.priority();
-    boolean ignoreCancelled = metadata.ignoreCancelled();
+    PacketTypeCommon[] packetTypes = translatedPacketTypes(metadata.packetsIn(), metadata.packetsOut(), metadata.debug());
+    if (packetTypes.length == 0) {
+      return;
+    }
 
-    switch (metadata.engine()) {
-      case INTERNAL:
-        PacketSubscriptionMethodExecutor executor = assemblePESubscriptionMethodCaller(instanceProvider.type(), method, metadata.engine());
-        PacketType[] packetTypes = translateProtocolLibPacketTypes(metadata.packetsIn(), metadata.packetsOut(), metadata.debug());
-        performCustomLinkage(instanceProvider, priority, packetTypes, ignoreCancelled, methodName, executor);
-        break;
-      case PACKETEVENTS:
-        executor = assemblePESubscriptionMethodCaller(instanceProvider.type(), method, metadata.engine());
-        packetTypes = translateProtocolLibPacketTypes(metadata.packetsIn(), metadata.packetsOut(), metadata.debug());
-        if (metadata.prioritySlot() == PrioritySlot.INTERNAL) {
-          performInternalProtocolLibLinkage(instanceProvider, priority, packetTypes, ignoreCancelled, methodName, executor);
-        } else {
-          performExternalProtocolLibLinkage(instanceProvider, priority, packetTypes, ignoreCancelled, methodName, executor);
-        }
-        break;
+    PacketSubscriptionMethodExecutor executor = assembleSubscriptionMethodCaller(provider.type(), method);
+    FilteringPacketAdapter handler = new FilteringPacketAdapter(
+      provider,
+      metadata.priority(),
+      packetTypes,
+      method.getName(),
+      executor,
+      metadata.ignoreCancelled()
+    );
+
+    if (metadata.prioritySlot() == PrioritySlot.EXTERNAL) {
+      registerListener(new DirectPacketEventsListener(handler));
+      return;
+    }
+
+    // Engine.INTERNAL used Intave's old injection layer. PacketEvents is now the sole packet engine.
+    for (PacketTypeCommon packetType : packetTypes) {
+      internalMappings.computeIfAbsent(packetType, ignored -> new SCOWAList<>()).add(handler);
     }
   }
 
@@ -190,155 +169,50 @@ public final class PacketSubscriptionLinker extends Module {
     if (subscriber instanceof PlayerPacketEventSubscriber) {
       PlayerPacketEventSubscriber playerListener = (PlayerPacketEventSubscriber) subscriber;
       return new OneForOne<>(playerListener::packetSubscriberFor);
-    } else {
-      return new OneForAll<>(subscriber);
     }
+    return new OneForAll<>(subscriber);
   }
 
-  private PacketType[] translateProtocolLibPacketTypes(
-    PacketId.Client[] clientPackets,
-    PacketId.Server[] serverPackets,
+  private PacketTypeCommon[] translatedPacketTypes(
+    PacketId.Client[] inbound,
+    PacketId.Server[] outbound,
     boolean debug
   ) {
-    return distinct(
-      excludeProblematic(translate(clientPackets, serverPackets, debug), debug),
-      PacketType[]::new
-    );
-  }
-
-  private PacketType[] translate(PacketId.Client[] clientPackets, PacketId.Server[] serverPackets, boolean debug) {
-    PacketType[] serverPacketTypes = clientTranslate(clientPackets, debug);
-    PacketType[] clientPacketTypes = serverTranslate(serverPackets, debug);
-    return merge(serverPacketTypes, clientPacketTypes);
-  }
-
-  private PacketType[] clientTranslate(PacketId.Client[] clientPackets, boolean debug) {
-    if (clientPackets.length == 1 && clientPackets[0].lookupName().equals("*")) {
-      return PacketRegistry.getClientPacketTypes().toArray(new PacketType[0]);
-    }
-    List<PacketType> list = new ArrayList<>();
-    for (PacketId.Client clientPacket : clientPackets) {
-      PacketType[] packetTypes = translateClientPacketType(clientPacket, debug);
-      list.addAll(Arrays.asList(packetTypes));
-    }
-    return list.toArray(new PacketType[0]);
-  }
-
-  private PacketType[] serverTranslate(PacketId.Server[] serverPackets, boolean debug) {
-    if (serverPackets.length == 1 && "*".equals(serverPackets[0].lookupName())) {
-      return PacketRegistry.getClientPacketTypes().toArray(new PacketType[0]);
-    }
-    List<PacketType> list = new ArrayList<>();
-    for (PacketId.Server serverPacket : serverPackets) {
-      PacketType[] packetTypes = translateServerPacketType(serverPacket, debug);
-      list.addAll(Arrays.asList(packetTypes));
-    }
-    return list.toArray(new PacketType[0]);
-  }
-
-  private <T> T[] distinct(T[] input, IntFunction<T[]> generator) {
-    return Arrays.stream(input).filter(Objects::nonNull).distinct().toArray(generator);
-  }
-
-  private final Set<String> exclusionNoted = new HashSet<>();
-
-  private PacketType[] excludeProblematic(PacketType[] input, boolean debug) {
-    for (int i = 0; i < input.length; i++) {
-      PacketType packetType = input[i];
-      if (excluded(packetType)) {
-        String typeName = packetType.name();
-        if (!exclusionNoted.contains(typeName)) {
-          IntaveLogger.logger().info("Ignoring " + typeName + " packets");
-        }
-        exclusionNoted.add(typeName);
-        input[i] = null;
-      }
-    }
-    return input;
-  }
-
-  private boolean excluded(PacketType packetType) {
-    boolean tabChatPacket = packetType == PacketType.Play.Client.TAB_COMPLETE ||
-      packetType == PacketType.Play.Server.TAB_COMPLETE ||
-      packetType == PacketType.Play.Client.CHAT;
-//    if (tabChatPacket) {
-//      Thread.dumpStack();
-//    }
-    if (IGNORE_CHAT_PACKETS && tabChatPacket) {
-      return true;
-    }
-    if (IGNORE_CHUNK_PACKETS && (packetType == PacketType.Play.Server.MAP_CHUNK ||
-      packetType == PacketType.Play.Server.MAP_CHUNK_BULK)) {
-      return true;
-    }
-    if (IGNORE_SCOREBOARD_TEAM_PACKETS && (packetType == PacketType.Play.Server.SCOREBOARD_TEAM)) {
-      return true;
-    }
-
-//    if (
-//      packetType == PacketType.Play.Client.WINDOW_CLICK ||
-////        packetType == PacketType.Play.Client.CUSTOM_PAYLOAD ||
-//        packetType == PacketType.Play.Client.CLOSE_WINDOW ||
-//        packetType == PacketType.Play.Client.CLIENT_COMMAND ||
-////        packetType == PacketType.Play.Server.WINDOW_DATA ||
-//        packetType == PacketType.Play.Server.WINDOW_ITEMS ||
-//        packetType == PacketType.Play.Server.OPEN_WINDOW ||
-//        packetType == PacketType.Play.Server.CLOSE_WINDOW
-//    ) {
-//      return true;
-//    }
-
-    return false;
-  }
-
-  private PacketType[] translateClientPacketType(PacketId.Client clientPacket, boolean debug) {
-    PacketType[] results = searchByName(selectPacketTypesFor(ConnectionSide.CLIENT_SIDE), clientPacket.lookupName());
+    Set<PacketTypeCommon> types = Collections.newSetFromMap(new IdentityHashMap<>());
+    Collections.addAll(types, PacketTypeResolver.client(inbound));
+    Collections.addAll(types, PacketTypeResolver.server(outbound));
+    types.removeIf(Objects::isNull);
+    types.removeIf(this::excluded);
     if (debug) {
-      IntaveLogger.logger().info("Translated " + clientPacket.lookupName() + " to " + Arrays.toString(results));
+      IntaveLogger.logger().info("PacketEvents mapping: " + Arrays.toString(types.toArray()));
     }
-    return results;
+    return types.toArray(new PacketTypeCommon[0]);
   }
 
-  private PacketType[] translateServerPacketType(PacketId.Server serverPacket, boolean debug) {
-    PacketType[] results = searchByName(selectPacketTypesFor(ConnectionSide.SERVER_SIDE), serverPacket.lookupName());
-    if (debug) {
-      IntaveLogger.logger().info("Translated " + serverPacket.lookupName() + " to " + Arrays.toString(results));
+  private boolean excluded(PacketTypeCommon packetType) {
+    boolean tabChatPacket = packetType == PacketType.Play.Client.TAB_COMPLETE
+      || packetType == PacketType.Play.Server.TAB_COMPLETE
+      || packetType == PacketType.Play.Client.CHAT_MESSAGE;
+    boolean excluded = (IGNORE_CHAT_PACKETS && tabChatPacket)
+      || (IGNORE_CHUNK_PACKETS && packetType == PacketType.Play.Server.CHUNK_DATA)
+      || (IGNORE_SCOREBOARD_TEAM_PACKETS && packetType == PacketType.Play.Server.TEAMS);
+    if (excluded && exclusionNoted.add(packetType.getName())) {
+      IntaveLogger.logger().info("Ignoring " + packetType.getName() + " packets");
     }
-    return results;
+    return excluded;
   }
 
-  private Collection<PacketType> selectPacketTypesFor(ConnectionSide connectionSide) {
-    Set<PacketType> availableTypes = new HashSet<>();
-    if (connectionSide.isForServer()) availableTypes.addAll(PacketRegistry.getServerPacketTypes());
-    if (connectionSide.isForClient()) availableTypes.addAll(PacketRegistry.getClientPacketTypes());
-    return availableTypes;
-  }
+  private static final ThreadLocal<Map<Integer, ArrayDeque<Object[]>>> argumentPools =
+    ThreadLocal.withInitial(HashMap::new);
 
-  private PacketType[] searchByName(Collection<? extends PacketType> packetPool, String name) {
-    Collection<PacketType> packetTypes = PacketType.fromName(name);
-    PacketType[] types = packetTypes.stream().filter(packetPool::contains).toArray(PacketType[]::new);
-    if (types.length == 0) {
-      types = packetPool.stream().filter(packetType -> matches(packetType, name)).toArray(PacketType[]::new);
-    }
-    return types;
-  }
-
-  private boolean matches(PacketType packetType, String name) {
-    return packetType.name() != null && packetType.name().equalsIgnoreCase(name);
-  }
-
-  private static final ThreadLocal<Map<Integer, Object[]>> argumentCache = ThreadLocal.withInitial(HashMap::new);
-  private static final ThreadLocal<Map<Integer, Boolean>> argumentLocks = ThreadLocal.withInitial(HashMap::new);
-
-  private PacketSubscriptionMethodExecutor assemblePESubscriptionMethodCaller(
+  private PacketSubscriptionMethodExecutor assembleSubscriptionMethodCaller(
     Class<? extends PacketEventSubscriber> targetClass,
-    Method calledMethod,
-    Engine engine
+    Method calledMethod
   ) {
-    if (calledMethod.getParameterCount() == 1 && calledMethod.getParameterTypes()[0] == PacketEvent.class) {
+    if (calledMethod.getParameterCount() == 1 && calledMethod.getParameterTypes()[0] == ProtocolPacketEvent.class) {
       String packetSubscriberSuperClassPath = canonicalRepresentation(className(PacketEventSubscriber.class));
       String packetSubscriberClassPath = canonicalRepresentation(className(targetClass));
-      String packetEventClassPath = canonicalRepresentation(className(PacketEvent.class));
+      String packetEventClassPath = canonicalRepresentation(className(ProtocolPacketEvent.class));
       Class<PacketSubscriptionMethodExecutor> executorClass = IRXClassFactory.assembleCallerClass(
         PacketSubscriptionLinker.class.getClassLoader(),
         PacketSubscriptionMethodExecutor.class,
@@ -349,96 +223,69 @@ public final class PacketSubscriptionLinker extends Module {
         packetSubscriberClassPath,
         calledMethod.getName(),
         Type.getMethodDescriptor(calledMethod),
-        false, false,
+        false,
+        false,
         IntUnaryOperator.identity()
       );
       return instanceOf(executorClass);
-    } else {
-      Class<?>[] parameterTypes = calledMethod.getParameterTypes();
-      int length = parameterTypes.length;
+    }
 
-      int playerParameterIndex = findParameterPosition(parameterTypes, Player.class);
-      int userParameterPosition = findParameterPosition(parameterTypes, User.class);
-      int cancelableParameterPosition = findParameterPosition(parameterTypes, Cancellable.class);
-      int packetContainerParameterPosition = findParameterPosition(parameterTypes, PacketContainer.class);
-      int packetReaderParameterPosition = findParameterPosition(parameterTypes, PacketReader.class);
-      int packetEventParameterPosition = findParameterPosition(parameterTypes, PacketEvent.class);
-      int packetTypeParameterPosition = findParameterPosition(parameterTypes, PacketType.class);
+    Class<?>[] parameterTypes = calledMethod.getParameterTypes();
+    int length = parameterTypes.length;
+    int playerIndex = findParameterPosition(parameterTypes, Player.class);
+    int userIndex = findParameterPosition(parameterTypes, User.class);
+    int cancellableIndex = findParameterPosition(parameterTypes, CancellableEvent.class);
+    int readerIndex = findParameterPosition(parameterTypes, PacketReader.class);
+    int eventIndex = findParameterPosition(parameterTypes, ProtocolPacketEvent.class);
+    int typeIndex = findParameterPosition(parameterTypes, PacketTypeCommon.class);
 
-      AtomicBoolean block = new AtomicBoolean(false);
-
-      return (subscriber, event) -> {
-        if (block.get()) {
+    return (subscriber, event) -> {
+      Map<Integer, ArrayDeque<Object[]>> pools = argumentPools.get();
+      ArrayDeque<Object[]> pool = pools.computeIfAbsent(length, ignored -> new ArrayDeque<>());
+      Object[] arguments = pool.pollFirst();
+      if (arguments == null) {
+        arguments = new Object[length];
+      }
+      PacketReader packetReader = null;
+      try {
+        Player player = event.getPlayer();
+        if (playerIndex != -1) arguments[playerIndex] = player;
+        if (userIndex != -1) arguments[userIndex] = UserRepository.userOf(player);
+        if (cancellableIndex != -1) arguments[cancellableIndex] = event;
+        if (eventIndex != -1) arguments[eventIndex] = event;
+        if (typeIndex != -1) arguments[typeIndex] = event.getPacketType();
+        if (readerIndex != -1) {
+          packetReader = PacketReaders.readerOf(event);
+          arguments[readerIndex] = packetReader;
+        }
+        calledMethod.invoke(subscriber, arguments);
+      } catch (ReflectiveOperationException exception) {
+        throw new RuntimeException(
+          "Failed to invoke packet subscription " + calledMethod + " in " + subscriber.getClass().getCanonicalName(),
+          exception
+        );
+      } catch (RuntimeException exception) {
+        if (readerIndex != -1 && packetReader == null) {
+          IntaveLogger.logger().warn(
+            "Skipped incompatible PacketEvents reader for " + event.getPacketType().getName() + " in "
+              + subscriber.getClass().getCanonicalName() + "." + calledMethod.getName()
+          );
           return;
         }
-        Player player = event.getPlayer();
-
-        Map<Integer, Boolean> locks = argumentLocks.get();
-        Boolean isLocked = locks.get(length);
-        if (isLocked == null) {
-          locks.put(length, true);
-          isLocked = false;
-        }
-
-        Object[] arguments = isLocked ? new Object[length] : argumentCache.get().computeIfAbsent(length, x -> new Object[length]);
-
-        if (playerParameterIndex != -1) {
-          arguments[playerParameterIndex] = player;
-        }
-        if (userParameterPosition != -1) {
-          arguments[userParameterPosition] = UserRepository.userOf(player);
-        }
-        if (cancelableParameterPosition != -1) {
-          arguments[cancelableParameterPosition] = event;
-        }
-        if (packetContainerParameterPosition != -1) {
-          arguments[packetContainerParameterPosition] = event.getPacket();
-        }
-        PacketReader packetReader = null;
-        if (packetReaderParameterPosition != -1) {
-          try {
-            packetReader = PacketReaders.readerOf(event.getPacket());
-            arguments[packetReaderParameterPosition] = packetReader;
-          } catch (Exception e) {
-//            throw new RuntimeException("Failed to create packet reader for packet " + event.getPacketType() + " in " + subscriber.getClass().getCanonicalName(), e);
-            block.set(true);
-//            IntaveLogger.logger().error("Failed to create packet reader for packet " + event.getPacketType() + " in " + subscriber.getClass().getCanonicalName());
-            IntaveLogger.logger().info(subscriber.getClass().getCanonicalName() + " skipped packet type due to ProtocolLib missing packet " + event.getPacketType().name());
-            return;
-          }
-        }
-        if (packetEventParameterPosition != -1) {
-          arguments[packetEventParameterPosition] = event;
-        }
-        if (packetTypeParameterPosition != -1) {
-          arguments[packetTypeParameterPosition] = event.getPacketType();
-        }
-
-        try {
-          calledMethod.invoke(subscriber, arguments);
-        } catch (Exception e) {
-          throw new RuntimeException("Failed to invoke packet subscription method " + calledMethod + " in " + subscriber.getClass().getCanonicalName(), e);
-        }
-
+        throw exception;
+      } finally {
         if (packetReader != null) {
           packetReader.releaseSafe();
         }
-
-        if (!isLocked) {
-          locks.put(length, false);
-          Arrays.fill(arguments, null);
-        }
-      };
-    }
+        Arrays.fill(arguments, null);
+        pool.offerFirst(arguments);
+      }
+    };
   }
 
   private static int findParameterPosition(Class<?>[] parameterTypes, Class<?> parameterType) {
     for (int i = 0; i < parameterTypes.length; i++) {
-      if (parameterTypes[i] == parameterType) {
-        return i;
-      }
-      // or is a subclass of the parameter type
-      if (parameterType.isAssignableFrom(parameterTypes[i])) {
+      if (parameterTypes[i] == parameterType || parameterType.isAssignableFrom(parameterTypes[i])) {
         return i;
       }
     }
@@ -458,77 +305,25 @@ public final class PacketSubscriptionLinker extends Module {
   }
 
   private String canonicalRepresentation(String input) {
-    return input.replaceAll("\\.", "/");
+    return input.replace('.', '/');
   }
 
-  private static <T> T[] merge(T[] array1, T[] array2) {
-    if (array1 == null) {
-      return clone(array2);
-    } else if (array2 == null) {
-      return clone(array1);
-    } else {
-      //noinspection unchecked
-      T[] joinedArray = (T[]) Array.newInstance(array1.getClass().getComponentType(), array1.length + array2.length);
-      System.arraycopy(array1, 0, joinedArray, 0, array1.length);
-      try {
-        System.arraycopy(array2, 0, joinedArray, array1.length, array2.length);
-        return joinedArray;
-      } catch (ArrayStoreException var6) {
-        Class<?> type1 = array1.getClass().getComponentType();
-        Class<?> type2 = array2.getClass().getComponentType();
-        if (!type1.isAssignableFrom(type2)) {
-          throw new IllegalArgumentException("Cannot store " + type2.getName() + " in an array of " + type1.getName());
-        } else {
-          throw var6;
-        }
-      }
-    }
-  }
+  private final class DirectPacketEventsListener extends PacketListenerAbstract {
+    private final FilteringPacketAdapter target;
 
-  private static <T> T[] clone(T[] array) {
-    return array == null ? null : array.clone();
-  }
+    private DirectPacketEventsListener(FilteringPacketAdapter target) {
+      super(target.priority().packetEventsPriority());
+      this.target = target;
+    }
 
-  private void performCustomLinkage(
-    SubscriptionInstanceProvider<User, ?, PacketEventSubscriber> subscriber,
-    ListenerPriority priority, PacketType[] translatePacketTypes,
-    boolean ignoreCancelled,
-    String methodName, PacketSubscriptionMethodExecutor executor
-  ) {
-    if (translatePacketTypes.length == 0) {
-      return;
+    @Override
+    public void onPacketReceive(PacketReceiveEvent event) {
+      target.invoke(event);
     }
-    FilteringPacketAdapter adapter = new FilteringPacketAdapter(plugin, subscriber, priority, translatePacketTypes, methodName, executor, ignoreCancelled);
-    for (PacketType translatePacketType : translatePacketTypes) {
-      SCOWAList<FilteringPacketAdapter> adapters =
-        customEngineListenerMappings.computeIfAbsent(translatePacketType, x -> new SCOWAList<>());
-      adapters.add(adapter);
-    }
-  }
 
-  private void performInternalProtocolLibLinkage(
-    SubscriptionInstanceProvider<User, ?, PacketEventSubscriber> subscriber,
-    ListenerPriority priority, PacketType[] translatePacketTypes,
-    boolean ignoreCancelled,
-    String methodName, PacketSubscriptionMethodExecutor executor
-  ) {
-    for (PacketType translatePacketType : translatePacketTypes) {
-      FilteringPacketAdapter adapter = new FilteringPacketAdapter(plugin, subscriber, priority, new PacketType[]{translatePacketType}, methodName, executor, ignoreCancelled);
-      internalPacketListenerMappings.computeIfAbsent(translatePacketType, x -> new SCOWAList<>()).add(adapter);
+    @Override
+    public void onPacketSend(PacketSendEvent event) {
+      target.invoke(event);
     }
-  }
-
-  private void performExternalProtocolLibLinkage(
-    SubscriptionInstanceProvider<User, ?, PacketEventSubscriber> subscriber,
-    ListenerPriority priority, PacketType[] translatePacketTypes,
-    boolean ignoreCancelled,
-    String methodName, PacketSubscriptionMethodExecutor executor
-  ) {
-    if (translatePacketTypes.length == 0) {
-      return;
-    }
-    FilteringPacketAdapter adapter = new FilteringPacketAdapter(plugin, subscriber, priority, translatePacketTypes, methodName, executor, ignoreCancelled);
-    linkAdapter(adapter);
-    externalPacketListener.add(adapter);
   }
 }
