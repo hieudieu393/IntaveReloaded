@@ -1,237 +1,277 @@
-# Before you change anything here:
+# IntaveReloaded advanced configuration
 #
-# In the overwhelming majority of cases, changing stuff here will break things.
-# It is recommended not to change anything here unless you know exactly what you are doing.
-# When you experience false positives, report them to us, and we will fix them.
-# Before changing anything, please check the Intave console output for any warnings or instructions.
-# You can ban the following checks:
-#   - AttackRaytrace.reach at VL 200
-#   - Heuristics at VL 100
-# If you have any questions, contact us on discord.
+# Public check names use familiar Matrix/NCP-style naming, while the internal section names below
+# intentionally remain unchanged for backwards compatibility with existing Intave configurations.
+#
+# Public name -> internal owner
+#   Simulate / NoFall / NoSlow / Phase / Sprint / Elytra / Vehicle -> physics
+#   KillAura / Aim / NoSwing                                  -> heuristics
+#   Reach / HitBox                                            -> attackraytrace
+#   Interact                                                  -> interactionraytrace
+#   AutoClicker                                               -> clickpatterns
+#   ClickSpeed                                                -> clickspeedlimiter
+#   Timer / Blink                                             -> timer
+#   FastBreak                                                 -> breakspeedlimiter
+#   BadPackets / PacketOrder                                  -> protocolscanner
+#   Scaffold / FastPlace                                      -> placementanalysis
+#   Inventory / InventoryMove / AutoTotem / AutoSwap          -> inventoryclickanalysis
+#
+# `signals` entries are real startup toggles. Disabling one prevents the corresponding optional
+# signal from being linked/flagged. Parent `enabled` keys continue to control the whole check owner.
+# Physics and Timer core prediction/clock services remain linked because other checks depend on them.
 
 version: "14.0.0"
 state: 0
 
 check:
   physics:
-    # Severely nerfs the physics check
-    #   This option should not be necessary, and will allow players to cheat
-    #   FALSE POSITIVES -> REPORT THEM
+    # Public checks: Simulate, NoFall, NoSlow, Phase, Sprint, Elytra, Vehicle
+    # Aliases Speed/Fly/Step/Jesus/Velocity resolve to the Physics owner for API/commands.
+    signals:
+      nofall: true
+      noslow: true
+      phase: true
+      sprint: true
+      elytra: true
+      vehicle: true
+
+    # Severely nerfs the physics check.
+    # FALSE POSITIVES -> report/fix the underlying case before increasing tolerance.
     high-tolerance: false
 
-    # Mitigation mode
-    #   Choose between AGGRESSIVE, CAREFUL, LENIENT, BARELY and SILENT
-    #   FALSE POSITIVES -> REPORT THEM
+    # Mitigation mode: AGGRESSIVE, CAREFUL, LENIENT, BARELY or SILENT.
     mitigation: BARELY
 
-    # Check for NoSlowdown cheats?
+    # Core Simulate/NoSlow state.
     enforce-item-slowdown: true
 
-    # Disable tick leniency for velocity packets
+    # Disable tick leniency for velocity packets.
     no-speculative-velocity: true
 
-    # Disable bundling of Ping packets with their respective attach packets
+    # Disable bundling of Ping packets with their respective attach packets.
     no-bundling: false
 
     on-detection:
-      # Can help reduce item-related false positives
       reset-item-usage: true
-      # Can help reduce inventory-related false positives
-      # Set this value to "SILENT" to close inventory in silent mitigation mode
       close-inventory: true
-      # Can help reduce ghost-block related false positives
       refresh-nearby-blocks: true
 
-    # DO NOT BAN
+    # Shared VL owner for Simulate + layered movement signals.
+    # Keep the high kick threshold: NoFall/NoSlow/Phase/Sprint/Elytra/Vehicle evidence is buffered
+    # and is designed to corroborate the Physics simulator rather than create a second punishment path.
     thresholds:
-      100: "intave internals sendnotify &c{player}&7/{trust-color}&7 is moving incorrectly"
-      400: "intave internals sendnotify &c{player}&7/{trust-color}&7 is moving incorrectly #2"
+      100: "intave internals sendnotify &c{player}&7/{trust-color}&7 failed &c{check}&7 movement validation"
+      400: "intave internals sendnotify &c{player}&7/{trust-color}&7 repeatedly failed &c{check}&7 movement validation"
       500: "intave internals storelog {player} {check} {vl}"
       999:
         - $kick$
 
   timer:
-    # Enable if you want to halt outgoing packets if a player is not sending packets to us
-    # Very effective against blink in combat
+    # Public checks: Timer, Blink
+    # Timer/NegativeTimer/TickTimer/VehicleTimer share this owner. The core PlayerTime clock stays
+    # active because packet timing is also used as context by other checks.
+    signals:
+      blink: true
+
+    # Halt/mitigate outgoing state if the client stops ticking normally.
     reverse-blink: true
 
-    # The maximum ticks a player is allowed to exist behind server tick, aka. "blink", -1 to disable
-    # An aggressive setting would be 3 seconds = 60 ticks
+    # Maximum ticks behind server time; -1 disables the hard blink limit.
+    # 60 ticks = 3 seconds.
     blink-limit: -1
 
-    # Do you want to block pulse-blinking?
+    # Detect/block pulse blinking.
     block-pulse-blink: true
 
     thresholds:
-      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is speeding up their game"
-      75: "intave internals sendnotify &c{player}&7/{trust-color}&7 is speeding up their game #2"
+      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 failed &c{check}&7 timing validation"
+      75: "intave internals sendnotify &c{player}&7/{trust-color}&7 repeatedly failed &c{check}&7 timing validation"
       100:
+        - "intave internals storelog {player} {check} {vl}"
         - $ban$
 
   heuristics:
     enabled: true
 
-    # Sets the violation level increases for each classic check type.
-    # - The number must be an integer and -1 disables the checks
-    # - 0 keeps the check activated and combat nerfers will be applied but no violations are added
-    classic:
-      # Attack Heuristics
-      attack-accuracy: 4
-      attack-required: 3
-      pre-attack: 4
+    # Public combat groups. These switches affect both classic and modern layered logic.
+    signals:
+      killaura: true
+      aim: true
 
-      # Rotation Heuristics
+    # Violation increases for classic heuristic components.
+    # -1 disables the individual classic component.
+    #  0 keeps mitigation/evidence active without adding VL.
+    classic:
+      # Aim
+      attack-accuracy: 4
       rotation-accuracy: 4
       rotation-exact: 10
       rotation-snap: 5
       rotation-sensitivity: -1
       rotation-reset: 3
 
-      # Other
+      # KillAura / NoSwing / combat action state
+      attack-required: 3
+      pre-attack: 4
       inventory-rotations: 2
       blocking: 0
       no-swing: 0
       swing-order: 3
-      sprint-toggles: 2 # prevents spamming sprint packets to apply more knockback on targets
-      tool-switch: 3 # prevents slot switches while breaking blocks
+      sprint-toggles: 2
+      tool-switch: 3
 
+      # Shared threshold path for classic + modern Aim/KillAura evidence.
       thresholds:
         20:
           - "intave internals storelog {player} {check} {vl}"
-          - "intave internals sendnotify &e{player}&7 is attacking suspiciously #1"
-
+          - "intave internals sendnotify &e{player}&7 failed &e{check}&7 combat validation #1"
         40:
-          - "intave internals sendnotify &e{player}&7 is attacking suspiciously #2"
-
+          - "intave internals sendnotify &e{player}&7 failed &e{check}&7 combat validation #2"
         50:
           - "intave internals storelog {player} {check} {vl}"
-          - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been kicked for attacking suspiciously (on-premise classic heuristics)"
+          - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for &c{check}&7 combat violations"
           - $kick$
 
     cloud:
       thresholds:
         50:
           - "intave internals storelog {player} {check} {vl}"
-          - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for attacking suspiciously (cloud heuristics)"
+          - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for suspicious combat (cloud heuristics)"
           - $ban$
 
   attackraytrace:
+    # Public checks: Reach, HitBox
     enabled: true
+
+    # Reach and HitBox intentionally keep separate thresholds even though they share the same
+    # latency-compensated AttackRaytrace engine.
     applicable-thresholds:
-      # BAN at high VL
       reach:
-        50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is attacking suspiciously (reach)"
+        50: "intave internals sendnotify &c{player}&7/{trust-color}&7 failed &cReach&7 validation"
         150:
           - "intave internals storelog {player} {check} {vl}"
-          - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for attacking suspiciously (reach)"
+          - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for repeated &cReach&7 violations"
           - $ban$
 
-      # BAN NOT NECESSARY
       hitbox:
-        50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is attacking suspiciously (hitbox)"
-        100: "intave internals sendnotify &c{player}&7/{trust-color}&7 is attacking suspiciously #2 (hitbox)"
+        50: "intave internals sendnotify &c{player}&7/{trust-color}&7 failed &cHitBox&7 validation"
+        100: "intave internals sendnotify &c{player}&7/{trust-color}&7 repeatedly failed &cHitBox&7 validation"
 
-      # BAN NOT NECESSARY
+      # Backtrack/latency-abuse evidence remains owned by AttackRaytrace.
       timeout:
-        50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is attacking suspiciously (backtrack?)"
-        100: "intave internals sendnotify &c{player}&7/{trust-color}&7 is attacking suspiciously #2 (backtrack?)"
+        50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is attacking with suspicious entity latency"
+        100: "intave internals sendnotify &c{player}&7/{trust-color}&7 repeatedly failed entity-latency validation"
 
   interactionraytrace:
+    # Public check: Interact
     enabled: true
-    # BAN NOT NECESSARY
     thresholds:
-      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is interacting suspiciously"
-      100: "intave internals sendnotify &c{player}&7/{trust-color}&7 is interacting suspiciously #2"
+      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 failed &cInteract&7 validation"
+      100: "intave internals sendnotify &c{player}&7/{trust-color}&7 repeatedly failed &cInteract&7 validation"
 
   clickpatterns:
+    # Public check: AutoClicker
     enabled: true
-    # DO NOT BAN
+    # Modern clients use confirmed ATTACK-interval consistency in addition to legacy pattern logic.
     thresholds:
-      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is clicking statistically anomalously (auto-clicker)"
+      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 failed &cAutoClicker&7 pattern validation"
       100:
-        - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for clicking statistically anomalously (auto-clicker)"
+        - "intave internals storelog {player} {check} {vl}"
+        - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for automated clicking"
         - $kick$
 
   clickspeedlimiter:
+    # Public check: ClickSpeed
     enabled: true
     max-cps: 20
     thresholds:
-      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is attacking too quickly"
+      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 failed &cClickSpeed&7 validation"
       100:
         - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for attacking too quickly"
         - $kick$
 
   breakspeedlimiter:
+    # Public check: FastBreak
+    # Includes duration/restart, NoSwingBreak, FarBreak, Wrong/Multi/Invalid/PositionBreak,
+    # AirLiquidBreak and break-while-using layered evidence.
     enabled: true
-    # BAN NOT NECESSARY
     thresholds:
-      100: "intave internals sendnotify &c{player}&7/{trust-color}&7 is breaking blocks too quickly"
+      100: "intave internals sendnotify &c{player}&7/{trust-color}&7 failed &cFastBreak&7 validation"
 
   protocolscanner:
+    # Public checks: BadPackets, PacketOrder
     enabled: true
     invokant: false
     check_sent_slot_twice_vl: 100
     packet-order-vl: 5
+
+    # Optional BadPackets sub-groups. The core protocol sanity checks remain controlled by `enabled`.
+    signals:
+      packetorder: true
+      duplicate-movement: true
+      chat: true
+      book-edit: true
+
     thresholds:
-      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is sending invalid packets"
+      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 failed &c{check}&7 protocol validation"
       100:
-        - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for sending invalid packets"
+        - "intave internals storelog {player} {check} {vl}"
+        - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for invalid protocol behaviour (&c{check}&7)"
         - $ban$
 
   placementanalysis:
+    # Public checks: Scaffold, FastPlace
+    # Includes timing/rotation plus FarPlace, raw face, air/liquid support history, hidden-face,
+    # MultiPlace, dynamic fabricated cursor and duplicate-rotation placement evidence.
     enabled: true
     check_timings: false
 
-    # Set a limit for the cumulative rotation in a 5 second window
-    # This helps to prevent very strong high-rotation scaffold cheats
-    # In certain scenarios Intave will deduct up to 1250 combined degrees from this value
-    # 360 degrees = 1 full rotation
+    # Cumulative rotation in a 5-second window. 360 degrees = one full rotation.
     rotation-limit: 3000
 
     cloud-thresholds:
-      # Executed if a player fails on-premise analysis
       on-premise:
         200:
           - "intave internals storelog {player} {check} {vl}"
-          - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for placing blocks suspiciously (scaffold)"
+          - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for &cScaffold&7 violations"
           - $ban$
 
-      # Executed if a player fails cloud analysis
       cloud:
         200:
           - "intave internals storelog {player} {check} {vl}"
-          - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for placing blocks suspiciously (cloud heuristics)"
+          - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for suspicious placement (cloud heuristics)"
           - $ban$
 
   inventoryclickanalysis:
+    # Public checks: Inventory, InventoryMove, AutoTotem, AutoSwap
     enabled: true
     high-tolerance: true
-    # DO NOT BAN
+
+    signals:
+      inventorymove: true
+      autototem: true
+      autoswap: true
+
+    # Shared VL owner. Action-while-open checks may cancel an impossible action immediately while
+    # buffered automation/movement evidence continues through these thresholds.
     thresholds:
-      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 is performing invalid item-operations"
+      50: "intave internals sendnotify &c{player}&7/{trust-color}&7 failed &c{check}&7 inventory validation"
       100:
-        - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for clicking suspiciously on items"
+        - "intave internals storelog {player} {check} {vl}"
+        - "intave internals sendnotify &c{player}&7/{trust-color}&7 has been removed for suspicious inventory behaviour (&c{check}&7)"
         - $kick$
 
 cloud:
-  # Should Intave connect to the cloud?
   enabled: false
 
   features:
-    # Should Intave use the cloud to store metadata?
     cloud-storage: true
-    # Should Intave use the cloud to acquire trustfactors?
     cloud-trustfactor: true
-    # Should Intave use the cloud for additional cheat detection?
     cloud-heuristics: true
-    # Should Intave use the cloud for log storage?
     cloud-logs: true
 
 storage:
-  # Set to ignore the "intave internals storelog"    and auto-store suggested violations instead
   auto-logs: false
-
-  # Should Intave try to transfer VLs when switching between servers?
   recover-vl: true
 
 blacklist:
@@ -246,16 +286,9 @@ clientwarning:
   enable: true
 
 compatibility:
-  # Position-feedback synchronization enforcement
-  # Disable for GuardSpigot compatibility.
-  # THIS OPTION PREVENTS RESPAWN FLY
+  # Position-feedback synchronization enforcement. Disable only for GuardSpigot compatibility.
   position-feedback-sync-enforcement: true
-
-  # Enable if scoreboards are sometimes not visible
   ignore-scoreboard-packets: false
-
-  # Enabling will have no security impact, but may make
-  # Intave more visible to cheaters debugging network traffic
   no-transaction-obfuscation: false
 
 command:
@@ -263,20 +296,15 @@ command:
   reroute:
     "/alerts": "/intave verbose"
     "/cps": "/intave cps"
-
-  # Apply a fix that disables command hide and reroute features,
-  # but fixes a 1.12 bug that kicks players when they tab a command
   fix-tab-kicks: false
 
 rejoin:
-  # DO NOT DISABLE IN PRODUCTION
+  # DO NOT DISABLE IN PRODUCTION.
   delay: 3600
   refresh: true
   message: "&cYou were removed recently, wait before connecting again"
 
-# You should disable any of these options **ONLY**
-# when experiencing serious problems and **ONLY** after reporting the issue to us.
-# Leaving any of these disabled can result in severely reduced security and stability.
+# Disable fault kicks only after confirming a compatibility issue.
 fault-kicks:
   position-faults: true
   missing-position-update: true
@@ -287,38 +315,25 @@ fault-kicks:
   invalid-player-action: true
   inventory-faults: true
 
-# Remove some data from packets used to slightly improve cheats
 filter:
   equipmentdata: false
   health: true
-  # Disable vanish if you have problems with weird proxy kicks
   vanish: true
 
 logging:
-  # Save logs to a file?
   file-log: true
-
-  # Show trustfactor changes in the console?
   trustfactor: true
-  # Show client version on join in the console?
   client-version: true
-  # Show command executions in the console?
   command-execution: true
-  # Show fault kicks in the console?
   fault-kicks: true
-  # Dump player log ids in the console?
   cloud-log-ids: true
-  # Verbose mode (ALL, MITIGATED, SELECTED)
   verbose-mode: MITIGATED
-
-  # debugging purposes, do not activate
-  #feedback-dump: false
 
 analytics:
   errorReporting: true
   usageReporting: true
 
 layout:
-  verbose: "{prefix} &c{player}&7/{trust-color}&7 {message} {details} (+{vladded} -> {vl})"
+  verbose: "{prefix} &c{player}&7/{trust-color}&7 &c{check}&7: {message} {details} (+{vladded} -> {vl})"
   notify: "{prefix} &c&lNotify&8: &7{text}"
   prefix: "&8[&c&lIntave&8]&7 "
