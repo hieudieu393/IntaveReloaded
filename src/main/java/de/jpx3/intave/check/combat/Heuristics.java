@@ -10,6 +10,7 @@ import de.jpx3.intave.check.combat.heuristics.combatpatterns.accuracy.AccuracyHi
 import de.jpx3.intave.check.combat.heuristics.combatpatterns.accuracy.AccuracyLongTermHeuristic;
 import de.jpx3.intave.check.combat.heuristics.combatpatterns.rotation.*;
 import de.jpx3.intave.check.combat.heuristics.inventory.PacketInventoryHeuristic;
+import de.jpx3.intave.check.combat.heuristics.modern.CombatBehaviorHeuristic;
 import de.jpx3.intave.check.combat.heuristics.modern.CombatFreezeHeuristic;
 import de.jpx3.intave.check.combat.heuristics.modern.CombatMultiActionHeuristic;
 import de.jpx3.intave.check.combat.heuristics.modern.CombatObstructionHeuristic;
@@ -61,6 +62,7 @@ public final class Heuristics extends Check {
     appendCheckPart(new CombatFreezeHeuristic(this));
     appendCheckPart(new CombatObstructionHeuristic(this));
     appendCheckPart(new CombatMultiActionHeuristic(this));
+    appendCheckPart(new CombatBehaviorHeuristic(this));
   }
 
   private void loadClassicConfiguration() {
