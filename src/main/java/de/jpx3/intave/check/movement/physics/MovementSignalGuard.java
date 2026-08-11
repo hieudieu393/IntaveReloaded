@@ -43,8 +43,8 @@ public final class MovementSignalGuard extends MetaCheck<MovementSignalGuard.Met
 
   @PacketSubscription(priority = LOWEST, packetsIn = ENTITY_ACTION_IN, ignoreCancelled = false)
   public void action(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
-    WrapperPlayClientEntityAction action = new WrapperPlayClientEntityAction((PacketReceiveEvent) event.delegate());
+    if (!(event instanceof PacketReceiveEvent)) return;
+    WrapperPlayClientEntityAction action = new WrapperPlayClientEntityAction((PacketReceiveEvent) event);
     if (action.getAction() == WrapperPlayClientEntityAction.Action.START_SPRINTING) {
       metaOf(userOf(event.getPlayer())).startedSprintThisTick = true;
     }

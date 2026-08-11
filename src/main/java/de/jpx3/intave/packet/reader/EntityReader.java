@@ -38,7 +38,7 @@ public class EntityReader extends AbstractPacketReader implements EntityIterable
   }
 
   public @Nullable Entity entityBy(ProtocolPacketEvent event) {
-    return entityBy(event.getPlayer().getWorld());
+    return entityBy(((org.bukkit.entity.Player) event.getPlayer()).getWorld());
   }
 
   public @Nullable Entity entityBy(World world) {

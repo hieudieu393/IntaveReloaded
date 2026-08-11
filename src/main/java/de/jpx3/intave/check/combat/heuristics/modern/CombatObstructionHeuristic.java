@@ -41,7 +41,7 @@ public final class CombatObstructionHeuristic extends ModernCombatHeuristic<Comb
 
   @PacketSubscription(priority = LOW, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
   public void receiveAttackPacket(ProtocolPacketEvent event) {
-    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
+    EntityUseReader reader = PacketReaders.readerOf(event);
     try {
       if (!reader.isAttackPacket()) {
         return;

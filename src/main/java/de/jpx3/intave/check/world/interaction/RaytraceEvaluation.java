@@ -25,7 +25,7 @@ import org.bukkit.entity.Player;
 
 import java.util.Objects;
 
-import static com.comphenix.protocol.wrappers.DiggingAction.ABORT_DESTROY_BLOCK;
+import static com.github.retrooper.packetevents.protocol.player.DiggingAction.ABORT_DESTROY_BLOCK;
 import static de.jpx3.intave.check.world.interaction.InteractionType.EMPTY_INTERACT;
 
 public class RaytraceEvaluation {
@@ -126,7 +126,7 @@ public class RaytraceEvaluation {
   }
 
   private boolean interactionInHead(User user, Interaction interaction) {
-    com.comphenix.protocol.wrappers.BlockPosition blockPosition = interaction.targetBlock();
+    de.jpx3.intave.share.BlockPosition blockPosition = interaction.targetBlock();
     MovementMetadata movement = user.meta().movement();
     double xDiff = blockPosition.getX() - ClientMath.floor(movement.positionX);
     double yDiff = blockPosition.getY() - ClientMath.floor(movement.positionY + movement.eyeHeight());

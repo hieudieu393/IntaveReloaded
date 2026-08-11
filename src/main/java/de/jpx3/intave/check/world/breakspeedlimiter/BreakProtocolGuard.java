@@ -33,12 +33,12 @@ public final class BreakProtocolGuard extends MetaCheckPart<BreakSpeedLimiter, B
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
   public void dig(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
 
     User user = userOf(event.getPlayer());
-    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event);
     DiggingAction action = dig.getAction();
     Vector3i pos = dig.getBlockPosition();
     int face = dig.getBlockFaceId();

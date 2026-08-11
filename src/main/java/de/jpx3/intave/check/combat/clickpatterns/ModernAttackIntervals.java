@@ -36,7 +36,7 @@ public final class ModernAttackIntervals extends MetaCheckPart<ClickPatterns, Mo
 
   @PacketSubscription(priority = HIGH, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
   public void attack(ProtocolPacketEvent event) {
-    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
+    EntityUseReader reader = PacketReaders.readerOf(event);
     try {
       if (!reader.isAttackPacket()) {
         return;

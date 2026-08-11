@@ -40,8 +40,8 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
 
   @PacketSubscription(priority = LOWEST, packetsIn = ARM_ANIMATION, ignoreCancelled = false)
   public void animation(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
-    WrapperPlayClientAnimation animation = new WrapperPlayClientAnimation((PacketReceiveEvent) event.delegate());
+    if (!(event instanceof PacketReceiveEvent)) return;
+    WrapperPlayClientAnimation animation = new WrapperPlayClientAnimation((PacketReceiveEvent) event);
     if (animation.getHand() != InteractionHand.MAIN_HAND) return;
 
     Meta meta = metaOf(userOf(event.getPlayer()));
@@ -61,9 +61,9 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
       markPostMovement(user, meta, "attack");
       return;
     }
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+    if (!(event instanceof PacketReceiveEvent)) return;
 
-    WrapperPlayClientInteractEntity interaction = new WrapperPlayClientInteractEntity((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientInteractEntity interaction = new WrapperPlayClientInteractEntity((PacketReceiveEvent) event);
     WrapperPlayClientInteractEntity.InteractAction action = interaction.getAction();
     if (action == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
       onAttack(user, meta);
@@ -153,10 +153,10 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
   public void dig(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+    if (!(event instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event);
     DiggingAction action = dig.getAction();
     if (action == null) return;
 
@@ -226,10 +226,10 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
 
   @PacketSubscription(priority = LOWEST, packetsIn = ENTITY_ACTION_IN, ignoreCancelled = false)
   public void entityAction(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+    if (!(event instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    WrapperPlayClientEntityAction wrapper = new WrapperPlayClientEntityAction((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientEntityAction wrapper = new WrapperPlayClientEntityAction((PacketReceiveEvent) event);
     WrapperPlayClientEntityAction.Action action = wrapper.getAction();
     if (action == null) return;
 
@@ -257,10 +257,10 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
 
   @PacketSubscription(priority = LOWEST, packetsIn = WINDOW_CLICK, ignoreCancelled = false)
   public void windowClick(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+    if (!(event instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    WrapperPlayClientClickWindow click = new WrapperPlayClientClickWindow((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientClickWindow click = new WrapperPlayClientClickWindow((PacketReceiveEvent) event);
     WrapperPlayClientClickWindow.WindowClickType type = click.getWindowClickType();
 
     if (type == WrapperPlayClientClickWindow.WindowClickType.QUICK_MOVE) {

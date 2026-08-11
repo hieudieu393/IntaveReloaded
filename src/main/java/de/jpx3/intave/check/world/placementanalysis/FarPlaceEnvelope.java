@@ -34,7 +34,7 @@ public final class FarPlaceEnvelope extends MetaCheckPart<PlacementAnalysis, Far
       return;
     }
 
-    BlockInteractionReader reader = PacketReaders.readerOf(event.getPacket());
+    BlockInteractionReader reader = PacketReaders.readerOf(event);
     try {
       BlockPosition block = reader.nativeBlockPosition();
       if (block == null) {

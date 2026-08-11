@@ -20,7 +20,7 @@ public final class PayloadInReader extends AbstractPacketReader {
   }
 
   public ByteBuf readBytes() {
-    return Unpooled.wrappedBuffer(wrapper.getData()).asReadOnly();
+    return Unpooled.unmodifiableBuffer(Unpooled.wrappedBuffer(wrapper.getData()));
   }
 
   public String readStringNormal() {

@@ -156,8 +156,8 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
   public void dig(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
-    WrapperPlayClientPlayerDigging wrapper = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event.delegate());
+    if (!(event instanceof PacketReceiveEvent)) return;
+    WrapperPlayClientPlayerDigging wrapper = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event);
     if (wrapper.getAction() != DiggingAction.START_DIGGING) return;
 
     User user = userOf(event.getPlayer());
@@ -182,14 +182,14 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
 
   @PacketSubscription(priority = LOWEST, packetsIn = ENTITY_ACTION_IN, ignoreCancelled = false)
   public void entityAction(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+    if (!(event instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     if (!inventoryOpen(user, meta) || user.meta().movement().awaitTeleport || user.meta().movement().expectTeleport) {
       return;
     }
 
-    WrapperPlayClientEntityAction wrapper = new WrapperPlayClientEntityAction((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientEntityAction wrapper = new WrapperPlayClientEntityAction((PacketReceiveEvent) event);
     WrapperPlayClientEntityAction.Action action = wrapper.getAction();
     if (action == WrapperPlayClientEntityAction.Action.STOP_SNEAKING
       || action == WrapperPlayClientEntityAction.Action.STOP_SPRINTING) {

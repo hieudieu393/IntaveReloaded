@@ -43,7 +43,7 @@ import org.bukkit.util.Vector;
 import java.util.Collection;
 import java.util.List;
 
-import static com.comphenix.protocol.wrappers.DiggingAction.*;
+import static com.github.retrooper.packetevents.protocol.player.DiggingAction.*;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.NEARBY_COLLISION_INACCURACY;
 import static de.jpx3.intave.module.feedback.FeedbackOptions.*;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;

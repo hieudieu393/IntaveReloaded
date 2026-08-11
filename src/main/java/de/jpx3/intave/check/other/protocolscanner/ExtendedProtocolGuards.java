@@ -42,10 +42,10 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
 
   @PacketSubscription(packetsIn = SETTINGS, ignoreCancelled = false)
   public void receiveSettings(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
-    WrapperPlayClientSettings wrapper = new WrapperPlayClientSettings((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientSettings wrapper = new WrapperPlayClientSettings((PacketReceiveEvent) event);
     int distance = wrapper.getViewDistance();
     if (distance >= 2) {
       return;
@@ -78,7 +78,7 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
 
   @PacketSubscription(packetsIn = WINDOW_CLICK, ignoreCancelled = false)
   public void receiveWindowClick(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
     User user = userOf(event.getPlayer());
@@ -87,7 +87,7 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
       return;
     }
 
-    WrapperPlayClientClickWindow wrapper = new WrapperPlayClientClickWindow((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientClickWindow wrapper = new WrapperPlayClientClickWindow((PacketReceiveEvent) event);
     if (wrapper.getWindowId() != meta.lecternWindowId) {
       return;
     }
@@ -100,10 +100,10 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
 
   @PacketSubscription(packetsIn = ENTITY_ACTION_IN, ignoreCancelled = false)
   public void receiveEntityAction(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
-    WrapperPlayClientEntityAction wrapper = new WrapperPlayClientEntityAction((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientEntityAction wrapper = new WrapperPlayClientEntityAction((PacketReceiveEvent) event);
     int boost = wrapper.getJumpBoost();
     WrapperPlayClientEntityAction.Action action = wrapper.getAction();
     int entityId = wrapper.getEntityId();
@@ -122,10 +122,10 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
 
   @PacketSubscription(packetsIn = USE_ENTITY, ignoreCancelled = false)
   public void receiveInteractEntity(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
-    WrapperPlayClientInteractEntity wrapper = new WrapperPlayClientInteractEntity((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientInteractEntity wrapper = new WrapperPlayClientInteractEntity((PacketReceiveEvent) event);
     if (wrapper.getAction() != WrapperPlayClientInteractEntity.InteractAction.INTERACT_AT) {
       return;
     }

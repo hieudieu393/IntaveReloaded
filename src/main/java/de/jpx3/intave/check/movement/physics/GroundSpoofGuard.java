@@ -54,7 +54,7 @@ public final class GroundSpoofGuard extends MetaCheck<GroundSpoofGuard.Meta> {
       return;
     }
 
-    PlayerMoveReader reader = PacketReaders.readerOf(event.getPacket());
+    PlayerMoveReader reader = PacketReaders.readerOf(event);
     try {
       if (!reader.onGround()) {
         meta.buffer = Math.max(0.0, meta.buffer - 0.15);

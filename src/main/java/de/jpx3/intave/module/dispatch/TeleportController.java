@@ -56,7 +56,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.comphenix.protocol.wrappers.DiggingAction.DROP_ITEM;
+import static com.github.retrooper.packetevents.protocol.player.DiggingAction.DROP_ITEM;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.LONG_TELEPORT;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.TELEPORT;
 import static de.jpx3.intave.math.MathHelper.formatDouble;

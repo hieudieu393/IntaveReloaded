@@ -34,7 +34,7 @@ public final class PlacementPacketConsistency extends MetaCheckPart<PlacementAna
   )
   public void receivePlacement(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    BlockInteractionReader reader = PacketReaders.readerOf(event.getPacket());
+    BlockInteractionReader reader = PacketReaders.readerOf(event);
     try {
       BlockPosition position = reader.nativeBlockPosition();
       int direction = reader.enumDirection();

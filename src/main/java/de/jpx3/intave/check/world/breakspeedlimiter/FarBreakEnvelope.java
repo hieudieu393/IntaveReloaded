@@ -34,7 +34,7 @@ public final class FarBreakEnvelope extends MetaCheckPart<BreakSpeedLimiter, Far
       return;
     }
 
-    BlockDigReader reader = PacketReaders.readerOf(event.getPacket());
+    BlockDigReader reader = PacketReaders.readerOf(event);
     try {
       DiggingAction action = reader.action();
       if (action != DiggingAction.START_DESTROY_BLOCK

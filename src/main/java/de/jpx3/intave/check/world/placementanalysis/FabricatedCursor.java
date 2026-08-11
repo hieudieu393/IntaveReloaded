@@ -37,7 +37,7 @@ public final class FabricatedCursor extends CheckPart<PlacementAnalysis> {
   )
   public void receive(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    BlockInteractionReader reader = PacketReaders.readerOf(event.getPacket());
+    BlockInteractionReader reader = PacketReaders.readerOf(event);
     try {
       Vector cursor = reader.facingVector();
       BlockPosition position = reader.nativeBlockPosition();

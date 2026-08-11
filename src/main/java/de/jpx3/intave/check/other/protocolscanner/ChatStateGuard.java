@@ -31,10 +31,10 @@ public final class ChatStateGuard extends MetaCheckPart<ProtocolScanner, ChatSta
 
   @PacketSubscription(packetsIn = SETTINGS, ignoreCancelled = false)
   public void receiveSettings(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
-    WrapperPlayClientSettings wrapper = new WrapperPlayClientSettings((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientSettings wrapper = new WrapperPlayClientSettings((PacketReceiveEvent) event);
     metaOf(userOf(event.getPlayer())).chatHidden =
       wrapper.getChatVisibility() == WrapperCommonClientSettings.ChatVisibility.HIDDEN;
   }
@@ -44,11 +44,11 @@ public final class ChatStateGuard extends MetaCheckPart<ProtocolScanner, ChatSta
     ignoreCancelled = false
   )
   public void receiveChat(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
 
-    PacketReceiveEvent delegate = (PacketReceiveEvent) event.delegate();
+    PacketReceiveEvent delegate = (PacketReceiveEvent) event;
     String packetName = event.getPacketType() == null ? "" : event.getPacketType().name().toUpperCase(Locale.ROOT);
     String text;
     boolean command;

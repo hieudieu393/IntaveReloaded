@@ -41,8 +41,8 @@ public final class PlaceProtocolGuard extends MetaCheckPart<PlacementAnalysis, P
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
   public void dig(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
-    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event.delegate());
+    if (!(event instanceof PacketReceiveEvent)) return;
+    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event);
     if (dig.getAction() != DiggingAction.START_DIGGING || dig.getBlockPosition() == null) {
       return;
     }
@@ -64,9 +64,9 @@ public final class PlaceProtocolGuard extends MetaCheckPart<PlacementAnalysis, P
 
   @PacketSubscription(priority = LOWEST, packetsIn = {BLOCK_PLACE, USE_ITEM_ON}, ignoreCancelled = false)
   public void place(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+    if (!(event instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
-    WrapperPlayClientPlayerBlockPlacement place = new WrapperPlayClientPlayerBlockPlacement((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientPlayerBlockPlacement place = new WrapperPlayClientPlayerBlockPlacement((PacketReceiveEvent) event);
     Vector3i pos = place.getBlockPosition();
     if (pos == null) return;
 

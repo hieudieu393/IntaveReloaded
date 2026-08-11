@@ -23,10 +23,10 @@ public final class RespawnStateGuard extends MetaCheckPart<ProtocolScanner, Resp
 
   @PacketSubscription(packetsIn = CLIENT_COMMAND, ignoreCancelled = false)
   public void receive(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
-    WrapperPlayClientClientStatus wrapper = new WrapperPlayClientClientStatus((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientClientStatus wrapper = new WrapperPlayClientClientStatus((PacketReceiveEvent) event);
     if (wrapper.getAction() != WrapperPlayClientClientStatus.Action.PERFORM_RESPAWN) {
       return;
     }

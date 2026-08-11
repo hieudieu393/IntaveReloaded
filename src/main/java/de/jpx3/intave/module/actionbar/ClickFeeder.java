@@ -23,7 +23,7 @@ import org.bukkit.entity.Player;
 
 import java.util.*;
 
-import static com.comphenix.protocol.wrappers.DiggingAction.DROP_ITEM;
+import static com.github.retrooper.packetevents.protocol.player.DiggingAction.DROP_ITEM;
 import static de.jpx3.intave.math.MathHelper.formatDouble;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 import static java.lang.Math.pow;

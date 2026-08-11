@@ -33,11 +33,11 @@ public final class VehicleSignalGuard extends MetaCheck<VehicleSignalGuard.Meta>
 
   @PacketSubscription(priority = LOWEST, packetsIn = STEER_VEHICLE, ignoreCancelled = false)
   public void steer(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+    if (!(event instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     MovementMetadata movement = user.meta().movement();
     Meta meta = metaOf(user);
-    WrapperPlayClientSteerVehicle steer = new WrapperPlayClientSteerVehicle((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientSteerVehicle steer = new WrapperPlayClientSteerVehicle((PacketReceiveEvent) event);
 
     float sideways = steer.getSideways();
     float forward = steer.getForward();
@@ -67,11 +67,11 @@ public final class VehicleSignalGuard extends MetaCheck<VehicleSignalGuard.Meta>
 
   @PacketSubscription(priority = LOWEST, packetsIn = VEHICLE_MOVE, ignoreCancelled = false)
   public void move(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+    if (!(event instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     MovementMetadata movement = user.meta().movement();
     Meta meta = metaOf(user);
-    WrapperPlayClientVehicleMove move = new WrapperPlayClientVehicleMove((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientVehicleMove move = new WrapperPlayClientVehicleMove((PacketReceiveEvent) event);
     Vector3d position = move.getPosition();
 
     if (position == null || !Double.isFinite(position.x) || !Double.isFinite(position.y) || !Double.isFinite(position.z)

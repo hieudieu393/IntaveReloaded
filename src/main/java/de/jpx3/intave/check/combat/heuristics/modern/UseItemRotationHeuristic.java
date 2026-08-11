@@ -26,12 +26,12 @@ public final class UseItemRotationHeuristic extends ModernCombatHeuristic<UseIte
   @PacketSubscription(priority = LOW, packetsIn = USE_ITEM, ignoreCancelled = false)
   public void receiveUseItem(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    if (!applicable(user) || !(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!applicable(user) || !(event instanceof PacketReceiveEvent)) {
       reset(metaOf(user));
       return;
     }
 
-    WrapperPlayClientUseItem wrapper = new WrapperPlayClientUseItem((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientUseItem wrapper = new WrapperPlayClientUseItem((PacketReceiveEvent) event);
     float yaw = wrapper.getYaw();
     float pitch = wrapper.getPitch();
     Meta meta = metaOf(user);

@@ -26,11 +26,11 @@ public final class UseItemBreakCheck extends MetaCheckPart<BreakSpeedLimiter, Us
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
   public void receive(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
 
-    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event);
     DiggingAction action = dig.getAction();
     if (action != DiggingAction.START_DIGGING && action != DiggingAction.FINISHED_DIGGING) {
       return;

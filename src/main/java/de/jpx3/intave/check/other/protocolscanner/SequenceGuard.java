@@ -42,7 +42,7 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
       return;
     }
 
-    BlockInteractionReader reader = PacketReaders.readerOf(event.getPacket());
+    BlockInteractionReader reader = PacketReaders.readerOf(event);
     try {
       int sequence = reader.sequenceNumber(user);
       if (sequence < 0) {
@@ -86,7 +86,7 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
       return;
     }
 
-    BlockDigReader reader = PacketReaders.readerOf(event.getPacket());
+    BlockDigReader reader = PacketReaders.readerOf(event);
     try {
       DiggingAction action = reader.action();
       if (action != DiggingAction.START_DESTROY_BLOCK

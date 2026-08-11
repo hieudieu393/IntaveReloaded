@@ -58,7 +58,7 @@ public final class AirStuckGuard extends MetaCheck<AirStuckGuard.Meta> {
     PacketTypeCommon type = event.getPacketType();
 
     if (!PacketTypes.isClientEndTick(type)) {
-      PlayerMoveReader reader = PacketReaders.readerOf(event.getPacket());
+      PlayerMoveReader reader = PacketReaders.readerOf(event);
       try {
         if (reader.hasMovement()) {
           double x = reader.positionX();

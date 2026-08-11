@@ -35,7 +35,7 @@ public final class CombatMultiActionHeuristic extends ModernCombatHeuristic<Comb
 
   @PacketSubscription(priority = HIGH, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
   public void attack(ProtocolPacketEvent event) {
-    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
+    EntityUseReader reader = PacketReaders.readerOf(event);
     try {
       if (!reader.isAttackPacket()) {
         return;
@@ -93,7 +93,7 @@ public final class CombatMultiActionHeuristic extends ModernCombatHeuristic<Comb
   public void dig(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    BlockDigReader reader = PacketReaders.readerOf(event.getPacket());
+    BlockDigReader reader = PacketReaders.readerOf(event);
     try {
       DiggingAction action = reader.action();
       String actionName = action == null ? "" : action.name().toUpperCase(Locale.ROOT);

@@ -807,7 +807,7 @@ public final class MovementDispatcher extends Module {
   ) {
     user.tickFeedback(() -> {
 	    try (
-        WorldBorderReader reader = PacketReaders.readerOf(event.getPacket())
+        WorldBorderReader reader = PacketReaders.readerOf(event)
       ) {
         MovementMetadata movement = user.meta().movement();
         WorldBorder newBorder = reader.updated(movement.border());

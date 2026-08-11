@@ -108,7 +108,7 @@ public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPa
       return true;
     }
 
-    PlayerActionReader reader = PacketReaders.readerOf(event.getPacket());
+    PlayerActionReader reader = PacketReaders.readerOf(event);
     try {
       // Leaving a bed is allowed outside the normal movement-tick packet order on modern clients.
       return reader.playerAction() == PlayerAction.STOP_SLEEPING;

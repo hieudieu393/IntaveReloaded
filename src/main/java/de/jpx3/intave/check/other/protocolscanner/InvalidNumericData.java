@@ -30,7 +30,7 @@ public final class InvalidNumericData extends CheckPart<ProtocolScanner> {
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK}
   )
   public void receiveMovement(ProtocolPacketEvent event) {
-    PlayerMoveReader reader = PacketReaders.readerOf(event.getPacket());
+    PlayerMoveReader reader = PacketReaders.readerOf(event);
     try {
       if (reader.anyNaNOrInfiniteValue()) {
         flagAndCancel(event, "sent non-finite movement data");

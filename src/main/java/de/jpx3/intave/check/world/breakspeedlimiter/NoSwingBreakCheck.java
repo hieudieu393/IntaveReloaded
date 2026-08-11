@@ -31,7 +31,7 @@ public final class NoSwingBreakCheck extends MetaCheckPart<BreakSpeedLimiter, No
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
   public void dig(ProtocolPacketEvent event) {
-    BlockDigReader reader = PacketReaders.readerOf(event.getPacket());
+    BlockDigReader reader = PacketReaders.readerOf(event);
     try {
       DiggingAction action = reader.action();
       if (action == DiggingAction.START_DESTROY_BLOCK

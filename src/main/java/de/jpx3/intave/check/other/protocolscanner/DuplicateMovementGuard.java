@@ -56,7 +56,7 @@ public final class DuplicateMovementGuard extends MetaCheckPart<ProtocolScanner,
       return;
     }
 
-    PlayerMoveReader reader = PacketReaders.readerOf(event.getPacket());
+    PlayerMoveReader reader = PacketReaders.readerOf(event);
     try {
       MovementMetadata movement = user.meta().movement();
       boolean teleport = movement.awaitTeleport

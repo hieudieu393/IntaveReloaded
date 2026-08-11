@@ -20,7 +20,7 @@ import de.jpx3.intave.user.UserRepository;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
-import static com.comphenix.protocol.wrappers.DiggingAction.DROP_ITEM;
+import static com.github.retrooper.packetevents.protocol.player.DiggingAction.DROP_ITEM;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 import static de.jpx3.intave.module.violation.Violation.ViolationFlags.DISPLAY_IN_ALL_VERBOSE_MODES;
 

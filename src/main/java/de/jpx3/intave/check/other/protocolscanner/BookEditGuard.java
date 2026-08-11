@@ -33,12 +33,12 @@ public final class BookEditGuard extends CheckPart<ProtocolScanner> {
 
   @PacketSubscription(packetsIn = B_EDIT, ignoreCancelled = false)
   public void receive(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
 
     User user = userOf(event.getPlayer());
-    WrapperPlayClientEditBook wrapper = new WrapperPlayClientEditBook((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientEditBook wrapper = new WrapperPlayClientEditBook((PacketReceiveEvent) event);
     int slot = wrapper.getSlot();
     List<String> pages = wrapper.getPages();
     String title = wrapper.getTitle();

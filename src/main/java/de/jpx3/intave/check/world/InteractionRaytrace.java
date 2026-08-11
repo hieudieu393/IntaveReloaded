@@ -78,7 +78,7 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
-import static com.comphenix.protocol.wrappers.DiggingAction.*;
+import static com.github.retrooper.packetevents.protocol.player.DiggingAction.*;
 import static de.jpx3.intave.check.world.interaction.InteractionType.*;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.BLOCK_BREAK_ANIMATION;

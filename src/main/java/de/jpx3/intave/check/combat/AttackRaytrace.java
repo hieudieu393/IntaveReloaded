@@ -178,9 +178,6 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
       boolean resendLater = !firstRaytraceSuccessful || !pendingPushable;
       if (resendLater) {
         // Cancel attack and redirect it
-        if (event.isReadOnly()) {
-          event.setReadOnly(false);
-        }
         event.setCancelled(true);
       }
       if (user.receives(MessageChannel.DEBUG_PACKET_HOLD)) {

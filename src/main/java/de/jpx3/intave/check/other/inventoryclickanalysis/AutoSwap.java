@@ -34,7 +34,7 @@ public final class AutoSwap extends MetaCheckPart<InventoryClickAnalysis, AutoSw
   public void receiveClick(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    WindowClickReader reader = PacketReaders.readerOf(event.getPacket());
+    WindowClickReader reader = PacketReaders.readerOf(event);
     try {
       meta.clickCount++;
       if (reader.containerId() == 0

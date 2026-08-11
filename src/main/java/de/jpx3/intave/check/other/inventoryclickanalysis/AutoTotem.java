@@ -45,7 +45,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
   )
   public void receiveEntityStatus(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    EntityStatusReader reader = PacketReaders.readerOf(event.getPacket());
+    EntityStatusReader reader = PacketReaders.readerOf(event);
     try {
       Byte status = reader.status();
       if (status == null || status != TOTEM_POP_STATUS || !reader.targetEntityIdIsSameAs(user)) {
@@ -152,7 +152,7 @@ public final class AutoTotem extends MetaCheckPart<InventoryClickAnalysis, AutoT
     ignoreCancelled = false
   )
   public void receiveDig(ProtocolPacketEvent event) {
-    BlockDigReader reader = PacketReaders.readerOf(event.getPacket());
+    BlockDigReader reader = PacketReaders.readerOf(event);
     try {
       if (reader.action() != null && "SWAP_ITEM_WITH_OFFHAND".equals(reader.action().name())) {
         handlePopAwareSwap(userOf(event.getPlayer()));

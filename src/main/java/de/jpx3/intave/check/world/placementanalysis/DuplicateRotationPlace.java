@@ -24,7 +24,7 @@ public final class DuplicateRotationPlace extends MetaCheckPart<PlacementAnalysi
   @PacketSubscription(priority = LOWEST, packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK}, ignoreCancelled = false)
   public void movement(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    PlayerMoveReader reader = PacketReaders.readerOf(event.getPacket());
+    PlayerMoveReader reader = PacketReaders.readerOf(event);
     try {
       if (!reader.hasRotation()) return;
       Meta meta = metaOf(user);
