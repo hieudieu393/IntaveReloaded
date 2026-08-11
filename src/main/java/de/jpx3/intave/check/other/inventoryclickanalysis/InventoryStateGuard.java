@@ -8,6 +8,7 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPl
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerOpenWindow;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.events.PacketEvent;
+import de.jpx3.intave.check.CheckSignalConfiguration;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
 import de.jpx3.intave.executor.Synchronizer;
@@ -111,15 +112,10 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
         "clicked window=" + container + " after close in same client tick", 0.75D, 2.0D);
     }
 
-    // A native inventory is client-opened and has no server OPEN_WINDOW. A click is hard evidence
-    // that the GUI is open, so retain at least one tick of transition grace even if the metadata
-    // transition was observed between packet boundaries.
     if (container == 0 && user.meta().inventory().inventoryOpen()) {
       meta.openGraceTicks = Math.max(meta.openGraceTicks, 1);
     }
 
-    // Vanilla uses -999 as the outside/cursor drop slot. Values below that are not meaningful.
-    // Other negative values are reserved by some old inventory paths, so keep the hard bound wide.
     if (slot < OUTSIDE_SLOT) {
       makeWritableAndCancel(event);
       flag(user, "Inventory", "invalid inventory slot", "slot=" + slot + ", type=" + type, 8.0D);
@@ -131,8 +127,6 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     }
 
     meta.clicksThisTick++;
-    // A high threshold makes this independent from click-speed heuristics while catching packet
-    // fabrication/burst automation. Normal shift-clicking never approaches this in one client tick.
     if (meta.clicksThisTick > 12 && stable(user)) {
       score(user, meta, "inventory-burst",
         "clicks=" + meta.clicksThisTick + " in one client tick", 0.5D, 2.0D);
@@ -202,8 +196,6 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
       return;
     }
 
-    // Match vanilla/source behaviour: stopping sprint/sneak is expected when a GUI captures input,
-    // while new/start actions are suspicious. Do not cancel entity action to avoid state desync.
     score(user, meta, "entity-action-while-open", "action=" + action, 0.75D, 2.0D);
     closeInventory(user);
   }
@@ -223,8 +215,6 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     Meta meta = metaOf(user);
     boolean openNow = inventoryOpen(user, meta);
     if (openNow && !meta.lastInventoryOpen) {
-      // Native player inventory has no server OPEN_WINDOW packet. Detect the metadata edge here so
-      // movement/input inherited from the tick that opened the GUI cannot become InventoryMove.
       meta.openGraceTicks = Math.max(meta.openGraceTicks, 2);
     }
 
@@ -240,6 +230,10 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   }
 
   private void checkMovementWhileOpen(User user, Meta meta) {
+    if (!CheckSignalConfiguration.enabled("inventoryclickanalysis", "inventorymove")) {
+      decayRule(meta, "movement-while-open", 0.25D);
+      return;
+    }
     if (!inventoryOpen(user, meta) || meta.openGraceTicks > 0 || !stable(user)) {
       decayRule(meta, "movement-while-open", 0.20D);
       return;
@@ -315,8 +309,6 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     try {
       Synchronizer.synchronize(user.player()::closeInventory);
     } catch (Throwable ignored) {
-      // Inventory state validation must not become a packet-thread crash if a platform refuses the
-      // close operation. The cancelled action and state buffer remain effective.
     }
   }
 
