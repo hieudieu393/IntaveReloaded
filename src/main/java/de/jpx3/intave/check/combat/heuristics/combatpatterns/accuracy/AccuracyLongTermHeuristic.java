@@ -1,9 +1,8 @@
 package de.jpx3.intave.check.combat.heuristics.combatpatterns.accuracy;
 
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.events.PacketContainer;
-import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
 import de.jpx3.intave.check.combat.heuristics.HeuristicsClassicType;
@@ -20,51 +19,36 @@ import org.bukkit.entity.Player;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 
 public final class AccuracyLongTermHeuristic extends ClassicHeuristic<AccuracyLongTermHeuristic.ClickAccuracyMeta> {
-  public AccuracyLongTermHeuristic(Heuristics parentCheck) {
-    super(parentCheck, HeuristicsClassicType.ATTACK_ACCURACY, ClickAccuracyMeta.class);
-  }
+  public AccuracyLongTermHeuristic(Heuristics parentCheck) { super(parentCheck, HeuristicsClassicType.ATTACK_ACCURACY, ClickAccuracyMeta.class); }
 
-  @PacketSubscription(
-    packetsIn = {
-      ATTACK_ENTITY, USE_ENTITY, ARM_ANIMATION
-    }
-  )
+  @PacketSubscription(packetsIn = {ATTACK_ENTITY, USE_ENTITY, ARM_ANIMATION})
   public void evaluateFightAccuracy(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     AttackMetadata attackData = user.meta().attack();
     ClickAccuracyMeta heuristicMeta = metaOf(user);
     PacketTypeCommon packetType = event.getPacketType();
-    PacketContainer packet = event.getPacket();
     Entity entity = attackData.lastAttackedEntity();
-    if (entity == null || !entity.moving(0.05) || entity.ticksAlive < 200) {
-      return;
-    }
-    if (!attackData.recentlyAttacked(500) || attackData.recentlySwitchedEntity(1000)) {
-      return;
-    }
+    if (entity == null || !entity.moving(0.05) || entity.ticksAlive < 200) return;
+    if (!attackData.recentlyAttacked(500) || attackData.recentlySwitchedEntity(1000)) return;
     if (packetType == PacketType.Play.Client.ANIMATION) {
       heuristicMeta.swings++;
-    } else {
-      boolean isAttack;
-      try (EntityUseReader reader = PacketReaders.readerOf(packet)) {
-        isAttack = reader.isAttackPacket();
-      } catch (Exception e) {
-	      throw new RuntimeException(e);
+      return;
+    }
+    boolean isAttack;
+    try (EntityUseReader reader = PacketReaders.readerOf(event)) {
+      isAttack = reader.isAttackPacket();
+    }
+    if (!isAttack) return;
+    heuristicMeta.attacks++;
+    heuristicMeta.swings--;
+    double failRate = (heuristicMeta.swings / heuristicMeta.attacks) * 100.0;
+    if (heuristicMeta.attacks > 80) {
+      if (failRate >= 0 && failRate < 3) {
+        flag(player, "player maintains high attack accuracy (failRate: " + MathHelper.formatDouble(failRate, 2) + "%)");
       }
-	    if (isAttack) {
-        heuristicMeta.attacks++;
-        heuristicMeta.swings--;
-        double failRate = (heuristicMeta.swings / heuristicMeta.attacks) * 100.0;
-//        Synchronizer.synchronize(() -> player.sendMessage(String.valueOf(failRate)));
-        if (heuristicMeta.attacks > 80) {
-          if (failRate >= 0 && failRate < 3) {
-            flag(player, "player maintains high attack accuracy (failRate: " + MathHelper.formatDouble(failRate, 2) + "%)");
-          }
-          heuristicMeta.attacks = 0;
-          heuristicMeta.swings = 0;
-        }
-      }
+      heuristicMeta.attacks = 0;
+      heuristicMeta.swings = 0;
     }
   }
 
