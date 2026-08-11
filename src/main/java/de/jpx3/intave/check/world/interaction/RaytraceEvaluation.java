@@ -11,7 +11,6 @@
 
 package de.jpx3.intave.check.world.interaction;
 
-import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import de.jpx3.intave.check.world.InteractionRaytrace;
 import de.jpx3.intave.share.ClientMath;
 import de.jpx3.intave.share.MovingObjectPosition;
@@ -25,7 +24,7 @@ import org.bukkit.entity.Player;
 
 import java.util.Objects;
 
-import static com.github.retrooper.packetevents.protocol.player.DiggingAction.ABORT_DESTROY_BLOCK;
+import static com.github.retrooper.packetevents.protocol.player.DiggingAction.CANCELLED_DIGGING;
 import static de.jpx3.intave.check.world.interaction.InteractionType.EMPTY_INTERACT;
 
 public class RaytraceEvaluation {
@@ -36,14 +35,7 @@ public class RaytraceEvaluation {
   private final Location raycastLocation;
   private final Location targetLocation;
 
-  public RaytraceEvaluation(
-    InteractionRaytrace interactionRaytrace,
-    Interaction origin,
-    MovingObjectPosition raycastResult,
-    boolean airHit,
-    Location raycastLocation,
-    Location targetLocation
-  ) {
+  public RaytraceEvaluation(InteractionRaytrace interactionRaytrace, Interaction origin, MovingObjectPosition raycastResult, boolean airHit, Location raycastLocation, Location targetLocation) {
     this.interactionRaytrace = interactionRaytrace;
     this.origin = origin;
     this.raycastResult = raycastResult;
@@ -52,25 +44,11 @@ public class RaytraceEvaluation {
     this.targetLocation = targetLocation;
   }
 
-  public Interaction origin() {
-    return origin;
-  }
-
-  public MovingObjectPosition raycastResult() {
-    return raycastResult;
-  }
-
-  public boolean airHit() {
-    return airHit;
-  }
-
-  public Location raycastLocation() {
-    return raycastLocation;
-  }
-
-  public Location targetLocation() {
-    return targetLocation;
-  }
+  public Interaction origin() { return origin; }
+  public MovingObjectPosition raycastResult() { return raycastResult; }
+  public boolean airHit() { return airHit; }
+  public Location raycastLocation() { return raycastLocation; }
+  public Location targetLocation() { return targetLocation; }
 
   public boolean facingCheckFailed() {
     if (raycastResult != null && origin.hasFacing()) {
@@ -78,9 +56,7 @@ public class RaytraceEvaluation {
       float f = (float) (hitVec.x() - targetLocation.getX());
       float f1 = (float) (hitVec.y() - targetLocation.getY());
       float f2 = (float) (hitVec.z() - targetLocation.getZ());
-      return Math.abs(compressAndDecompress(f) - origin.facingX()) > 0.01 ||
-        Math.abs(compressAndDecompress(f1) - origin.facingY()) > 0.01 ||
-        Math.abs(compressAndDecompress(f2) - origin.facingZ()) > 0.01;
+      return Math.abs(compressAndDecompress(f) - origin.facingX()) > 0.01 || Math.abs(compressAndDecompress(f1) - origin.facingY()) > 0.01 || Math.abs(compressAndDecompress(f2) - origin.facingZ()) > 0.01;
     }
     return false;
   }
@@ -90,38 +66,18 @@ public class RaytraceEvaluation {
     return (float) (b & 0xFF) / 16.0F;
   }
 
-
-  public boolean hitMiss() {
-    return raycastResult == null || raycastResult.hitVec == RawVector3d.ZERO;
-  }
-
-  public boolean wrongBlockFace() {
-    return wrongBlockFace(origin, raycastResult);
-  }
+  public boolean hitMiss() { return raycastResult == null || raycastResult.hitVec == RawVector3d.ZERO; }
+  public boolean wrongBlockFace() { return wrongBlockFace(origin, raycastResult); }
 
   private boolean wrongBlockFace(Interaction interaction, MovingObjectPosition rayTraceResult) {
     Player player = interaction.player();
     User user = UserRepository.userOf(player);
     ProtocolMetadata protocol = user.meta().protocol();
-
     int sentIndex = interaction.targetDirectionIndex();
     int computedIndex = rayTraceResult == null ? sentIndex : rayTraceResult.sideHit.getIndex();
-
-    if (protocol.oppositeBlockVectorBehavior()
-      && interactionInHead(user, interaction)
-      && sentIndex == rayTraceResult.sideHit.getOpposite().getIndex()) {
-      return false;
-    }
-
-    // they don't send a block face here, don't make unnecessary adjustments
-    if (interaction.digType() == ABORT_DESTROY_BLOCK && sentIndex == 0) {
-      return false;
-    }
-
-    if (interaction.type() == EMPTY_INTERACT && sentIndex == 255) {
-      return false;
-    }
-
+    if (protocol.oppositeBlockVectorBehavior() && interactionInHead(user, interaction) && sentIndex == rayTraceResult.sideHit.getOpposite().getIndex()) return false;
+    if (interaction.digType() == CANCELLED_DIGGING && sentIndex == 0) return false;
+    if (interaction.type() == EMPTY_INTERACT && sentIndex == 255) return false;
     return computedIndex != sentIndex;
   }
 
@@ -134,31 +90,17 @@ public class RaytraceEvaluation {
     return xDiff == 0 && yDiff == 0 && zDiff == 0;
   }
 
-  public boolean positionMismatch() {
-    return positionMismatch(origin, raycastLocation, targetLocation);
-  }
+  public boolean positionMismatch() { return positionMismatch(origin, raycastLocation, targetLocation); }
 
-  private boolean positionMismatch(
-    Interaction interaction,
-    Location raycastLocation,
-    Location targetLocation
-  ) {
-    if (interaction.type() == EMPTY_INTERACT) {
-      return targetLocation.getBlockX() != -1 || targetLocation.getBlockY() != -1 || targetLocation.getBlockZ() != -1;
-    }
+  private boolean positionMismatch(Interaction interaction, Location raycastLocation, Location targetLocation) {
+    if (interaction.type() == EMPTY_INTERACT) return targetLocation.getBlockX() != -1 || targetLocation.getBlockY() != -1 || targetLocation.getBlockZ() != -1;
     return raycastLocation.distance(targetLocation) > 0;
   }
 
-  public boolean isValid() {
-    return !isInvalid();
-  }
-
+  public boolean isValid() { return !isInvalid(); }
   private Boolean invalidCache = null;
-
   public boolean isInvalid() {
-    if (invalidCache != null) {
-      return invalidCache;
-    }
+    if (invalidCache != null) return invalidCache;
     return invalidCache = (hitMiss() || positionMismatch() || wrongBlockFace());
   }
 
@@ -166,16 +108,12 @@ public class RaytraceEvaluation {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-
     RaytraceEvaluation that = (RaytraceEvaluation) o;
-
     if (airHit != that.airHit) return false;
     if (!Objects.equals(origin, that.origin)) return false;
     if (!Objects.equals(raycastResult, that.raycastResult)) return false;
-    if (!Objects.equals(raycastLocation, that.raycastLocation))
-      return false;
-    if (!Objects.equals(targetLocation, that.targetLocation))
-      return false;
+    if (!Objects.equals(raycastLocation, that.raycastLocation)) return false;
+    if (!Objects.equals(targetLocation, that.targetLocation)) return false;
     return Objects.equals(invalidCache, that.invalidCache);
   }
 
