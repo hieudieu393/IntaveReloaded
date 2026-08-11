@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   compile-diagnostics:
@@ -17,11 +17,34 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
-      - name: Capture fixture inventory
+      - name: Capture fixture inventory and resolved classpath
         shell: bash
         run: |
           set -euo pipefail
           find libs -maxdepth 1 -type f -name '*.jar' -printf '%f\n' | sort > legacy-fixtures.txt
+          cat > /tmp/classpath.init.gradle <<'GRADLE'
+          allprojects {
+            afterEvaluate { p ->
+              if (p == rootProject) {
+                tasks.register('printNativeCompileClasspath') {
+                  doLast {
+                    configurations.compileClasspath.files.sort().each { println it.absolutePath }
+                  }
+                }
+              }
+            }
+          }
+          GRADLE
+          ./gradlew --no-daemon -q -I /tmp/classpath.init.gradle printNativeCompileClasspath > compile-classpath.txt
+          : > packet-api-contents.txt
+          while IFS= read -r jar; do
+            base="$(basename "$jar")"
+            if [[ "$base" == *packetevents* || "$base" == *PacketEvents* || "$base" == *ProtocolLib* || "$base" == *protocollib* ]]; then
+              printf '=== %s ===\n' "$jar" >> packet-api-contents.txt
+              sha256sum "$jar" >> packet-api-contents.txt
+              jar tf "$jar" | grep -E 'DiggingAction|WrapperPlayClientPlayerDigging|PacketContainer|StructureModifier' >> packet-api-contents.txt || true
+            fi
+          done < compile-classpath.txt
       - name: Compile with full log
         shell: bash
         run: |
@@ -37,6 +60,8 @@ jobs:
           path: |
             compile.log
             compile-status.txt
+            compile-classpath.txt
+            packet-api-contents.txt
             legacy-fixtures.txt
           if-no-files-found: error
           retention-days: 2
