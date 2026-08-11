@@ -1,0 +1,38 @@
+name: Native PacketEvents audit
+
+on:
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  no-protocollib-bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inventory ProtocolLib compatibility usage
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== ProtocolLib references under Intave runtime source ==='
+          if grep -RIn --include='*.java' --include='*.kt' \
+              -E '(^|[^A-Za-z0-9_])(com\.comphenix\.protocol|ProtocolLibrary|ProtocolManager|PacketContainer|StructureModifier|MovingObjectPositionBlock)([^A-Za-z0-9_]|$)' \
+              src/main/java/de/jpx3/intave; then
+            echo 'ProtocolLib compatibility references remain; native PacketEvents migration is incomplete.' >&2
+            exit 1
+          fi
+          echo 'No ProtocolLib compatibility references remain in Intave runtime source.'
+
+      - name: Reject embedded ProtocolLib compatibility namespace
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -d src/main/java/com/comphenix ]]; then
+            find src/main/java/com/comphenix -type f -print | sort
+            echo 'Embedded ProtocolLib compatibility namespace still exists.' >&2
+            exit 1
+          fi
