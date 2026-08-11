@@ -3,6 +3,8 @@ package de.jpx3.intave.module.violation;
 import com.google.common.base.Preconditions;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.check.Check;
+import de.jpx3.intave.check.CheckNames;
+import de.jpx3.intave.check.combat.AttackRaytrace;
 import de.jpx3.intave.module.violation.placeholder.PlaceholderContext;
 import de.jpx3.intave.user.User;
 import org.bukkit.Bukkit;
@@ -31,6 +33,7 @@ public final class Violation {
   private final Map<String, String> placeholders;
   private final Map<String, String> granular;
   private final int optionFlags;
+  private final String checkNameOverride;
 
   private Violation(
     Class<? extends Check> checkClass,
@@ -41,7 +44,8 @@ public final class Violation {
     double addedViolationPoints,
     Map<String, String> placeholders,
     Map<String, String> granular,
-    int optionFlags
+    int optionFlags,
+    String checkNameOverride
   ) {
     this.checkClass = checkClass;
     this.id = id;
@@ -52,10 +56,27 @@ public final class Violation {
     this.placeholders = placeholders;
     this.granular = granular;
     this.optionFlags = optionFlags;
+    this.checkNameOverride = checkNameOverride;
   }
 
   public Check check() {
     return IntavePlugin.singletonInstance().checks().searchCheck(checkClass);
+  }
+
+  /**
+   * User-facing detection name. This may identify a sub-check (Aim, NoFall, AutoTotem, ...)
+   * while {@link #check()} continues to resolve the legacy parent check that owns config/VL.
+   */
+  public String checkName() {
+    if (checkNameOverride != null && !checkNameOverride.trim().isEmpty()) {
+      return checkNameOverride;
+    }
+    if (checkClass == AttackRaytrace.class
+      && threshold != null
+      && threshold.toLowerCase(Locale.ROOT).contains("hitbox")) {
+      return "HitBox";
+    }
+    return CheckNames.canonicalFor(check());
   }
 
   public Class<? extends Check> checkClass() {
@@ -127,6 +148,7 @@ public final class Violation {
     private Map<String, String> placeholders;
     private final Map<String, String> granularKeyValuePairs = new LinkedHashMap<>();
     private int optionFlags = 0;
+    private String checkNameOverride;
 
     private boolean constructed;
 
@@ -141,6 +163,14 @@ public final class Violation {
 
     public Builder forPlayer(Player player) {
       this.playerid = player.getUniqueId();
+      return this;
+    }
+
+    /**
+     * Override only the user-facing detection name. Parent check ownership/config stays unchanged.
+     */
+    public Builder withCheckName(String checkName) {
+      this.checkNameOverride = checkName;
       return this;
     }
 
@@ -223,7 +253,7 @@ public final class Violation {
       }
       return new Violation(
         checkClass, playerid, baseMessage, details, threshold,
-        addedViolationPoints, placeholders, granularKeyValuePairs, optionFlags
+        addedViolationPoints, placeholders, granularKeyValuePairs, optionFlags, checkNameOverride
       );
     }
   }

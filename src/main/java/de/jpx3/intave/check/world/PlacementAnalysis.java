@@ -41,14 +41,16 @@ public final class PlacementAnalysis extends Check {
       appendPlayerCheckPart(Snap.class);
       appendPlayerCheckPart(SharpRotation.class);
       appendPlayerCheckPart(BlockRotation.class);
-      // appendPlayerCheckPart(SneakAndPlace.class);
-//      }
     } catch (Exception | Error e) {
       // classes might be missing
     }
     appendPlayerCheckPart(RotationSpeed.class);
-//    appendPlayerCheckPart(PacketOrder.class);
     appendCheckPart(new Facing(this));
+    appendCheckPart(new PlacementPacketConsistency(this));
+    appendCheckPart(new FabricatedCursor(this));
+    appendCheckPart(new FarPlaceEnvelope(this));
+    appendCheckPart(new PlaceProtocolGuard(this));
+    appendCheckPart(new DuplicateRotationPlace(this));
     appendPlayerCheckPart(RoundedRotation.class);
 
     appendPlayerCheckPart(AngleSnap.class);
@@ -70,16 +72,12 @@ public final class PlacementAnalysis extends Check {
     YamlConfiguration settings = IntavePlugin.singletonInstance().settings();
     ConfigurationSection section = settings.getConfigurationSection("check.placementanalysis.cloud-thresholds.on-premise");
     if (section != null) {
-//      IntaveLogger.logger().info("Using new placementanalysis format");
       return legacyConfigLayCache = false;
     } else {
-//      IntaveLogger.logger().info("Still using old placementanalysis config format");
       return legacyConfigLayCache = true;
     }
   }
 
   public void applyPlacementAnalysisDamageCancel(User user, String checkId) {
-//    user.nerf(AttackNerfStrategy.CANCEL_FIRST_HIT, checkId);
-//    user.nerf(AttackNerfStrategy.DMG_LIGHT, checkId);
   }
 }

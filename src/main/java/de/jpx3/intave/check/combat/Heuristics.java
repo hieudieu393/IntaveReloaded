@@ -10,9 +10,12 @@ import de.jpx3.intave.check.combat.heuristics.combatpatterns.accuracy.AccuracyHi
 import de.jpx3.intave.check.combat.heuristics.combatpatterns.accuracy.AccuracyLongTermHeuristic;
 import de.jpx3.intave.check.combat.heuristics.combatpatterns.rotation.*;
 import de.jpx3.intave.check.combat.heuristics.inventory.PacketInventoryHeuristic;
+import de.jpx3.intave.check.combat.heuristics.modern.CombatBehaviorHeuristic;
 import de.jpx3.intave.check.combat.heuristics.modern.CombatFreezeHeuristic;
+import de.jpx3.intave.check.combat.heuristics.modern.CombatMultiActionHeuristic;
 import de.jpx3.intave.check.combat.heuristics.modern.CombatObstructionHeuristic;
 import de.jpx3.intave.check.combat.heuristics.modern.CombatRotationHeuristic;
+import de.jpx3.intave.check.combat.heuristics.modern.UseItemRotationHeuristic;
 import de.jpx3.intave.check.combat.heuristics.other.*;
 import de.jpx3.intave.check.combat.heuristics.testing.TestingHeuristic;
 import org.bukkit.entity.Player;
@@ -53,11 +56,13 @@ public final class Heuristics extends Check {
     appendCheckPart(new NoSwingHeuristic(this));
     appendCheckPart(new CivbreakHeuristic(this));
 
-    // Modern combat analysis extends the existing Heuristics pipeline rather than creating a
-    // parallel combat subsystem. AttackRaytrace remains authoritative for reach/hitbox checks.
+    // Layer independent modern signals onto the same KillAura/Aim VL pipeline.
     appendCheckPart(new CombatRotationHeuristic(this));
+    appendCheckPart(new UseItemRotationHeuristic(this));
     appendCheckPart(new CombatFreezeHeuristic(this));
     appendCheckPart(new CombatObstructionHeuristic(this));
+    appendCheckPart(new CombatMultiActionHeuristic(this));
+    appendCheckPart(new CombatBehaviorHeuristic(this));
   }
 
   private void loadClassicConfiguration() {

@@ -29,11 +29,12 @@ public final class ProtocolMetadata {
   public static int VER_1_21_6 = 771; // 1.21.6
   public static int VER_1_21_5 = 770; // 1.21.5
   public static int VER_1_21_4 = 769; // 1.21.4
-  public static int VER_1_21_3 = 768; // 1.21.3
-  public static int VER_1_21 = 767; // 1.21
+  public static int VER_1_21_3 = 768; // 1.21.2 - 1.21.3
+  public static int VER_1_21 = 767; // 1.21 - 1.21.1
+  public static int VER_1_20_5 = 766; // 1.20.5 - 1.20.6
   // final has been removed to disguise modified integer VERSION_DETAILS
-  public static int VER_1_20_2 = 764; // 1.21.2
-  public static int VER_1_20 = 763; // 1.17
+  public static int VER_1_20_2 = 764; // 1.20.2
+  public static int VER_1_20 = 763; // 1.20 - 1.20.1
   public static int VER_1_19_4 = 762; // 1.19.4
   public static int VER_1_19_2 = 760; // 1.19.2
   public static int VER_1_18_2 = 758; // 1.18.2
@@ -218,6 +219,10 @@ public final class ProtocolMetadata {
     return protocolVersion < VER_1_15 && protocolVersion >= VER_1_14;
   }
 
+  public boolean supportsInteractionRangeAttributes() {
+    return protocolVersion >= VER_1_20_5;
+  }
+
   public boolean motionResetOnCollision() {
     return protocolVersion < VER_1_14;
   }
@@ -278,17 +283,17 @@ public final class ProtocolMetadata {
     return protocolVersion < VER_1_18_2;
   }
 
-	public boolean newMotionClampLogic() {
-		return protocolVersion >= VER_1_21_5;
-	}
+  public boolean newMotionClampLogic() {
+    return protocolVersion >= VER_1_21_5;
+  }
 
-	public boolean bubbleColumnSurfaceUsesCollisionAndFluid() {
-		return protocolVersion >= VER_1_21_5;
-	}
+  public boolean bubbleColumnSurfaceUsesCollisionAndFluid() {
+    return protocolVersion >= VER_1_21_5;
+  }
 
-	public boolean powderSnowInsideShapeUsesCollisionContext() {
-		return protocolVersion >= VER_1_21_5;
-	}
+  public boolean powderSnowInsideShapeUsesCollisionContext() {
+    return protocolVersion >= VER_1_21_5;
+  }
 
   public boolean newBlockEntityIntersectionLogic() {
     return protocolVersion >= VER_1_21_3;

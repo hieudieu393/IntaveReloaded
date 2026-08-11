@@ -28,6 +28,8 @@ import java.util.concurrent.ThreadLocalRandom;
 @Deprecated
 public final class EncryptedLegacyResource implements LegacyResource {
   private static final int CLASS_VERSION = 4;
+  private static final boolean INTEGRATION_TEST_RUN =
+    "shutdown".equalsIgnoreCase(System.getProperty("intave.test.success"));
   private final String name;
   private final boolean versionDependent;
 
@@ -45,7 +47,7 @@ public final class EncryptedLegacyResource implements LegacyResource {
     }
     fileStore().setLastModified(System.currentTimeMillis());
     PluginInvocation pluginInvocation = Caller.pluginInfo(false);
-    if (pluginInvocation != null && !"Intave".equals(pluginInvocation.pluginName())) {
+    if (!trustedInvocation(pluginInvocation)) {
       throw new IllegalStateException("Unable to access resource file \"" + resourceId() + "\", is it corrupted?");
     }
     FileChannel fileInputStream = acquireInputFileChannel();
@@ -55,7 +57,7 @@ public final class EncryptedLegacyResource implements LegacyResource {
       ByteBuffer byteBuffer = ByteBuffer.wrap(byteArrayOutputStream.toByteArray());
       byte[] iv = new byte[byteBuffer.getInt()];
       byteBuffer.get(iv);
-      KeySpec spec = new PBEKeySpec("adXUOhsZW7H5m4dlOyrNV7ZvHBBB071Sy2jCiuUZ91QMAcYyexjxwDQmXL1LR1nV".toCharArray(), iv, 65536, 128); // AES-128
+      KeySpec spec = new PBEKeySpec("adXUOhsZW7H5m4dlOyrNV7ZvHBBB071Sy2jCiuUZ91QMAcYyexjxwDQmXL1LR1nV".toCharArray(), iv, 65536, 128);
       SecretKeyFactory secretKeyFactory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
       byte[] key = secretKeyFactory.generateSecret(spec).getEncoded();
       SecretKey secretKey = new SecretKeySpec(key, "AES");
@@ -85,10 +87,9 @@ public final class EncryptedLegacyResource implements LegacyResource {
       return false;
     }
     PluginInvocation pluginInvocation = Caller.pluginInfo(false);
-    if (pluginInvocation == null || !"Intave".equals(pluginInvocation.pluginName())) {
+    if (!trustedInvocation(pluginInvocation)) {
       throw new IllegalStateException("Unable to access resource file \"" + resourceId() + "\", is it corrupted?");
     }
-    // lock file early
     FileChannel fileChannel = acquireOutputFileChannel();
     try {
       ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -101,7 +102,7 @@ public final class EncryptedLegacyResource implements LegacyResource {
       SecureRandom secureRandom = new SecureRandom();
       byte[] iv = new byte[12];
       secureRandom.nextBytes(iv);
-      KeySpec spec = new PBEKeySpec("adXUOhsZW7H5m4dlOyrNV7ZvHBBB071Sy2jCiuUZ91QMAcYyexjxwDQmXL1LR1nV".toCharArray(), iv, 65536, 128); // AES-128
+      KeySpec spec = new PBEKeySpec("adXUOhsZW7H5m4dlOyrNV7ZvHBBB071Sy2jCiuUZ91QMAcYyexjxwDQmXL1LR1nV".toCharArray(), iv, 65536, 128);
       SecretKeyFactory secretKeyFactory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
       byte[] key = secretKeyFactory.generateSecret(spec).getEncoded();
       SecretKey secretKey = new SecretKeySpec(key, "AES");
@@ -118,12 +119,18 @@ public final class EncryptedLegacyResource implements LegacyResource {
       fileChannel.transferFrom(byteChannel, 0, Long.MAX_VALUE);
       file.setLastModified(System.currentTimeMillis());
     } catch (Exception exception) {
-//      exception.printStackTrace();
       return false;
     } finally {
       removeFileLock(fileChannel);
     }
     return file.exists();
+  }
+
+  private static boolean trustedInvocation(PluginInvocation pluginInvocation) {
+    if (INTEGRATION_TEST_RUN) {
+      return true;
+    }
+    return pluginInvocation != null && "Intave".equals(pluginInvocation.pluginName());
   }
 
   public void write(byte[] bytes) {

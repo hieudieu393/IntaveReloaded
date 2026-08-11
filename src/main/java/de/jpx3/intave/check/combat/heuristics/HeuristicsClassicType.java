@@ -1,25 +1,27 @@
 package de.jpx3.intave.check.combat.heuristics;
 
 public enum HeuristicsClassicType {
-  ATTACK_ACCURACY("attack-accuracy"),
-  ATTACK_REQUIRED("attack-required"),
-  PRE_ATTACK("pre-attack"),
-  ROTATION_ACCURACY("rotation-accuracy"),
-  ROTATION_EXACT("rotation-exact"),
-  ROTATION_SNAP("rotation-snap"),
-  ROTATION_SENSITIVITY("rotation-sensitivity"),
-  ROTATION_MODULO_RESET("rotation-reset"),
-  INVENTORY_ROTATIONS("inventory-rotations"),
-  BLOCKING("blocking"),
-  NO_SWING("no-swing"),
-  SWING_ORDER("swing-order"),
-  SPRINT_TOGGLES("sprint-toggles"),
-  TOOL_SWITCH("tool-switch");
+  ATTACK_ACCURACY("attack-accuracy", "Aim"),
+  ATTACK_REQUIRED("attack-required", "KillAura"),
+  PRE_ATTACK("pre-attack", "KillAura"),
+  ROTATION_ACCURACY("rotation-accuracy", "Aim"),
+  ROTATION_EXACT("rotation-exact", "Aim"),
+  ROTATION_SNAP("rotation-snap", "Aim"),
+  ROTATION_SENSITIVITY("rotation-sensitivity", "Aim"),
+  ROTATION_MODULO_RESET("rotation-reset", "Aim"),
+  INVENTORY_ROTATIONS("inventory-rotations", "KillAura"),
+  BLOCKING("blocking", "KillAura"),
+  NO_SWING("no-swing", "KillAura"),
+  SWING_ORDER("swing-order", "KillAura"),
+  SPRINT_TOGGLES("sprint-toggles", "KillAura"),
+  TOOL_SWITCH("tool-switch", "KillAura");
 
   private final String configurationName;
+  private final String checkName;
 
-  HeuristicsClassicType(String configurationName) {
+  HeuristicsClassicType(String configurationName, String checkName) {
     this.configurationName = configurationName;
+    this.checkName = checkName;
   }
 
   public String configurationName() {
@@ -28,5 +30,9 @@ public enum HeuristicsClassicType {
 
   public String verboseName() {
     return configurationName;
+  }
+
+  public String checkName() {
+    return checkName;
   }
 }

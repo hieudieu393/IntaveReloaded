@@ -11,6 +11,11 @@ import de.jpx3.intave.check.combat.ClickSpeedLimiter;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.check.movement.Timer;
+import de.jpx3.intave.check.movement.physics.AirStuckGuard;
+import de.jpx3.intave.check.movement.physics.ElytraSignalGuard;
+import de.jpx3.intave.check.movement.physics.GroundSpoofGuard;
+import de.jpx3.intave.check.movement.physics.MovementSignalGuard;
+import de.jpx3.intave.check.movement.physics.VehicleSignalGuard;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
@@ -21,25 +26,6 @@ import de.jpx3.intave.cleanup.ShutdownTasks;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * A {@link CheckService} initializes, holds and links implementation classes of class {@link Check}.
- * Every instance of the implementation class of class {@link Check} must be singleton throughout the entire
- * lifespan of our application - ensured with the use of class-keys.
- * <p>
- * It will instantiate all known implementations of class {@link Check} with {@link CheckService#setup()}, following
- * command linkage, to find and link any subscriptions within the instantiated {@link Check}.<br>
- * For the lifespan of the application, a {@link CheckService} will hold these checks, and
- * as the references are mostly immutable, pre-render different access caches allowing fast {@link Check} lookups
- * via {@link CheckService#searchCheck(String)} and {@link CheckService#searchCheck(Class)}.
- * Once {@link CheckService#reset()} is called (when the application terminates), it will terminate all subscriptions and
- * clear all check-references.
- *
- * @see CheckLinker
- * @see Check
- * @see CheckPart
- * @see MetaCheck
- * @see MetaCheckPart
- */
 @HighOrderService
 public final class CheckService {
   private final IntavePlugin plugin;
@@ -53,11 +39,13 @@ public final class CheckService {
     this.plugin = plugin;
   }
 
-  /**
-   * Load known checks, bake quick access, and link packet- and bukkit-subscriptions
-   */
   public void setup() {
     addCheck(Physics.class);
+    addCheck(AirStuckGuard.class);
+    addCheck(GroundSpoofGuard.class);
+    addCheck(MovementSignalGuard.class);
+    addCheck(ElytraSignalGuard.class);
+    addCheck(VehicleSignalGuard.class);
     addCheck(InteractionRaytrace.class);
     addCheck(Heuristics.class);
     addCheck(AttackRaytrace.class);
@@ -77,9 +65,6 @@ public final class CheckService {
     ShutdownTasks.addBeforeAll(this::reset);
   }
 
-  /**
-   * Remove packet- and bukkit-subscriptions, reset quick access, remove checks
-   */
   public void reset() {
     checkLinker.removeBukkitEventSubscriptions(checks);
     checkLinker.removePacketEventSubscriptions(checks);
@@ -114,14 +99,34 @@ public final class CheckService {
     nameRequestCache = new HashMap<>();
     checkNames = new ArrayList<>();
     for (Check check : checks) {
-      checkNames.add(check.name());
+      String internal = check.name();
+      String canonical = CheckNames.canonicalFor(check);
+      checkNames.add(canonical);
       classRequestCache.put(check.getClass(), check);
-      nameRequestCache.put(check.name().toLowerCase(Locale.ROOT), check);
+      nameRequestCache.put(internal.toLowerCase(Locale.ROOT), check);
+      nameRequestCache.putIfAbsent(canonical.toLowerCase(Locale.ROOT), check);
     }
+    putAlias("Aim", Heuristics.class);
+    putAlias("NoSlow", Physics.class);
+    putAlias("Phase", Physics.class);
+    putAlias("Sprint", Physics.class);
+    putAlias("AutoTotem", InventoryClickAnalysis.class);
+    putAlias("AutoSwap", InventoryClickAnalysis.class);
+
     classRequestCache = ImmutableMap.copyOf(classRequestCache);
     nameRequestCache = ImmutableMap.copyOf(nameRequestCache);
     checkNames = ImmutableList.copyOf(checkNames);
     checks = ImmutableList.copyOf(checks);
+  }
+
+  private void putAlias(String alias, Class<? extends Check> owner) {
+    Check check = classRequestCache.get(owner);
+    if (check != null) {
+      nameRequestCache.put(alias.toLowerCase(Locale.ROOT), check);
+      if (!checkNames.contains(alias)) {
+        checkNames.add(alias);
+      }
+    }
   }
 
   private void resetQuickAccess() {
@@ -130,14 +135,6 @@ public final class CheckService {
     checkNames = new ArrayList<>();
   }
 
-  /**
-   * Lookup a {@link Check} by its intrinsically unique {@code class}.
-   *
-   * @param checkClass the corresponding check class
-   * @param <T>        the corresponding check type
-   * @return the check
-   * @throws IllegalStateException when the check could not be found
-   */
   public <T extends Check> T searchCheck(Class<T> checkClass) {
     Check check = classRequestCache.get(checkClass);
     if (check == null) {
@@ -154,19 +151,12 @@ public final class CheckService {
     return (T) check;
   }
 
-  /**
-   * Lookup a {@link Check} by its name.
-   *
-   * @param checkName the corresponding check name
-   * @param <T>       the corresponding check type
-   * @return the check
-   * @throws IllegalStateException when the check could not be found
-   */
   public <T extends Check> T searchCheck(String checkName) {
-    Check check = nameRequestCache.get(checkName.toLowerCase());
+    Check check = nameRequestCache.get(checkName.toLowerCase(Locale.ROOT));
     if (check == null) {
       for (Check intaveCheck : checks) {
-        if (intaveCheck.name().equalsIgnoreCase(checkName)) {
+        if (intaveCheck.name().equalsIgnoreCase(checkName)
+          || CheckNames.canonicalFor(intaveCheck).equalsIgnoreCase(checkName)) {
           //noinspection unchecked
           return (T) intaveCheck;
         }
@@ -177,22 +167,15 @@ public final class CheckService {
     return (T) check;
   }
 
-  /**
-   * Checks whether a check with the given name exists in cache.
-   *
-   * @param checkName the name of the check
-   * @return {@code true} if it contains the check, {@code false} if it doesn't
-   */
   public boolean hasCheck(String checkName) {
-    return nameRequestCache.containsKey(checkName.toLowerCase());
+    return nameRequestCache.containsKey(checkName.toLowerCase(Locale.ROOT));
   }
 
-  /**
-   * Retrieves a {@link Collection} of the instances of all implementations of the {@link Check} class.
-   *
-   * @return all checks
-   */
   public Collection<Check> checks() {
     return checks;
+  }
+
+  public Collection<String> checkNames() {
+    return checkNames;
   }
 }

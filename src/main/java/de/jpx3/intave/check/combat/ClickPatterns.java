@@ -36,7 +36,8 @@ public final class ClickPatterns extends Check {
     );
     appendCheckParts(
       new EqualDelay(this),
-      new Bursts(this)
+      new Bursts(this),
+      new ModernAttackIntervals(this)
     );
   }
 
@@ -51,7 +52,8 @@ public final class ClickPatterns extends Check {
 
   public void makeDetection(Player player, String details, String specifics, double vl) {
     User user = userOf(player);
-    // Disable auto-clicker checks for players on 1.13 or higher due to integrated auto-clicker causing false flags
+    // Legacy swing-pattern checks are intentionally disabled for modern clients because vanilla
+    // click behaviour changed. ModernAttackIntervals separately analyses confirmed ATTACK packets.
     if (user.protocolVersion() >= VER_1_13) {
       return;
     }
@@ -67,4 +69,3 @@ public final class ClickPatterns extends Check {
     }
   }
 }
-

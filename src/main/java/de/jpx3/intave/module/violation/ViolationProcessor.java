@@ -101,6 +101,7 @@ public final class ViolationProcessor extends Module {
     }
     Violation violation = violationContext.violation();
     Player player = violation.findPlayer().orElseThrow(IllegalStateException::new);
+    // Keep the legacy/internal key for VL storage and prevention settings so existing configs remain compatible.
     String checkName = violation.check().name().toLowerCase(Locale.ROOT);
     String thresholdsKey = violation.threshold();
     double violationLevelAdded = violation.addedViolationPoints();
@@ -126,7 +127,7 @@ public final class ViolationProcessor extends Module {
     }
     Violation violation = violationContext.violation();
     Player player = violation.findPlayer().orElseThrow(IllegalStateException::new);
-    String checkName = violation.check().name().toLowerCase(Locale.ROOT);
+    String checkName = violation.checkName();
     String message = violation.message();
     String details = violation.details();
     double oldVl = violationContext.violationLevelBefore();
@@ -194,7 +195,7 @@ public final class ViolationProcessor extends Module {
     Violation violation = violationContext.violation();
     Player player = violation.findPlayer().orElseThrow(IllegalStateException::new);
     User user = UserRepository.userOf(player);
-    String checkName = violation.check().name().toLowerCase(Locale.ROOT);
+    String checkName = violation.checkName();
     // default verbose
 
 //    boolean doVerbose = false;
@@ -250,6 +251,7 @@ public final class ViolationProcessor extends Module {
     try {
       Violation violation = violationContext.violation();
       Player player = violation.findPlayer().orElseThrow(IllegalStateException::new);
+      // Keep the internal parent name for VL persistence so virtual names share the parent's state.
       String checkName = violation.check().name().toLowerCase(Locale.ROOT);
       String threshold = violation.threshold();
       double violationLevelAfter = violationContext.violationLevelAfter();
@@ -285,7 +287,7 @@ public final class ViolationProcessor extends Module {
     }
     Violation violation = violationContext.violation();
     Player player = violation.findPlayer().orElseThrow(IllegalStateException::new);
-    String checkName = violation.check().name().toLowerCase(Locale.ROOT);
+    String checkName = violation.checkName();
     String message = violation.message();
     String details = violation.details();
     double afterVL = violationContext.violationLevelAfter();
@@ -316,7 +318,7 @@ public final class ViolationProcessor extends Module {
   private void executeCommand(ViolationContext violationContext, String command) {
     Violation violation = violationContext.violation();
     Player player = violation.findPlayer().orElseThrow(IllegalStateException::new);
-    String checkName = violation.check().name().toLowerCase(Locale.ROOT);
+    String checkName = violation.checkName();
     Synchronizer.synchronize(() -> {
       boolean playerRemoved = command.startsWith("ban") || command.startsWith("kick");
       if (playerRemoved) {

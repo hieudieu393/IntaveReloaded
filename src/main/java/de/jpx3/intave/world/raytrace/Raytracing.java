@@ -11,6 +11,10 @@
 
 package de.jpx3.intave.world.raytrace;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import com.github.retrooper.packetevents.protocol.component.ComponentTypes;
+import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemAttackRange;
 import de.jpx3.intave.check.movement.physics.environment.Pose;
 import de.jpx3.intave.diagnostic.timings.Timings;
 import de.jpx3.intave.math.SinusCache;
@@ -23,12 +27,16 @@ import de.jpx3.intave.share.RawVector3d;
 import de.jpx3.intave.user.MessageChannel;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
+import de.jpx3.intave.user.meta.InventoryMetadata;
 import de.jpx3.intave.user.meta.MetadataBundle;
+import de.jpx3.intave.user.meta.ProtocolMetadata;
 import de.jpx3.intave.world.Particles;
+import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,8 +44,10 @@ import java.util.List;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.SNEAKING;
 
 public final class Raytracing {
-	private static final Raytracer RAYTRACER = new UniversalRaytracer();
+  private static final Raytracer RAYTRACER = new UniversalRaytracer();
   private static final boolean[] PESSIMISTIC_BOOLEAN_ORDER = new boolean[]{false, true};
+  private static final double MAX_TRACKED_INTERACTION_RANGE = 64.0D;
+  private static final double LEGACY_MISS_SENTINEL_SAFE_RANGE = 9.0D;
 
   public static float reachDistanceOf(Player player) {
     return reachDistanceOf(UserRepository.userOf(player));
@@ -48,13 +58,40 @@ public final class Raytracing {
   }
 
   public static float reachDistanceOf(MetadataBundle meta) {
-    return meta.abilities().inGameMode(GameMode.CREATIVE) ? 5.0F : 3.0F;
+    ItemAttackRangeContext itemRange = resolveItemAttackRange(meta);
+    return reachDistanceOf(meta, itemRange);
+  }
+
+  private static float reachDistanceOf(MetadataBundle meta, ItemAttackRangeContext itemRange) {
+    float fallback = meta.abilities().inGameMode(GameMode.CREATIVE) ? 5.0F : 3.0F;
+
+    // During the one compensated slot-transition state where the old start-of-tick stack is no
+    // longer recoverable, do not guess. A single transition tick is allowed and other combat/order
+    // checks continue to run; this prevents a legitimate custom weapon from being false-flagged.
+    if (itemRange.ambiguousTransition) {
+      return (float) MAX_TRACKED_INTERACTION_RANGE;
+    }
+    if (itemRange.hasRange) {
+      return (float) clamp(itemRange.maxRange, 0.0D, MAX_TRACKED_INTERACTION_RANGE);
+    }
+
+    if (!meta.protocol().supportsInteractionRangeAttributes()) {
+      return fallback;
+    }
+
+    double attribute = meta.abilities().attributeValue("player.entity_interaction_range");
+    if (!Double.isFinite(attribute) || attribute <= 0.0D) {
+      return fallback;
+    }
+
+    // AbilityMetadata seeds vanilla survival values before UPDATE_ATTRIBUTES is transaction-synced.
+    // Never shrink the historic Intave allowance during that short bootstrap window; server-side
+    // custom attributes that increase reach are honored immediately once tracked.
+    return (float) Math.min(MAX_TRACKED_INTERACTION_RANGE, Math.max(fallback, attribute));
   }
 
   /**
-   * Calculates the reach with and without mouse delay fix and returns the smallest calculated reach
-   *
-   * @return
+   * Calculates the reach with and without mouse delay fix and returns the smallest calculated reach.
    */
   public static Raytrace doubleMDFBlockConstraintEntityRaytrace(
     Player player, Entity entity, boolean alternativePositionY,
@@ -64,9 +101,7 @@ public final class Raytracing {
     double expandHitbox, boolean withoutMouseDelayFix
   ) {
     double blockReachDistance = Raytracing.reachDistanceOf(player);
-//    float rotationYaw = movementData.rotationYaw % 360;
 
-    // mouse delay fix
     Raytrace distanceOfResult = blockConstraintEntityRaytrace(
       player,
       entity, alternativePositionY,
@@ -75,7 +110,6 @@ public final class Raytracing {
       expandHitbox
     );
     if (withoutMouseDelayFix && distanceOfResult.reach() > blockReachDistance && rotationYaw != lastRotationYaw) {
-      // normal
       distanceOfResult = blockConstraintEntityRaytrace(
         player,
         entity, alternativePositionY,
@@ -130,13 +164,6 @@ public final class Raytracing {
     );
   }
 
-  /**
-   * Takes a entity and returns the range between the player and the entity. (Client side its called "getMouseOver" and
-   * is from EntityRenderer.java)
-   *
-   * @return distance the distance between the entity and the eyes of the player 0 means the player is inside of the
-   * entity -1 means the player hit outside the hitbox of the entity greater than 0 means the reach of the player
-   */
   public static Raytrace entityRaytrace(
     Player player,
     BoundingBox entityBoundingBox,
@@ -147,16 +174,24 @@ public final class Raytracing {
     EntityRaytraceBlockConstraint rayTraceBlocks
   ) {
     Timings.SERVICE_RAYTRACER_ENTITY.start();
-    double blockReachDistance = 6;
-    double attackReachDistance = reachDistanceOf(player);
-    double lastReach = 10;
+    User user = UserRepository.userOf(player);
+    MetadataBundle meta = user.meta();
+    ItemAttackRangeContext itemRange = resolveItemAttackRange(meta);
+    double attackReachDistance = reachDistanceOf(meta, itemRange);
+    double itemHitboxMargin = itemRange.hasRange
+      ? clamp(itemRange.hitboxMargin, -1.0D, 1.0D) : 0.0D;
+    double effectiveExpansion = boundingBoxExpansion + itemHitboxMargin;
+
+    double rayLength = Math.max(6.0D, Math.min(MAX_TRACKED_INTERACTION_RANGE + 1.0D, attackReachDistance + 1.0D));
+    boolean extendedRange = attackReachDistance >= LEGACY_MISS_SENTINEL_SAFE_RANGE;
+    double missDistance = extendedRange ? rayLength + 1.0D : 10.0D;
+    double lastReach = missDistance;
     RawVector3d lastHitVec = null;
     RawVector3d lastEyeVector = null;
 
-    User user = UserRepository.userOf(player);
-    Pose assumedPose = user.meta().movement().pose();
-    boolean sneakUncertainty = user.meta().protocol().delayedSneak() &&
-      user.meta().movement().ticksPast(SNEAKING) <= 2 &&
+    Pose assumedPose = meta.movement().pose();
+    boolean sneakUncertainty = meta.protocol().delayedSneak() &&
+      meta.movement().ticksPast(SNEAKING) <= 2 &&
       assumedPose == Pose.STANDING;
 
     for (int i = 0; i < 2; i++) {
@@ -172,20 +207,16 @@ public final class Raytracing {
       RawVector3d eyeVector = positionEyes(player, selectedPose, prevPosX, prevPosY, prevPosZ);
 
       for (boolean fastMath : PESSIMISTIC_BOOLEAN_ORDER) {
-        if (lastReach < attackReachDistance)
-          break;
-
-        if (lastEyeVector == null) {
-          lastEyeVector = eyeVector;
-        }
+        if (lastReach < attackReachDistance) break;
+        if (lastEyeVector == null) lastEyeVector = eyeVector;
 
         RawVector3d interpolatedLookVec = wrappedVectorForRotation(pitch, prevYaw, fastMath);
         RawVector3d lookVector = eyeVector.addVector(
-          interpolatedLookVec.x() * blockReachDistance,
-          interpolatedLookVec.y() * blockReachDistance,
-          interpolatedLookVec.z() * blockReachDistance
+          interpolatedLookVec.x() * rayLength,
+          interpolatedLookVec.y() * rayLength,
+          interpolatedLookVec.z() * rayLength
         );
-        BoundingBox hitBox = entityBoundingBox.grow(boundingBoxExpansion, boundingBoxExpansion, boundingBoxExpansion);
+        BoundingBox hitBox = entityBoundingBox.grow(effectiveExpansion, effectiveExpansion, effectiveExpansion);
         if (alternativeYDifference != 0) {
           hitBox = hitBox.addJustMaxY(alternativeYDifference);
         }
@@ -200,8 +231,9 @@ public final class Raytracing {
           boolean blockRaytrace = false;
           if (rayTraceBlocks == EntityRaytraceBlockConstraint.ACCEPT_BLOCKS) {
             MovingObjectPosition blockMovingPosition = Raytracing.blockRayTrace(player.getWorld(), player, eyeVector, lookVector);
-            double distanceToBlock = blockMovingPosition == null || blockMovingPosition.hitVec == null ? 10 : eyeVector.distanceTo(blockMovingPosition.hitVec);
-            reach = distanceToBlock < distanceToEntity ? 10 : distanceToEntity;
+            double distanceToBlock = blockMovingPosition == null || blockMovingPosition.hitVec == null
+              ? missDistance : eyeVector.distanceTo(blockMovingPosition.hitVec);
+            reach = distanceToBlock < distanceToEntity ? missDistance : distanceToEntity;
             blockRaytrace = true;
           } else {
             reach = distanceToEntity;
@@ -219,8 +251,60 @@ public final class Raytracing {
       lastEyeVector = positionEyes(player, Pose.STANDING, prevPosX, prevPosY, prevPosZ);
     }
 
+    double reportedReach = extendedRange && lastHitVec == null && lastReach > attackReachDistance
+      ? 0.0D : lastReach;
+
     Timings.SERVICE_RAYTRACER_ENTITY.stop();
-    return Raytrace.ofNative(lastEyeVector, lastHitVec, lastReach);
+    return Raytrace.ofNative(lastEyeVector, lastHitVec, reportedReach);
+  }
+
+  private static ItemAttackRangeContext resolveItemAttackRange(MetadataBundle meta) {
+    if (meta.protocol().protocolVersion() < ProtocolMetadata.VER_1_21_11) {
+      return ItemAttackRangeContext.NONE;
+    }
+    try {
+      if (PacketEvents.getAPI().getServerManager().getVersion().isOlderThan(ServerVersion.V_1_21_11)) {
+        return ItemAttackRangeContext.NONE;
+      }
+
+      InventoryMetadata inventory = meta.inventory();
+      ItemStack startBukkit = inventory.heldItem();
+      ItemStack currentBukkit = inventory.slotSwitchData == null ? startBukkit : inventory.slotSwitchData.item();
+
+      // updateSlotSwitch() has already committed the new stack but the old start-of-tick stack is no
+      // longer available. Exempt this exact transition rather than inventing a range.
+      if (inventory.slotSwitchData == null && inventory.pastHotBarSlotChange <= 0) {
+        return ItemAttackRangeContext.AMBIGUOUS;
+      }
+
+      ItemAttackRange startRange = componentRange(startBukkit);
+      if (startRange == null) {
+        return ItemAttackRangeContext.NONE;
+      }
+      ItemAttackRange currentRange = componentRange(currentBukkit);
+
+      double maxRange = startRange.getMaxRange();
+      double margin = startRange.getHitboxMargin();
+      if (currentRange != null) {
+        maxRange = Math.min(maxRange, currentRange.getMaxRange());
+        margin = Math.min(margin, currentRange.getHitboxMargin());
+      }
+      if (!Double.isFinite(maxRange) || maxRange <= 0.0D || !Double.isFinite(margin)) {
+        return ItemAttackRangeContext.NONE;
+      }
+      return new ItemAttackRangeContext(true, false, maxRange, margin);
+    } catch (Throwable ignored) {
+      // Components are version/reflection sensitive. Falling back to the transaction-compensated
+      // interaction-range attribute is safer than failing the combat pipeline.
+      return ItemAttackRangeContext.NONE;
+    }
+  }
+
+  private static ItemAttackRange componentRange(ItemStack bukkitStack) {
+    if (bukkitStack == null || bukkitStack.getAmount() <= 0) return null;
+    com.github.retrooper.packetevents.protocol.item.ItemStack stack =
+      SpigotConversionUtil.fromBukkitItemStack(bukkitStack);
+    return stack == null ? null : stack.getComponentOr(ComponentTypes.ATTACK_RANGE, null);
   }
 
   private static RawVector3d wrappedVectorForRotation(float pitch, float prevYaw, boolean fastMath) {
@@ -236,7 +320,7 @@ public final class Raytracing {
   }
 
   public static MovingObjectPosition blockRayTrace(Player player, Location playerLocation, Pose pose) {
-    double blockReachDistance = resolveBlockReachDistance(player.getGameMode());
+    double blockReachDistance = resolveBlockReachDistance(player);
     double eyeHeight = resolvePlayerEyeHeight(player, pose);
     return blockRayTrace(player, playerLocation, playerLocation, blockReachDistance, eyeHeight, 1.0f);
   }
@@ -262,7 +346,7 @@ public final class Raytracing {
       }
       ActionBar.sendActionBar(
         player,
-	      eyeVector + " " + location.getY() + " " + user.meta().movement().rotationPitch
+        eyeVector + " " + location.getY() + " " + user.meta().movement().rotationPitch
       );
     }
     return blockRayTrace(location.getWorld(), player, eyeVector, targetVector);
@@ -271,39 +355,7 @@ public final class Raytracing {
   public static MovingObjectPosition blockRayTrace(World world, Player player, RawVector3d eyeVector, RawVector3d targetVector) {
     try {
       Timings.SERVICE_RAYTRACER_BLOCK.start();
-//      MovingObjectPosition raytrace = raytracer.raytrace(world, player, eyeVector, targetVector);
-//      player.sendMessage(eyeVector + " -> " + targetVector + " = " + raytrace.getBlockPos());
-//      player.playEffect(raytrace.getBlockPos().toLocation(world), org.bukkit.Effect.CLICK1, 0);
-
-      // show particle
-      /*
-      if (raytrace != null) {
-        player.playEffect(raytrace.hitVec.toLocation(world), Effect.HAPPY_VILLAGER, 0);
-      } else {
-        player.playEffect(targetVector.toLocation(world), Effect.HAPPY_VILLAGER, 0);
-      }*/
-
-      MovingObjectPosition backup = Raytracing.RAYTRACER.raytrace(world, player, eyeVector, targetVector);
-
-      /*
-      if (backup != null) {
-        player.playEffect(backup.hitVec.toLocation(world), Effect.HAPPY_VILLAGER, 0);
-      } else {
-        player.playEffect(targetVector.toLocation(world), Effect.HAPPY_VILLAGER, 0);
-      }*/
-
-      /*
-      if (raytrace == null || backup == null) {
-//        player.sendMessage(ChatColor.RED + "Raytrace: " + raytrace + " Backup: " + backup);
-      } else if (raytrace.hitVec.distanceTo(backup.hitVec) > 0.0001) {
-        player.sendMessage(ChatColor.RED + "Difference: " + raytrace.hitVec.distanceTo(backup.hitVec));
-      } else if (raytrace.sideHit != backup.sideHit) {
-        player.sendMessage(ChatColor.RED + "Side: " + raytrace.sideHit + " " + backup.sideHit);
-      } else if (raytrace.getBlockPos() != null && backup.getBlockPos() != null && !raytrace.getBlockPos().equals(backup.getBlockPos())) {
-        player.sendMessage(ChatColor.RED + "Block: " + raytrace.getBlockPos() + " " + backup.getBlockPos());
-      }*/
-
-      return backup;
+      return Raytracing.RAYTRACER.raytrace(world, player, eyeVector, targetVector);
     } finally {
       Timings.SERVICE_RAYTRACER_BLOCK.stop();
     }
@@ -348,7 +400,7 @@ public final class Raytracing {
 
   public static double resolvePlayerEyeHeight(Player player) {
     User user = UserRepository.userOf(player);
-	  return user.meta().movement().eyeHeight();
+    return user.meta().movement().eyeHeight();
   }
 
   public static double resolvePlayerEyeHeight(Player player, Pose pose) {
@@ -356,7 +408,38 @@ public final class Raytracing {
     return user.meta().movement().eyeHeight(pose);
   }
 
-  private static double resolveBlockReachDistance(GameMode gameMode) {
-    return (gameMode == GameMode.CREATIVE) ? 5.0 : 4.5;
+  private static double resolveBlockReachDistance(Player player) {
+    User user = UserRepository.userOf(player);
+    double fallback = player.getGameMode() == GameMode.CREATIVE ? 5.0D : 4.5D;
+    if (!user.meta().protocol().supportsInteractionRangeAttributes()) {
+      return fallback;
+    }
+
+    double attribute = user.meta().abilities().attributeValue("player.block_interaction_range");
+    if (!Double.isFinite(attribute) || attribute <= 0.0D) {
+      return fallback;
+    }
+    return Math.min(MAX_TRACKED_INTERACTION_RANGE, Math.max(fallback, attribute));
+  }
+
+  private static double clamp(double value, double min, double max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  private static final class ItemAttackRangeContext {
+    private static final ItemAttackRangeContext NONE = new ItemAttackRangeContext(false, false, 0.0D, 0.0D);
+    private static final ItemAttackRangeContext AMBIGUOUS = new ItemAttackRangeContext(false, true, 0.0D, 0.0D);
+
+    private final boolean hasRange;
+    private final boolean ambiguousTransition;
+    private final double maxRange;
+    private final double hitboxMargin;
+
+    private ItemAttackRangeContext(boolean hasRange, boolean ambiguousTransition, double maxRange, double hitboxMargin) {
+      this.hasRange = hasRange;
+      this.ambiguousTransition = ambiguousTransition;
+      this.maxRange = maxRange;
+      this.hitboxMargin = hitboxMargin;
+    }
   }
 }
