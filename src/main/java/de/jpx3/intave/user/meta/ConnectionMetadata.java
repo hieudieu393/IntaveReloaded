@@ -2,8 +2,7 @@ package de.jpx3.intave.user.meta;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketContainer;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetExperience;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.gson.JsonObject;
@@ -201,11 +200,7 @@ public final class ConnectionMetadata {
   }
 
   private void sendPacketWithExperience(Player player, int level) {
-    PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.SET_EXPERIENCE);
-    packet.getFloat().write(0, 0f);
-    packet.getIntegers().write(0, 0);
-    packet.getIntegers().write(1, level);
-    PacketSender.sendServerPacket(player, packet);
+    PacketSender.sendServerPacket(player, new WrapperPlayServerSetExperience(0f, level, 0));
   }
 
   public long transactionPingAverage() {
