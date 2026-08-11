@@ -9,6 +9,33 @@ permissions:
   contents: read
 
 jobs:
+  source-snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Package source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf native-packetevents-source.tar.gz \
+            src \
+            build.gradle.kts \
+            settings.gradle.kts \
+            gradle.properties \
+            gradlew \
+            gradlew.bat \
+            gradle \
+            .github \
+            README.md
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-packetevents-source
+          path: native-packetevents-source.tar.gz
+          if-no-files-found: error
+          retention-days: 2
+
   no-protocollib-bridge:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
