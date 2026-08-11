@@ -1,0 +1,78 @@
+name: Prune dead packet bridge classes
+
+on:
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    if: github.head_ref == 'agent/audit-hardening'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/audit-hardening
+          fetch-depth: 1
+      - name: Delete only unreferenced legacy packet classes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('src/main/java/de/jpx3/intave')
+          candidate_roots = [
+              root / 'packet/converter',
+              root / 'packet/wrapper',
+              root / 'packet/injection',
+              root / 'reflection/packet',
+              root / 'reflection/type',
+          ]
+          protocol_pattern = re.compile(
+              r'com\.comphenix\.protocol|ProtocolLibrary|ProtocolManager|PacketContainer|StructureModifier|MovingObjectPositionBlock'
+          )
+          all_java = list(root.rglob('*.java'))
+          texts = {p: p.read_text(errors='ignore') for p in all_java}
+          removed = []
+
+          for base in candidate_roots:
+              if not base.exists():
+                  continue
+              for path in sorted(base.rglob('*.java')):
+                  text = texts[path]
+                  if not protocol_pattern.search(text):
+                      continue
+                  match = re.search(r'\b(?:class|enum|interface)\s+(\w+)', text)
+                  if not match:
+                      continue
+                  name = match.group(1)
+                  token = re.compile(r'\b' + re.escape(name) + r'\b')
+                  references = []
+                  for other, other_text in texts.items():
+                      if other == path:
+                          continue
+                      if token.search(other_text):
+                          references.append(other)
+                  if references:
+                      continue
+                  path.unlink()
+                  removed.append(str(path))
+
+          if not removed:
+              raise SystemExit('No unreferenced legacy packet classes found to prune')
+          print('Removed unreferenced classes:')
+          print('\n'.join(removed))
+          PY
+
+          rm -f .github/workflows/prune-dead-packet-bridge.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Prune dead ProtocolLib-era packet classes'
+          git push origin HEAD:agent/audit-hardening
