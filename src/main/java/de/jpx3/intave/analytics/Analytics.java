@@ -1,6 +1,6 @@
 package de.jpx3.intave.analytics;
 
-import com.comphenix.protocol.ProtocolLibrary;
+import com.github.retrooper.packetevents.PacketEvents;
 import com.google.common.collect.Maps;
 import com.google.gson.JsonObject;
 import de.jpx3.intave.IntavePlugin;
@@ -9,6 +9,7 @@ import de.jpx3.intave.cleanup.ShutdownTasks;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.plugin.Plugin;
 
 import java.io.IOException;
 import java.util.Map;
@@ -25,13 +26,11 @@ public final class Analytics {
     setupRecorder(PlaytimeRecorder.class);
     setupRecorder(GlobalStatisticsRecorder.class);
     setupRecorder(TimingsRecorder.class);
-
     ShutdownTasks.addBeforeAll(this::saveAndResetAll);
     Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, this::saveAndResetAll, 20 * 60 * 60 * 6);
   }
 
   private void setupRecorder(Class<? extends Recorder> recorderClass) {
-    // instantiate recorderClass
     Recorder recorder = null;
     try {
       recorder = recorderClass.newInstance();
@@ -43,7 +42,7 @@ public final class Analytics {
 
   private void saveAndResetAll() {
     JsonObject json = new JsonObject();
-    json.addProperty("name", "Analytics report from Intave");
+    json.addProperty("name", "Analytics report from IntaveReloaded");
 
     JsonObject intaveJson = new JsonObject();
     intaveJson.addProperty("version", plugin.getDescription().getVersion());
@@ -60,29 +59,31 @@ public final class Analytics {
     json.add("server", serverJson);
 
     JsonObject addonsJson = new JsonObject();
-      JsonObject protocolLibJson = new JsonObject();
-      protocolLibJson.addProperty("present", "true");
-      protocolLibJson.addProperty("version", ProtocolLibrary.getPlugin().getDescription().getVersion());
-      protocolLibJson.addProperty("protocol-manager", ProtocolLibrary.getProtocolManager().getClass().getName());
-      protocolLibJson.addProperty("async-manager", ProtocolLibrary.getProtocolManager().getAsynchronousManager().getClass().toString());
-      protocolLibJson.addProperty("listeners", ProtocolLibrary.getProtocolManager().getPacketListeners().toString());
-    addonsJson.add("protocollib", protocolLibJson);
-      JsonObject viaVersionJson = new JsonObject();
-      viaVersionJson.addProperty("present", ViaVersionAdapter.foundLinkage() + "");
-      if (ViaVersionAdapter.foundLinkage()) {
-        viaVersionJson.addProperty("version", ViaVersionAdapter.version());
-      }
+    JsonObject packetEventsJson = new JsonObject();
+    Plugin packetEventsPlugin = Bukkit.getPluginManager().getPlugin("packetevents");
+    if (packetEventsPlugin == null) {
+      packetEventsPlugin = Bukkit.getPluginManager().getPlugin("PacketEvents");
+    }
+    packetEventsJson.addProperty("present", packetEventsPlugin != null);
+    if (packetEventsPlugin != null) {
+      packetEventsJson.addProperty("version", packetEventsPlugin.getDescription().getVersion());
+    }
+    packetEventsJson.addProperty("api", PacketEvents.getAPI().getClass().getName());
+    packetEventsJson.addProperty("player-manager", PacketEvents.getAPI().getPlayerManager().getClass().getName());
+    addonsJson.add("packetevents", packetEventsJson);
+
+    JsonObject viaVersionJson = new JsonObject();
+    viaVersionJson.addProperty("present", ViaVersionAdapter.foundLinkage());
+    if (ViaVersionAdapter.foundLinkage()) {
+      viaVersionJson.addProperty("version", ViaVersionAdapter.version());
+    }
     addonsJson.add("viaversion", viaVersionJson);
     json.add("addons", addonsJson);
 
     JsonObject recorderJson = new JsonObject();
     for (Recorder recorder : recorderMap.values()) {
-      if (recorder.isForUsage() && !allowedUsageReporting()) {
-        continue;
-      }
-      if (recorder.isForErrors() && !allowedErrorReporting()) {
-        continue;
-      }
+      if (recorder.isForUsage() && !allowedUsageReporting()) continue;
+      if (recorder.isForErrors() && !allowedErrorReporting()) continue;
       recorderJson.add(recorder.name(), recorder.asJson());
       recorder.reset();
     }
@@ -102,7 +103,6 @@ public final class Analytics {
   }
 
   public <T extends Recorder> T recorderOf(Class<T> recorderClass) {
-    //noinspection unchecked
     return (T) recorderMap.get(recorderClass);
   }
 
