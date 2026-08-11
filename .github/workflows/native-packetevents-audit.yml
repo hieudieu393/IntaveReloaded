@@ -14,14 +14,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+
       - name: Inventory ProtocolLib compatibility usage
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== ProtocolLib references under Intave runtime source ==='
-          if grep -RIn --include='*.java' --include='*.kt' \
-              -E '(^|[^A-Za-z0-9_])(com\.comphenix\.protocol|ProtocolLibrary|ProtocolManager|PacketContainer|StructureModifier|MovingObjectPositionBlock)([^A-Za-z0-9_]|$)' \
-              src/main/java/de/jpx3/intave; then
+          pattern='(^|[^A-Za-z0-9_])(com\.comphenix\.protocol|ProtocolLibrary|ProtocolManager|PacketContainer|StructureModifier|MovingObjectPositionBlock)([^A-Za-z0-9_]|$)'
+          mapfile -t files < <(grep -RIl --include='*.java' --include='*.kt' -E "$pattern" src/main/java/de/jpx3/intave | sort || true)
+          echo "ProtocolLib compatibility files: ${#files[@]}"
+          printf '%s\n' "${files[@]}"
+          if (( ${#files[@]} > 0 )); then
             echo 'ProtocolLib compatibility references remain; native PacketEvents migration is incomplete.' >&2
             exit 1
           fi
@@ -32,7 +34,10 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -d src/main/java/com/comphenix ]]; then
-            find src/main/java/com/comphenix -type f -print | sort
+            mapfile -t files < <(find src/main/java/com/comphenix -type f | sort)
+            echo "Embedded compatibility files: ${#files[@]}"
+            printf '%s\n' "${files[@]}"
             echo 'Embedded ProtocolLib compatibility namespace still exists.' >&2
             exit 1
           fi
+          echo 'No embedded ProtocolLib compatibility namespace.'
