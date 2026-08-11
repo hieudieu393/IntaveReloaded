@@ -1,0 +1,84 @@
+name: PacketEvents API signatures
+
+on:
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  signatures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Resolve compile classpath
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/classpath.init.gradle <<'GRADLE'
+          allprojects {
+            afterEvaluate { p ->
+              if (p == rootProject) {
+                tasks.register('printNativeCompileClasspath') {
+                  doLast { configurations.compileClasspath.files.each { println it.absolutePath } }
+                }
+              }
+            }
+          }
+          GRADLE
+          ./gradlew --no-daemon -q -I /tmp/classpath.init.gradle printNativeCompileClasspath > /tmp/cp-lines
+          paste -sd: /tmp/cp-lines > /tmp/cp
+      - name: Dump PacketEvents signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          CP="$(cat /tmp/cp)"
+          : > packetevents-signatures.txt
+          classes=(
+            com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity
+            com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAnimation
+            com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging
+            com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement
+            com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientHeldItemChange
+            com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction
+            com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSteerVehicle
+            com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientVehicleMove
+            com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientWindowConfirmation
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerMultiBlockChange
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockAction
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerCamera
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityEffect
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChangeGameState
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerHeldItemChange
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfoUpdate
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityRelativeMove
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityRelativeMoveAndRotation
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWorldBorderCenter
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetExperience
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUpdateHealth
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityVelocity
+            com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerAcknowledgeBlockChanges
+            com.github.retrooper.packetevents.protocol.player.GameMode
+            com.github.retrooper.packetevents.protocol.player.GameProfile
+            com.github.retrooper.packetevents.protocol.entity.data.EntityData
+            com.github.retrooper.packetevents.manager.player.PlayerManager
+          )
+          for cls in "${classes[@]}"; do
+            printf '\n===== %s =====\n' "$cls" >> packetevents-signatures.txt
+            javap -classpath "$CP" -public "$cls" >> packetevents-signatures.txt 2>&1 || true
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packetevents-api-signatures
+          path: packetevents-signatures.txt
+          if-no-files-found: error
+          retention-days: 2
