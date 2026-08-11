@@ -1,12 +1,13 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.wrapper.common.client.WrapperCommonClientSettings;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientChatCommand;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientChatCommandUnsigned;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientChatMessage;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSettings;
-import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -15,15 +16,12 @@ import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 
-import java.util.Locale;
-
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.CHAT_COMMAND;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.CHAT_COMMAND_UNSIGNED;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.CHAT_IN;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.CHAT_MESSAGE;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.SETTINGS;
 
-/** Modern chat/command state invariants that are safe to enforce before Bukkit handles the packet. */
 public final class ChatStateGuard extends MetaCheckPart<ProtocolScanner, ChatStateGuard.Meta> {
   public ChatStateGuard(ProtocolScanner parentCheck) {
     super(parentCheck, Meta.class);
@@ -31,9 +29,7 @@ public final class ChatStateGuard extends MetaCheckPart<ProtocolScanner, ChatSta
 
   @PacketSubscription(packetsIn = SETTINGS, ignoreCancelled = false)
   public void receiveSettings(ProtocolPacketEvent event) {
-    if (!(event instanceof PacketReceiveEvent)) {
-      return;
-    }
+    if (!(event instanceof PacketReceiveEvent)) return;
     WrapperPlayClientSettings wrapper = new WrapperPlayClientSettings((PacketReceiveEvent) event);
     metaOf(userOf(event.getPlayer())).chatHidden =
       wrapper.getChatVisibility() == WrapperCommonClientSettings.ChatVisibility.HIDDEN;
@@ -44,29 +40,23 @@ public final class ChatStateGuard extends MetaCheckPart<ProtocolScanner, ChatSta
     ignoreCancelled = false
   )
   public void receiveChat(ProtocolPacketEvent event) {
-    if (!(event instanceof PacketReceiveEvent)) {
-      return;
-    }
+    if (!(event instanceof PacketReceiveEvent)) return;
 
-    PacketReceiveEvent delegate = (PacketReceiveEvent) event;
-    String packetName = event.getPacketType() == null ? "" : event.getPacketType().name().toUpperCase(Locale.ROOT);
+    PacketReceiveEvent receive = (PacketReceiveEvent) event;
     String text;
     boolean command;
-
     try {
-      if (packetName.contains("COMMAND_UNSIGNED")) {
-        text = new WrapperPlayClientChatCommandUnsigned(delegate).getCommand();
+      if (event.getPacketType() == PacketType.Play.Client.CHAT_COMMAND_UNSIGNED) {
+        text = new WrapperPlayClientChatCommandUnsigned(receive).getCommand();
         command = true;
-      } else if (packetName.contains("COMMAND")) {
-        text = new WrapperPlayClientChatCommand(delegate).getCommand();
+      } else if (event.getPacketType() == PacketType.Play.Client.CHAT_COMMAND) {
+        text = new WrapperPlayClientChatCommand(receive).getCommand();
         command = true;
       } else {
-        text = new WrapperPlayClientChatMessage(delegate).getMessage();
+        text = new WrapperPlayClientChatMessage(receive).getMessage();
         command = false;
       }
     } catch (Throwable ignored) {
-      // Packet naming can differ behind protocol translators. Do not turn a wrapper mismatch into a
-      // violation; the normal server decoder still owns malformed-packet rejection.
       return;
     }
 
@@ -77,22 +67,13 @@ public final class ChatStateGuard extends MetaCheckPart<ProtocolScanner, ChatSta
     } else if (!text.trim().equals(text)) {
       reason = (command ? "command" : "message") + " has leading/trailing whitespace";
     } else if (!command && text.startsWith("/") && user.protocolVersion() >= 759) {
-      // 1.19+ clients have dedicated command packets. Sending a slash command through CHAT_MESSAGE
-      // is a protocol/state mismatch and is commonly used to bypass normal command/chat handling.
       reason = "slash command sent as chat message";
     }
 
     Meta meta = metaOf(user);
-    if (reason == null && meta.chatHidden) {
-      reason = "chat packet while visibility=HIDDEN";
-    }
-    if (reason == null) {
-      return;
-    }
+    if (reason == null && meta.chatHidden) reason = "chat packet while visibility=HIDDEN";
+    if (reason == null) return;
 
-    if (event.isReadOnly()) {
-      event.setReadOnly(false);
-    }
     event.setCancelled(true);
     flag(user, reason, command ? "command" : "message", 10.0D);
   }
