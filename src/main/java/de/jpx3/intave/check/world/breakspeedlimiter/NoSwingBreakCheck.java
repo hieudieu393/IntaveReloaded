@@ -1,9 +1,8 @@
 package de.jpx3.intave.check.world.breakspeedlimiter;
 
-import com.github.retrooper.packetevents.protocol.player.DiggingAction;
-import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
 import de.jpx3.intave.module.Modules;
@@ -34,8 +33,8 @@ public final class NoSwingBreakCheck extends MetaCheckPart<BreakSpeedLimiter, No
     BlockDigReader reader = PacketReaders.readerOf(event);
     try {
       DiggingAction action = reader.action();
-      if (action == DiggingAction.START_DESTROY_BLOCK
-        || action == DiggingAction.STOP_DESTROY_BLOCK) {
+      if (action == DiggingAction.START_DIGGING
+        || action == DiggingAction.FINISHED_DIGGING) {
         metaOf(userOf(event.getPlayer())).sentBreak = true;
       }
     } finally {
