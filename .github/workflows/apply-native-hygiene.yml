@@ -1,0 +1,85 @@
+name: Apply native PacketEvents type hygiene
+
+on:
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'agent/audit-hardening'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: agent/audit-hardening
+          fetch-depth: 1
+      - name: Apply checked type fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('src/main/java/de/jpx3/intave')
+
+          def replace(rel, old, new, optional=False):
+              path = root / rel
+              text = path.read_text()
+              if old not in text:
+                  if optional:
+                      return False
+                  raise SystemExit(f'missing expected text in {rel}: {old!r}')
+              path.write_text(text.replace(old, new))
+              return True
+
+          # Game-state reason is a typed PacketEvents enum now.
+          if not replace('packet/reader/GameStateChangeReader.java', 'return getReasonNumber() == 3;', 'return reason() == Reason.CHANGE_GAME_MODE;', True):
+              replace('packet/reader/GameStateChangeReader.java', 'return Reason.getById(getReasonNumber()) == Reason.CHANGE_GAME_MODE;', 'return reason() == Reason.CHANGE_GAME_MODE;', True)
+
+          # Complete the InteractionHand conversion in the event body.
+          p = root / 'module/nayoro/event/BlockPlaceEvent.java'
+          s = p.read_text()
+          s = s.replace('private final Hand hand;', 'private final InteractionHand hand;')
+          s = s.replace('Hand hand)', 'InteractionHand hand)')
+          s = s.replace('public Hand hand()', 'public InteractionHand hand()')
+          p.write_text(s)
+
+          # PacketEvents entity readers return Bukkit Entity, not Player.
+          p = root / 'packet/reader/EntityReader.java'
+          s = p.read_text()
+          if 'import org.bukkit.entity.Entity;' not in s:
+              s = s.replace('import org.bukkit.entity.Player;', 'import org.bukkit.entity.Entity;\nimport org.bukkit.entity.Player;')
+          s = s.replace('public Player entity(Player player)', 'public Entity entity(Player player)')
+          p.write_text(s)
+
+          # Modern teleport id is Optional<Integer>.
+          p = root / 'packet/reader/PlayerTeleportReader.java'
+          s = p.read_text()
+          s = s.replace('return (int) id.read(0);', 'return ((java.util.Optional<Integer>) id.read(0)).orElse(-1);')
+          s = s.replace('return id.read(0);', 'return id.read(0).orElse(-1);')
+          p.write_text(s)
+
+          # Custom payload delegates to native Netty ByteBuf after the reader migration.
+          p = root / 'packet/reader/PayloadInReader.java'
+          s = p.read_text()
+          s = s.replace('import de.jpx3.intave.module.nayoro.buffer.PacketBuffer;\n', '')
+          s = s.replace('public PacketBuffer delegate()', 'public io.netty.buffer.ByteBuf delegate()')
+          p.write_text(s)
+
+          # PacketEvents exposes potion effect action as an int.
+          p = root / 'check/movement/physics/Effect.java'
+          s = p.read_text().replace('byte action =', 'int action =')
+          p.write_text(s)
+          PY
+
+          rm -f .github/workflows/apply-native-hygiene.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git diff --cached --quiet && { echo 'No hygiene changes produced.' >&2; exit 1; }
+          git commit -m 'Fix native PacketEvents type mismatches'
+          git push origin HEAD:agent/audit-hardening
