@@ -111,8 +111,9 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
         "clicked window=" + container + " after close in same client tick", 0.75D, 2.0D);
     }
 
-    // A native inventory is client-opened and has no server OPEN_WINDOW. A click is the first hard
-    // evidence that the server can observe, so give the movement check a short transition grace.
+    // A native inventory is client-opened and has no server OPEN_WINDOW. A click is hard evidence
+    // that the GUI is open, so retain at least one tick of transition grace even if the metadata
+    // transition was observed between packet boundaries.
     if (container == 0 && user.meta().inventory().inventoryOpen()) {
       meta.openGraceTicks = Math.max(meta.openGraceTicks, 1);
     }
@@ -220,7 +221,15 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     if (!boundary) return;
 
     Meta meta = metaOf(user);
+    boolean openNow = inventoryOpen(user, meta);
+    if (openNow && !meta.lastInventoryOpen) {
+      // Native player inventory has no server OPEN_WINDOW packet. Detect the metadata edge here so
+      // movement/input inherited from the tick that opened the GUI cannot become InventoryMove.
+      meta.openGraceTicks = Math.max(meta.openGraceTicks, 2);
+    }
+
     checkMovementWhileOpen(user, meta);
+    meta.lastInventoryOpen = openNow;
     meta.clicksThisTick = 0;
     meta.clickTypes.clear();
     meta.closedThisTick = false;
@@ -324,5 +333,6 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     private boolean closedThisTick;
     private int clicksThisTick;
     private int openGraceTicks;
+    private boolean lastInventoryOpen;
   }
 }
