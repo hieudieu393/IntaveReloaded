@@ -1,8 +1,8 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -14,16 +14,9 @@ import de.jpx3.intave.packet.reader.PlayerActionReader;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 
-import java.util.Locale;
-
 import static de.jpx3.intave.module.linker.packet.ListenerPriority.LOWEST;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 
-/**
- * Looks for action packets that repeatedly appear after a movement packet but before a validated
- * transaction/pong boundary. The signal is buffered and only evaluated while movement timing is
- * stable, which avoids treating ordinary lag or skipped client ticks as a protocol violation.
- */
 public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPacketOrder.Meta> {
   public PostPacketOrder(ProtocolScanner parentCheck) {
     super(parentCheck, Meta.class);
@@ -50,16 +43,13 @@ public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPa
       meta.postActions = 0;
       return;
     }
-
-    if (isClientTickEnd(type)) {
-      // A native tick-end packet is an explicit client boundary, not suspicious by itself.
+    if (type == PacketType.Play.Client.CLIENT_TICK_END) {
       meta.sentMovement = false;
       meta.firstPostAction = null;
       meta.postActions = 0;
       decay(meta, 0.15);
       return;
     }
-
     if (isFeedbackBoundary(type)) {
       if (meta.sentMovement && meta.postActions > 0 && tickingReliably(user)) {
         meta.buffer += Math.min(1.5, 0.5 + meta.postActions * 0.25);
@@ -78,7 +68,6 @@ public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPa
       } else {
         decay(meta, 0.25);
       }
-
       meta.sentMovement = false;
       meta.firstPostAction = null;
       meta.postActions = 0;
@@ -86,31 +75,17 @@ public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPa
     }
 
     if (meta.sentMovement && isTrackedAction(type)) {
-      if (isExemptEntityAction(user, event)) {
-        return;
-      }
-      if (meta.firstPostAction == null) {
-        meta.firstPostAction = type.name().toLowerCase(Locale.ROOT).replace('_', ' ');
-      }
+      if (isExemptEntityAction(user, event)) return;
+      if (meta.firstPostAction == null) meta.firstPostAction = packetLabel(type);
       meta.postActions++;
     }
   }
 
   private static boolean isExemptEntityAction(User user, ProtocolPacketEvent event) {
-    PacketTypeCommon type = event.getPacketType();
-    if (type == null || !"ENTITY_ACTION".equalsIgnoreCase(type.name())) {
-      return false;
-    }
-
-    // Modern clients/proxies can emit entity actions asynchronously while riding. Treat those as
-    // untrusted timing evidence rather than post-order violations.
-    if (user.meta().movement().isInVehicle()) {
-      return true;
-    }
-
+    if (event.getPacketType() != PacketType.Play.Client.ENTITY_ACTION) return false;
+    if (user.meta().movement().isInVehicle()) return true;
     PlayerActionReader reader = PacketReaders.readerOf(event);
     try {
-      // Leaving a bed is allowed outside the normal movement-tick packet order on modern clients.
       return reader.playerAction() == PlayerAction.STOP_SLEEPING;
     } finally {
       reader.release();
@@ -127,34 +102,34 @@ public final class PostPacketOrder extends MetaCheckPart<ProtocolScanner, PostPa
     return type == PacketType.Play.Client.PLAYER_FLYING
       || type == PacketType.Play.Client.PLAYER_ROTATION
       || type == PacketType.Play.Client.PLAYER_POSITION
-      || type == PacketType.Play.Client.PLAYER_POSITION_LOOK;
-  }
-
-  private static boolean isClientTickEnd(PacketTypeCommon type) {
-    try {
-      return type == PacketType.Play.Client.CLIENT_TICK_END;
-    } catch (NoSuchFieldError ignored) {
-      return false;
-    }
+      || type == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION;
   }
 
   private static boolean isFeedbackBoundary(PacketTypeCommon type) {
-    String name = type == null ? "" : type.name();
-    return "TRANSACTION".equalsIgnoreCase(name) || "PONG".equalsIgnoreCase(name);
+    return type == PacketType.Play.Client.PONG || type == PacketType.Play.Client.WINDOW_CONFIRMATION;
   }
 
   private static boolean isTrackedAction(PacketTypeCommon type) {
-    String name = type.name();
-    return "ABILITIES".equalsIgnoreCase(name)
-      || "HELD_ITEM_SLOT".equalsIgnoreCase(name)
-      || "ATTACK".equalsIgnoreCase(name)
-      || "USE_ENTITY".equalsIgnoreCase(name)
-      || "BLOCK_PLACE".equalsIgnoreCase(name)
-      || "USE_ITEM".equalsIgnoreCase(name)
-      || "USE_ITEM_ON".equalsIgnoreCase(name)
-      || "BLOCK_DIG".equalsIgnoreCase(name)
-      || "SPECTATE".equalsIgnoreCase(name)
-      || "ENTITY_ACTION".equalsIgnoreCase(name);
+    return type == PacketType.Play.Client.PLAYER_ABILITIES
+      || type == PacketType.Play.Client.HELD_ITEM_CHANGE
+      || type == PacketType.Play.Client.INTERACT_ENTITY
+      || type == PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT
+      || type == PacketType.Play.Client.USE_ITEM
+      || type == PacketType.Play.Client.PLAYER_DIGGING
+      || type == PacketType.Play.Client.SPECTATE
+      || type == PacketType.Play.Client.ENTITY_ACTION;
+  }
+
+  private static String packetLabel(PacketTypeCommon type) {
+    if (type == PacketType.Play.Client.PLAYER_ABILITIES) return "abilities";
+    if (type == PacketType.Play.Client.HELD_ITEM_CHANGE) return "held item slot";
+    if (type == PacketType.Play.Client.INTERACT_ENTITY) return "use entity";
+    if (type == PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT) return "block place";
+    if (type == PacketType.Play.Client.USE_ITEM) return "use item";
+    if (type == PacketType.Play.Client.PLAYER_DIGGING) return "block dig";
+    if (type == PacketType.Play.Client.SPECTATE) return "spectate";
+    if (type == PacketType.Play.Client.ENTITY_ACTION) return "entity action";
+    return "unknown";
   }
 
   private static void decay(Meta meta, double amount) {
