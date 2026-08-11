@@ -1,8 +1,7 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
-import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -19,11 +18,6 @@ import de.jpx3.intave.user.meta.ProtocolMetadata;
 import static de.jpx3.intave.module.linker.packet.ListenerPriority.LOW;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 
-/**
- * Validates the shared interaction sequence counter introduced in modern clients. The counter is
- * used by block acknowledgements, so impossible jumps/replays are useful protocol signals. We do
- * not cancel on an ordinary mismatch: proxies translating protocols are given a buffered tolerance.
- */
 public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, SequenceGuard.Meta> {
   private static final int MIN_SEQUENCE_PROTOCOL = ProtocolMetadata.VER_1_19_2;
 
@@ -31,87 +25,62 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
     super(parentCheck, Meta.class);
   }
 
-  @PacketSubscription(
-    priority = LOW,
-    ignoreCancelled = false,
-    packetsIn = {BLOCK_PLACE, USE_ITEM_ON}
-  )
+  @PacketSubscription(priority = LOW, ignoreCancelled = false, packetsIn = {BLOCK_PLACE, USE_ITEM_ON})
   public void receiveBlockInteraction(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    if (!applicable(user)) {
-      return;
-    }
-
+    if (!applicable(user)) return;
     BlockInteractionReader reader = PacketReaders.readerOf(event);
     try {
       int sequence = reader.sequenceNumber(user);
+      String source = String.valueOf(event.getPacketType());
       if (sequence < 0) {
-        hardInvalid(user, event, event.getPacketType().name(), sequence);
+        hardInvalid(user, event, source, sequence);
         return;
       }
-      validate(user, sequence, event.getPacketType().name());
+      validate(user, sequence, source);
     } finally {
       reader.release();
     }
   }
 
-  @PacketSubscription(
-    priority = LOW,
-    ignoreCancelled = false,
-    packetsIn = USE_ITEM
-  )
+  @PacketSubscription(priority = LOW, ignoreCancelled = false, packetsIn = USE_ITEM)
   public void receiveUseItem(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    if (!applicable(user)) {
-      return;
-    }
-    Integer sequence = event.getPacket().getIntegers().readSafely(0);
-    if (sequence != null) {
+    if (!applicable(user)) return;
+    BlockInteractionReader reader = PacketReaders.readerOf(event);
+    try {
+      int sequence = reader.sequenceNumber(user);
       if (sequence < 0) {
         hardInvalid(user, event, "USE_ITEM", sequence);
         return;
       }
       validate(user, sequence, "USE_ITEM");
-    }
-  }
-
-  @PacketSubscription(
-    priority = LOW,
-    ignoreCancelled = false,
-    packetsIn = BLOCK_DIG
-  )
-  public void receiveDig(ProtocolPacketEvent event) {
-    User user = userOf(event.getPlayer());
-    if (!applicable(user)) {
-      return;
-    }
-
-    BlockDigReader reader = PacketReaders.readerOf(event);
-    try {
-      DiggingAction action = reader.action();
-      if (action != DiggingAction.START_DESTROY_BLOCK
-        && action != DiggingAction.STOP_DESTROY_BLOCK) {
-        return;
-      }
-
-      Integer sequence = event.getPacket().getIntegers().readSafely(0);
-      if (sequence != null) {
-        String source = "BLOCK_DIG/" + action.name();
-        if (sequence < 0) {
-          hardInvalid(user, event, source, sequence);
-          return;
-        }
-        validate(user, sequence, source);
-      }
     } finally {
       reader.release();
     }
   }
 
-  @PacketSubscription(
-    ignoreCancelled = false,
-    packetsOut = {PacketId.Server.POSITION, PacketId.Server.RESPAWN}
-  )
+  @PacketSubscription(priority = LOW, ignoreCancelled = false, packetsIn = BLOCK_DIG)
+  public void receiveDig(ProtocolPacketEvent event) {
+    User user = userOf(event.getPlayer());
+    if (!applicable(user)) return;
+    BlockDigReader reader = PacketReaders.readerOf(event);
+    try {
+      DiggingAction action = reader.action();
+      if (action != DiggingAction.START_DIGGING && action != DiggingAction.FINISHED_DIGGING) return;
+      int sequence = reader.sequenceNumber();
+      String source = "BLOCK_DIG/" + action.name();
+      if (sequence < 0) {
+        hardInvalid(user, event, source, sequence);
+        return;
+      }
+      validate(user, sequence, source);
+    } finally {
+      reader.release();
+    }
+  }
+
+  @PacketSubscription(ignoreCancelled = false, packetsOut = {PacketId.Server.POSITION, PacketId.Server.RESPAWN})
   public void resetOnWorldState(ProtocolPacketEvent event) {
     Meta meta = metaOf(userOf(event.getPlayer()));
     meta.initialized = false;
@@ -120,11 +89,7 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
   }
 
   private void hardInvalid(User user, ProtocolPacketEvent event, String source, int sequence) {
-    if (event.isReadOnly()) {
-      event.setReadOnly(false);
-    }
     event.setCancelled(true);
-
     Violation violation = Violation.builderFor(ProtocolScanner.class)
       .forPlayer(user.player())
       .withCheckName("BadPackets")
@@ -142,19 +107,14 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
       meta.lastSequence = sequence;
       return;
     }
-
     int expected = meta.lastSequence + 1;
     meta.lastSequence = sequence;
     if (sequence == expected) {
       meta.buffer = Math.max(0.0, meta.buffer - 0.25);
       return;
     }
-
     meta.buffer += 1.0;
-    if (meta.buffer < 2.0) {
-      return;
-    }
-
+    if (meta.buffer < 2.0) return;
     int vl = parentCheck().configuration().settings().intBy("packet-order-vl", 5);
     Violation violation = Violation.builderFor(ProtocolScanner.class)
       .forPlayer(user.player())
