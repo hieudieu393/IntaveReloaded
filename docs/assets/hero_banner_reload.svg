@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1165" height="330" viewBox="0 0 1165 330" role="img" aria-labelledby="title desc">
+  <title id="title">IntaveReloaded</title>
+  <desc id="desc">IntaveReloaded banner with Reloaded in white</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#101114"/>
+      <stop offset="1" stop-color="#1d1f24"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e44a4a"/>
+      <stop offset="1" stop-color="#a91f2f"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="1165" height="330" rx="26" fill="url(#bg)"/>
+  <path d="M0 268 C190 214 310 322 520 270 C734 216 866 284 1165 224 L1165 330 L0 330 Z" fill="#ffffff" opacity="0.025"/>
+
+  <g transform="translate(82 60)" filter="url(#shadow)">
+    <path d="M82 0 L166 30 L166 127 C166 176 132 211 82 231 C32 211 0 176 0 127 L0 30 Z" fill="#2b2e35" stroke="#444851" stroke-width="5"/>
+    <path d="M82 17 L148 41 L148 124 C148 159 124 186 82 205 Z" fill="url(#mark)"/>
+    <path d="M82 17 L17 41 L17 124 C17 159 41 186 82 205 Z" fill="#656a73"/>
+    <path d="M49 58 H115 V81 H95 V158 H69 V81 H49 Z" fill="#f4f4f5"/>
+    <path d="M82 17 V205" stroke="#ffffff" stroke-opacity="0.24" stroke-width="3"/>
+  </g>
+
+  <g transform="translate(315 83)">
+    <text x="0" y="79" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="82" font-weight="800" letter-spacing="4" fill="#d54045">INTAVE</text>
+    <text x="0" y="154" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="72" font-weight="800" letter-spacing="8" fill="#ffffff">RELOADED</text>
+    <rect x="3" y="176" width="570" height="2" fill="#ffffff" opacity="0.13"/>
+    <text x="4" y="207" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="19" font-weight="600" letter-spacing="4" fill="#b7bbc3">MODERNIZED ANTICHEAT</text>
+  </g>
+
+  <circle cx="1092" cy="54" r="4" fill="#d54045"/>
+  <circle cx="1113" cy="54" r="4" fill="#ffffff" opacity="0.45"/>
+</svg>
