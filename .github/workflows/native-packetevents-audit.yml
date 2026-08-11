@@ -18,51 +18,24 @@ jobs:
           ref: agent/audit-hardening
           fetch-depth: 1
 
-      - name: Apply staged migration when present
+      - name: Restore complete Gradle definition when staged
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! -f .github/native-overlay/part00 ]]; then
-            echo 'No staged native migration overlay.'
+          if [[ ! -f .github/build-full.b64 ]]; then
+            echo 'No staged Gradle restoration.'
             exit 0
           fi
-          for n in 00 01 02 03 04 05; do
-            test -f ".github/native-overlay/part${n}"
-          done
-          test "$(cat .github/native-overlay/part* | wc -c)" -eq 93568
-          cat .github/native-overlay/part* | base64 -d | gzip -dc > /tmp/native.diff
-          grep -q '^diff -ruN ' /tmp/native.diff
-
-          # PacketSubscriptionLinker and PacketTypeResolver were already migrated directly before
-          # this bulk overlay was staged. Drop only those two patch blocks so the remaining source
-          # migration can be applied atomically without weakening the patch checks.
-          python3 - <<'PY'
-          from pathlib import Path
-          source = Path('/tmp/native.diff').read_text()
-          excluded = {
-              'PacketSubscriptionLinker.java',
-              'PacketTypeResolver.java',
-          }
-          chunks = source.split('diff -ruN ')
-          output = []
-          for chunk in chunks[1:]:
-              header = chunk.splitlines()[0]
-              if any(name in header for name in excluded):
-                  continue
-              output.append('diff -ruN ' + chunk)
-          Path('/tmp/native-rest.diff').write_text(''.join(output))
-          PY
-
-          patch --dry-run -f -p4 < /tmp/native-rest.diff
-          patch -f -p4 < /tmp/native-rest.diff
-          rm -rf .github/native-overlay
-          rm -f .github/workflows/apply-native-overlay.yml
+          base64 -d .github/build-full.b64 | gzip -dc > build.gradle.kts
+          test "$(wc -l < build.gradle.kts)" -eq 778
+          grep -q 'val legacyCompileJars = fileTree("libs")' build.gradle.kts
+          grep -q 'enabled = false' build.gradle.kts
+          rm -f .github/build-full.b64 .github/workflows/restore-complete-build.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git diff --cached --check
-          git diff --cached --quiet && { echo 'Overlay produced no changes.' >&2; exit 1; }
-          git commit -m 'Apply native PacketEvents source migration'
+          git commit -m 'Restore complete Gradle build definition'
           git push origin HEAD:agent/audit-hardening
 
   no-protocollib-bridge:
