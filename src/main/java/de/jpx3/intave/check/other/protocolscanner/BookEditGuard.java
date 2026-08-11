@@ -100,12 +100,13 @@ public final class BookEditGuard extends CheckPart<ProtocolScanner> {
       return "slot=" + slot + ", selected=" + inventory.handSlot();
     }
 
-    // Bukkit/Paper inventory reads can be implementation-sensitive off the main thread. If an
-    // implementation refuses the read, skip only the item-type assertion; slot/contents limits
-    // above remain authoritative and Physics/Inventory tracking is not disturbed.
+    // The project intentionally compiles against legacy Bukkit APIs for compatibility, where the
+    // writable-book enum constant is BOOK_AND_QUILL. Compare by material name so modern Paper's
+    // WRITABLE_BOOK and legacy compile APIs are both supported without a hard enum reference.
     try {
       Material type = slot == OFFHAND_SLOT ? inventory.offhandItemType() : inventory.heldItemType();
-      if (type != Material.WRITABLE_BOOK) {
+      String typeName = type == null ? "" : type.name();
+      if (!"WRITABLE_BOOK".equals(typeName) && !"BOOK_AND_QUILL".equals(typeName)) {
         return "not editing writable book, item=" + type;
       }
     } catch (Throwable ignored) {
