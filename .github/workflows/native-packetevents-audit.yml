@@ -11,9 +11,35 @@ permissions:
 jobs:
   source-snapshot:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Record branch tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD > branch-head.txt
+          git rev-parse 'HEAD^{tree}' > branch-tree.txt
+
+      - name: Resolve PacketEvents compile dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon -q dependencies --configuration compileClasspath >/tmp/compile-classpath.txt
+          mkdir -p packetevents-jars
+          while IFS= read -r -d '' jar; do
+            cp "$jar" "packetevents-jars/$(basename "$jar")"
+          done < <(find "$HOME/.gradle/caches/modules-2/files-2.1/com.github.retrooper" -type f -name '*.jar' -print0)
+          if ! find packetevents-jars -type f -name '*.jar' -print -quit | grep -q .; then
+            echo 'PacketEvents jars were not resolved into the Gradle module cache.' >&2
+            cat /tmp/compile-classpath.txt >&2
+            exit 1
+          fi
+          find packetevents-jars -type f -name '*.jar' -printf '%f\n' | sort
+
       - name: Package source snapshot
         shell: bash
         run: |
@@ -27,7 +53,10 @@ jobs:
             gradlew.bat \
             gradle \
             .github \
-            README.md
+            README.md \
+            branch-head.txt \
+            branch-tree.txt
+
       - name: Upload source snapshot
         uses: actions/upload-artifact@v7
         with:
@@ -36,11 +65,21 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
+      - name: Upload PacketEvents jars
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-packetevents-jars
+          path: packetevents-jars/*.jar
+          if-no-files-found: error
+          retention-days: 2
+
   no-protocollib-bridge:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Inventory ProtocolLib compatibility usage
         shell: bash
