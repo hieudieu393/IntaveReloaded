@@ -1,8 +1,7 @@
 package de.jpx3.intave.check.world.breakspeedlimiter;
 
-import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
 import de.jpx3.intave.module.Modules;
@@ -15,6 +14,7 @@ import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 import de.jpx3.intave.user.meta.MovementMetadata;
 import org.bukkit.GameMode;
+import org.bukkit.entity.Player;
 
 import static de.jpx3.intave.module.linker.packet.ListenerPriority.LOWEST;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.BLOCK_DIG;
@@ -29,7 +29,8 @@ public final class FarBreakEnvelope extends MetaCheckPart<BreakSpeedLimiter, Far
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
   public void receive(ProtocolPacketEvent event) {
-    User user = userOf(event.getPlayer());
+    Player player = (Player) event.getPlayer();
+    User user = userOf(player);
     if (user.meta().movement().isInVehicle() || user.meta().abilities().hasViewEntity) {
       return;
     }
@@ -37,8 +38,8 @@ public final class FarBreakEnvelope extends MetaCheckPart<BreakSpeedLimiter, Far
     BlockDigReader reader = PacketReaders.readerOf(event);
     try {
       DiggingAction action = reader.action();
-      if (action != DiggingAction.START_DESTROY_BLOCK
-        && action != DiggingAction.STOP_DESTROY_BLOCK) {
+      if (action != DiggingAction.START_DIGGING
+        && action != DiggingAction.FINISHED_DIGGING) {
         return;
       }
       BlockPosition block = reader.nativeBlockPosition();
@@ -48,7 +49,7 @@ public final class FarBreakEnvelope extends MetaCheckPart<BreakSpeedLimiter, Far
 
       MovementMetadata movement = user.meta().movement();
       double minSq = Double.MAX_VALUE;
-      double bukkitEye = event.getPlayer().getEyeHeight();
+      double bukkitEye = player.getEyeHeight();
       double[] eyeHeights = {bukkitEye, COMMON_EYE_HEIGHTS[0], COMMON_EYE_HEIGHTS[1], COMMON_EYE_HEIGHTS[2]};
       for (double eye : eyeHeights) {
         minSq = Math.min(minSq, distanceSqToUnitBlock(
