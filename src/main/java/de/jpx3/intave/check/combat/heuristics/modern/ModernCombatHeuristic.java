@@ -1,5 +1,6 @@
 package de.jpx3.intave.check.combat.heuristics.modern;
 
+import de.jpx3.intave.check.CheckSignalConfiguration;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.module.Modules;
@@ -19,9 +20,13 @@ public abstract class ModernCombatHeuristic<M extends CheckCustomMetadata> exten
   }
 
   protected final void flag(User user, String rule, String details, double violationLevel) {
+    String checkName = checkNameFor(rule);
+    if (!CheckSignalConfiguration.enabled("heuristics", checkName)) {
+      return;
+    }
     Violation violation = Violation.builderFor(Heuristics.class)
       .forPlayer(user.player())
-      .withCheckName(checkNameFor(rule))
+      .withCheckName(checkName)
       .withMessage("failed combat " + rule)
       .withDetails(details)
       .withVL(violationLevel)
@@ -35,6 +40,7 @@ public abstract class ModernCombatHeuristic<M extends CheckCustomMetadata> exten
     return normalized.contains("rotation")
       || normalized.contains("look")
       || normalized.contains("aim")
+      || normalized.contains("pitch")
       ? "Aim"
       : "KillAura";
   }
