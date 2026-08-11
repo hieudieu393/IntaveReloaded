@@ -21,7 +21,7 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
 /**
  * Validates the shared interaction sequence counter introduced in modern clients. The counter is
  * used by block acknowledgements, so impossible jumps/replays are useful protocol signals. We do
- * not cancel on the first mismatch: proxies translating protocols are given a buffered tolerance.
+ * not cancel on an ordinary mismatch: proxies translating protocols are given a buffered tolerance.
  */
 public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, SequenceGuard.Meta> {
   private static final int MIN_SEQUENCE_PROTOCOL = ProtocolMetadata.VER_1_19_2;
@@ -43,7 +43,12 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
 
     BlockInteractionReader reader = PacketReaders.readerOf(event.getPacket());
     try {
-      validate(user, reader.sequenceNumber(user), event.getPacketType().name());
+      int sequence = reader.sequenceNumber(user);
+      if (sequence < 0) {
+        hardInvalid(user, event, event.getPacketType().name(), sequence);
+        return;
+      }
+      validate(user, sequence, event.getPacketType().name());
     } finally {
       reader.release();
     }
@@ -61,6 +66,10 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
     }
     Integer sequence = event.getPacket().getIntegers().readSafely(0);
     if (sequence != null) {
+      if (sequence < 0) {
+        hardInvalid(user, event, "USE_ITEM", sequence);
+        return;
+      }
       validate(user, sequence, "USE_ITEM");
     }
   }
@@ -86,7 +95,12 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
 
       Integer sequence = event.getPacket().getIntegers().readSafely(0);
       if (sequence != null) {
-        validate(user, sequence, "BLOCK_DIG/" + action.name());
+        String source = "BLOCK_DIG/" + action.name();
+        if (sequence < 0) {
+          hardInvalid(user, event, source, sequence);
+          return;
+        }
+        validate(user, sequence, source);
       }
     } finally {
       reader.release();
@@ -102,6 +116,22 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
     meta.initialized = false;
     meta.lastSequence = 0;
     meta.buffer = 0.0;
+  }
+
+  private void hardInvalid(User user, PacketEvent event, String source, int sequence) {
+    if (event.isReadOnly()) {
+      event.setReadOnly(false);
+    }
+    event.setCancelled(true);
+
+    Violation violation = Violation.builderFor(ProtocolScanner.class)
+      .forPlayer(user.player())
+      .withCheckName("BadPackets")
+      .withMessage("sent a negative interaction sequence")
+      .withDetails(source + " sequence=" + sequence)
+      .withVL(20.0D)
+      .build();
+    Modules.violationProcessor().processViolation(violation);
   }
 
   private void validate(User user, int sequence, String source) {
@@ -127,6 +157,7 @@ public final class SequenceGuard extends MetaCheckPart<ProtocolScanner, Sequence
     int vl = parentCheck().configuration().settings().intBy("packet-order-vl", 5);
     Violation violation = Violation.builderFor(ProtocolScanner.class)
       .forPlayer(user.player())
+      .withCheckName("BadPackets")
       .withMessage("sent an unexpected interaction sequence")
       .withDetails(source + " expected=" + expected + ", got=" + sequence)
       .withVL(Math.max(1, vl))
