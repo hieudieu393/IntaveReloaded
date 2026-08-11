@@ -49,6 +49,7 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
       if (hardExempt(user, movement)) {
         meta.angleBuffer = Math.max(0.0D, meta.angleBuffer - 0.5D);
         meta.criticalBuffer = Math.max(0.0D, meta.criticalBuffer - 0.5D);
+        meta.zeroPitchBuffer = Math.max(0.0D, meta.zeroPitchBuffer - 0.5D);
         meta.pendingTargets.clear();
         return;
       }
@@ -88,9 +89,11 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
     if (hardExempt(user, movement)) {
       meta.pendingTargets.clear();
       meta.angleBuffer = Math.max(0.0D, meta.angleBuffer - 0.5D);
+      meta.zeroPitchBuffer = Math.max(0.0D, meta.zeroPitchBuffer - 0.5D);
       return;
     }
 
+    boolean hadAttack = !meta.pendingTargets.isEmpty();
     while (!meta.pendingTargets.isEmpty()) {
       int entityId = meta.pendingTargets.removeFirst();
       Entity target = EntityTracker.entityByIdentifier(user, entityId);
@@ -98,6 +101,12 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
         continue;
       }
       checkAttackAngle(user, movement, meta, target);
+    }
+
+    if (hadAttack) {
+      checkZeroPitch(user, movement, meta);
+    } else {
+      meta.zeroPitchBuffer = Math.max(0.0D, meta.zeroPitchBuffer - 0.10D);
     }
   }
 
@@ -149,6 +158,20 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
       }
     } else {
       meta.angleBuffer = Math.max(0.0D, meta.angleBuffer - 0.35D);
+    }
+  }
+
+  private void checkZeroPitch(User user, MovementMetadata movement, Meta meta) {
+    if (Float.floatToIntBits(movement.rotationPitch) == Float.floatToIntBits(0.0F) && tickingReliably(user)) {
+      meta.zeroPitchBuffer += 1.0D;
+      if (meta.zeroPitchBuffer >= 4.0D) {
+        flag(user, "aim-zero-pitch",
+          "pitch=0.0 yaw=" + format(movement.rotationYaw) + " repeated=" + format(meta.zeroPitchBuffer),
+          1.5D);
+        meta.zeroPitchBuffer = 2.0D;
+      }
+    } else {
+      meta.zeroPitchBuffer = Math.max(0.0D, meta.zeroPitchBuffer - 0.35D);
     }
   }
 
@@ -243,5 +266,6 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
     private final Deque<Integer> pendingTargets = new ArrayDeque<>();
     private double angleBuffer;
     private double criticalBuffer;
+    private double zeroPitchBuffer;
   }
 }
