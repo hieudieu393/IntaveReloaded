@@ -24,19 +24,19 @@ public final class WorldBorderReader extends AbstractPacketReader {
   protected void read() {
     PacketTypeCommon type = packetType();
     PacketWrapper<?> packet = rawPacket();
-    if (type == PacketType.Play.Server.SET_BORDER_CENTER) {
+    if (type == PacketType.Play.Server.WORLD_BORDER_CENTER) {
       updateType = UpdateType.SET_CENTER;
       centerX = packet.readDouble();
       centerZ = packet.readDouble();
-    } else if (type == PacketType.Play.Server.SET_BORDER_SIZE) {
+    } else if (type == PacketType.Play.Server.WORLD_BORDER_SIZE) {
       updateType = UpdateType.SET_SIZE;
       size = packet.readDouble();
-    } else if (type == PacketType.Play.Server.SET_BORDER_LERP_SIZE) {
+    } else if (type == PacketType.Play.Server.WORLD_BORDER_LERP_SIZE) {
       updateType = UpdateType.LERP_SIZE;
       oldSize = packet.readDouble();
       newSize = packet.readDouble();
       lerpTime = packet.readVarLong();
-    } else if (type == PacketType.Play.Server.INITIALIZE_BORDER) {
+    } else if (type == PacketType.Play.Server.INITIALIZE_WORLD_BORDER) {
       updateType = INITIALIZE;
       centerX = packet.readDouble();
       centerZ = packet.readDouble();
@@ -47,9 +47,9 @@ public final class WorldBorderReader extends AbstractPacketReader {
       packet.readVarInt(); // warning time
       packet.readVarInt(); // warning distance
       size = newSize;
-    } else if (type == PacketType.Play.Server.SET_BORDER_WARNING_DELAY) {
+    } else if (type == PacketType.Play.Server.WORLD_BORDER_WARNING_DELAY) {
       updateType = UpdateType.SET_WARNING_TIME;
-    } else if (type == PacketType.Play.Server.SET_BORDER_WARNING_DISTANCE) {
+    } else if (type == PacketType.Play.Server.WORLD_BORDER_WARNING_REACH) {
       updateType = UpdateType.SET_WARNING_BLOCKS;
     } else {
       throw new IllegalStateException("Unknown native world border packet type: " + type.getName());
