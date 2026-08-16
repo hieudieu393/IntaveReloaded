@@ -16,6 +16,7 @@ import de.jpx3.intave.player.ActionBar;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 import java.util.UUID;
 import java.util.concurrent.locks.Lock;
@@ -36,7 +37,7 @@ public final class ActionBarDisplayer extends Module {
   @PacketSubscription(priority = ListenerPriority.HIGH, packetsOut = CHAT_OUT)
   public void clientClickUpdate(ProtocolPacketEvent event) {
     if (!(event instanceof PacketSendEvent)) return;
-    User user = UserRepository.userOf(event.getPlayer());
+    User user = UserRepository.userOf((Player) event.getPlayer());
     if (!inSubscription(user)) return;
     PacketSendEvent sendEvent = (PacketSendEvent) event;
     PacketTypeCommon type = event.getPacketType();
