@@ -1,7 +1,7 @@
 package de.jpx3.intave.module.tracker.entity;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.reflect.StructureModifier;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import de.jpx3.intave.packet.nativeapi.reflect.NativeModifier;
 import de.jpx3.intave.access.IntaveInternalException;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.entity.size.HitboxSize;
@@ -200,7 +200,7 @@ public class Entity {
     }
   }
 
-  public void immediateEntityTeleport(User user, PacketContainer packet) {
+  public void immediateEntityTeleport(User user, NativePacket packet) {
     double newPosX;
     double newPosY;
     double newPosZ;
@@ -246,7 +246,7 @@ public class Entity {
    * @param user   user which received the packet
    * @param packet contains information about the entity teleportation
    */
-  public void handleEntityTeleport(User user, PacketContainer packet) {
+  public void handleEntityTeleport(User user, NativePacket packet) {
     double newPosX;
     double newPosY;
     double newPosZ;
@@ -311,7 +311,7 @@ public class Entity {
     }
   }
 
-  public void handleEntityPositionSync(User user, PacketContainer packet) {
+  public void handleEntityPositionSync(User user, NativePacket packet) {
     PositionMoveRotation posMoveRot = PositionMoveRotation.firstFrom(packet);
     Position position = posMoveRot.position();
     handleEntityPositionSync(position);
@@ -345,7 +345,7 @@ public class Entity {
     }
   }
 
-  public void immediateEntityPositionSync(PacketContainer packet) {
+  public void immediateEntityPositionSync(NativePacket packet) {
     double newPosX;
     double newPosY;
     double newPosZ;
@@ -367,12 +367,12 @@ public class Entity {
     return d * d + e * e + f * f;
   }
 
-  public void immediateEntityMovement(PacketContainer packet) {
+  public void immediateEntityMovement(NativePacket packet) {
     double newPosX;
     double newPosY;
     double newPosZ;
     if (POSITION_PROCESSING_1_14) {
-      StructureModifier<Short> shorts = packet.getShorts();
+      NativeModifier<Short> shorts = packet.getShorts();
       this.immServerPosX += shorts.readSafely(0);
       this.immServerPosY += shorts.readSafely(1);
       this.immServerPosZ += shorts.readSafely(2);
@@ -380,7 +380,7 @@ public class Entity {
       newPosY = (double) immServerPosY / 4096d;
       newPosZ = (double) immServerPosZ / 4096d;
     } else if (POSITION_PROCESSING_1_9) {
-      StructureModifier<Integer> integers = packet.getIntegers();
+      NativeModifier<Integer> integers = packet.getIntegers();
       this.immServerPosX += integers.readSafely(1);
       this.immServerPosY += integers.readSafely(2);
       this.immServerPosZ += integers.readSafely(3);
@@ -388,7 +388,7 @@ public class Entity {
       newPosY = (double) immServerPosY / 4096d;
       newPosZ = (double) immServerPosZ / 4096d;
     } else {
-      StructureModifier<Byte> bytes = packet.getBytes();
+      NativeModifier<Byte> bytes = packet.getBytes();
       this.immServerPosX += bytes.readSafely(0);
       this.immServerPosY += bytes.readSafely(1);
       this.immServerPosZ += bytes.readSafely(2);
@@ -406,23 +406,23 @@ public class Entity {
    *
    * @param packet contains information about the entity movement
    */
-  public void handleEntityMovement(User user, PacketContainer packet, boolean sync) {
+  public void handleEntityMovement(User user, NativePacket packet, boolean sync) {
     long dx, dy, dz;
     double divisor;
     if (POSITION_PROCESSING_1_14) {
-      StructureModifier<Short> shorts = packet.getShorts();
+      NativeModifier<Short> shorts = packet.getShorts();
       dx = shorts.readSafely(0);
       dy = shorts.readSafely(1);
       dz = shorts.readSafely(2);
       divisor = 4096d;
     } else if (POSITION_PROCESSING_1_9) {
-      StructureModifier<Integer> integers = packet.getIntegers();
+      NativeModifier<Integer> integers = packet.getIntegers();
       dx = integers.readSafely(1);
       dy = integers.readSafely(2);
       dz = integers.readSafely(3);
       divisor = 4096d;
     } else {
-      StructureModifier<Byte> bytes = packet.getBytes();
+      NativeModifier<Byte> bytes = packet.getBytes();
       dx = bytes.readSafely(0);
       dy = bytes.readSafely(1);
       dz = bytes.readSafely(2);

@@ -1,6 +1,6 @@
 package de.jpx3.intave.module.tracker.player;
 
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntaveLogger;
@@ -79,7 +79,7 @@ public final class ConnectionTracker extends Module {
   public void processOutgoingPingPackets(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     long id;
     if (packet.getLongs().size() > 0) {
       id = packet.getLongs().read(0);
@@ -97,7 +97,7 @@ public final class ConnectionTracker extends Module {
   public void processIncomingPingPackets(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     ConnectionMetadata synchronizeData = user.meta().connection();
     Map<Long, Long> remainingPingPackets = synchronizeData.pingPackets();
     long id;

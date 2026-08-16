@@ -16,7 +16,7 @@ public final class ConfigLoaderFactory {
 
   public ConfigurationLoader loaderFor(ConfigSelection selection) {
     if (selection == null) {
-      throw new IllegalArgumentException("Configuration selection must not be null");
+      throw new IllegalArgumentException("Configuration selection cannot be null");
     }
     return selection.loader();
   }

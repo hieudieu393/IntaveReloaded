@@ -1,10 +1,10 @@
 package de.jpx3.intave.module.filter;
 
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import com.comphenix.protocol.wrappers.PlayerInfoData;
-import com.comphenix.protocol.wrappers.WrappedGameProfile;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.wrappers.PlayerInfoData;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedGameProfile;
 import com.google.common.collect.Lists;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.executor.Synchronizer;
@@ -24,7 +24,7 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
-import static com.comphenix.protocol.wrappers.EnumWrappers.NativeGameMode.SURVIVAL;
+import static de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers.NativeGameMode.SURVIVAL;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.*;
 
 public final class VanishFilter extends Filter {
@@ -84,7 +84,7 @@ public final class VanishFilter extends Filter {
   )
   public void on(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
 //    System.out.println("Player info packet: " + packet);
 
     User user = UserRepository.userOf(player);
@@ -160,7 +160,7 @@ public final class VanishFilter extends Filter {
     ProtocolMetadata protocol = user.meta().protocol();
     Set<UUID> shownPlayers = protocol.shownPlayers;
 
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     String[] stuff = packet.getStringArrays().readSafely(0);
     if (stuff != null) {
       List<String> playerNames = Bukkit.getOnlinePlayers().stream()
@@ -196,7 +196,7 @@ public final class VanishFilter extends Filter {
 //  )
 //  public void onTeam(ProtocolPacketEvent event) {
 //    Player player = event.getPlayer();
-//    PacketContainer packet = event.getPacket();
+//    NativePacket packet = NativePacket.fromEvent(event);
 //    User user = UserRepository.userOf(player);
 //    ProtocolMetadata protocol = user.meta().protocol();
 //    Set<UUID> shownPlayers = protocol.shownPlayers;
@@ -211,7 +211,7 @@ public final class VanishFilter extends Filter {
   )
   public void onRemoval(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     User user = UserRepository.userOf(player);
     ProtocolMetadata protocol = user.meta().protocol();
     Set<UUID> shownPlayers = protocol.shownPlayers;

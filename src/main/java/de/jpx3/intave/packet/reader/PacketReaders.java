@@ -3,6 +3,7 @@ package de.jpx3.intave.packet.reader;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import de.jpx3.intave.module.linker.packet.PacketId;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import de.jpx3.intave.module.linker.packet.PacketTypeResolver;
 
 import java.util.Map;
@@ -122,6 +123,12 @@ public final class PacketReaders {
     PacketReader reader = local.get();
     reader.enter(event);
     return (T) reader;
+  }
+
+  public static <T extends PacketReader> T readerOf(NativePacket packet) {
+    ProtocolPacketEvent event = packet.protocolEvent();
+    if (event == null) throw new IllegalArgumentException("Native packet is not backed by a packet event");
+    return readerOf(event);
   }
 
   public static boolean hasReader(PacketTypeCommon type) {

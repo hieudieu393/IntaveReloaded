@@ -12,7 +12,7 @@
 package de.jpx3.intave.module.tracker.player;
 
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers.EntityPose;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers.EntityPose;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.annotate.Nullable;
 import de.jpx3.intave.check.movement.physics.environment.Pose;

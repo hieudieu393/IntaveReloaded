@@ -15,13 +15,13 @@ import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.reflect.StructureModifier;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import com.comphenix.protocol.wrappers.MovingObjectPositionBlock;
-import com.comphenix.protocol.wrappers.WrappedBlockData;
+import de.jpx3.intave.packet.nativeapi.reflect.NativeModifier;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.wrappers.NativeBlockHit;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedBlockData;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.access.player.trust.TrustFactor;
@@ -108,13 +108,13 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
     MovementMetadata movementData = meta.movement();
     AbilityMetadata abilityMetadata = meta.abilities();
     InventoryMetadata inventory = meta.inventory();
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     BlockInteractionReader reader = PacketReaders.readerOf(packet);
 
     inventory.lastBlockSequenceNumber = reader.sequenceNumber(user);
 
     try {
-      com.comphenix.protocol.wrappers.BlockPosition blockPosition = reader.blockPosition();
+      de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition blockPosition = reader.blockPosition();
       if (blockPosition == null || event.isCancelled() || movementData.isInVehicle()) {
         return;
       }
@@ -126,7 +126,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
       float facingX = -1;
       float facingY = -1;
       float facingZ = -1;
-      StructureModifier<Float> floatsInPacket = packet.getFloat();
+      NativeModifier<Float> floatsInPacket = packet.getFloat();
       if (floatsInPacket.size() >= 3 && meta.protocol().sendsFacings()) {
         facingX = floatsInPacket.read(0);
         facingY = floatsInPacket.read(1);
@@ -325,9 +325,9 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
 
     receivedAnyTickContextPacket(user, false, "BLOCK_DIG");
 
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
 
-    com.comphenix.protocol.wrappers.BlockPosition blockPosition = event.getPacket().getModifier()
+    de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition blockPosition = NativePacket.fromEvent(event).getModifier()
       .withType(Lookup.serverClass("BlockPosition"), BlockPositionConverter.threadConverter())
       .read(0);
 
@@ -483,7 +483,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
   public void receiveAnyTickContextPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
-    receivedAnyTickContextPacket(user, event.getPacket().getType() == PacketType.Play.Client.ANIMATION, event.getPacketType().name());
+    receivedAnyTickContextPacket(user, NativePacket.fromEvent(event).getType() == PacketType.Play.Client.ANIMATION, event.getPacketType().getName());
   }
 
   private void receivedAnyTickContextPacket(
@@ -919,14 +919,14 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
           receiveExcludedPacket(player, interaction.thePacket());
         }
       } else {
-        PacketContainer packet = interaction.thePacket();
+        NativePacket packet = interaction.thePacket();
         if (flag && !canBeReceivedAsIsWithoutProblems) {
           // check if player collides with placement location
           {
             World world = player.getWorld();
             Material material = user.meta().inventory().heldItemType();
             int dat = 0;
-            boolean replace = BlockInteractionAccess.replacedOnPlacement(world, player, new com.comphenix.protocol.wrappers.BlockPosition(raycastLocation.toVector()));
+            boolean replace = BlockInteractionAccess.replacedOnPlacement(world, player, new de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition(raycastLocation.toVector()));
             Location placementLocation = replace ? raycastLocation : raycastLocation.clone().add(raycastResult.sideHit.directionVector().convertToBukkitVec());
             boolean raytraceCollidesWithPosition = material.isBlock() && Collision.playerInImaginaryBlock(
               user, user.meta().movement(), world,
@@ -940,8 +940,8 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
             }
           }
           writeEnumDirection(packet, raycastResult.sideHit);
-          com.comphenix.protocol.wrappers.BlockPosition bp =
-            new com.comphenix.protocol.wrappers.BlockPosition(
+          de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition bp =
+            new de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition(
               raycastLocation.getBlockX(),
               raycastLocation.getBlockY(),
               raycastLocation.getBlockZ()
@@ -988,7 +988,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
     if (!MinecraftVersions.VER1_19.atOrAbove()) {
       return;
     }
-    PacketContainer ack = new PacketContainer(PacketType.Play.Server.BLOCK_CHANGED_ACK);
+    NativePacket ack = new NativePacket(PacketType.Play.Server.BLOCK_CHANGED_ACK);
     ack.getIntegers().write(0, sequenceNumber);
     PacketSender.sendServerPacket(player, ack);
   }
@@ -1137,7 +1137,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
     packetsOut = BLOCK_BREAK_ANIMATION
   )
   public void clearInvalidBreakingUpdates(ProtocolPacketEvent event) {
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     EntityReader entityReader = PacketReaders.readerOf(packet);
     Entity entity = entityReader.entityBy(event);
     entityReader.release();
@@ -1201,14 +1201,14 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
   }
 
   private void refreshBlock(Player player, Location location) {
-    PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.BLOCK_CHANGE);
+    NativePacket packet = PacketRuntime.getPacketRuntimeManager().createPacket(PacketType.Play.Server.BLOCK_CHANGE);
     if (!VolatileBlockAccess.isInLoadedChunk(location.getWorld(), location.getBlockX(), location.getBlockZ())) {
       return;
     }
     Block block = VolatileBlockAccess.blockAccess(location);
     Object handle = BlockVariantNativeAccess.nativeVariantAccess(block);
     WrappedBlockData blockData = WrappedBlockData.fromHandle(handle);
-    com.comphenix.protocol.wrappers.BlockPosition position = new com.comphenix.protocol.wrappers.BlockPosition(location.getBlockX(), location.getBlockY(), location.getBlockZ());
+    de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition position = new de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition(location.getBlockX(), location.getBlockY(), location.getBlockZ());
     packet.getBlockData().write(0, blockData);
     packet.getBlockPositionModifier().write(0, position);
     PacketSender.sendServerPacket(player, packet);
@@ -1217,7 +1217,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
     }
   }
 
-  private void receiveExcludedPacket(Player player, PacketContainer packet) {
+  private void receiveExcludedPacket(Player player, NativePacket packet) {
     if (IntaveControl.DEBUG_INTERACTION_PACKET_ROUTING) {
       System.out.println("[Intave/DIPR] ROUTED PACKET " + packet.getType() + " " + packet.getHandle().getClass().getSimpleName());
     }
@@ -1232,9 +1232,9 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
 
   private static final boolean BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION = MinecraftVersions.VER1_14_0.atOrAbove();
 
-  private void writeBlockPosition(PacketContainer packet, com.comphenix.protocol.wrappers.BlockPosition blockPosition) {
+  private void writeBlockPosition(NativePacket packet, de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition blockPosition) {
     if (BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION && !packet.getType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
-      MovingObjectPositionBlock raytraceSent = packet.getMovingBlockPositions().readSafely(0);
+      NativeBlockHit raytraceSent = packet.getMovingBlockPositions().readSafely(0);
       raytraceSent.setBlockPosition(blockPosition);
       packet.getMovingBlockPositions().write(0, raytraceSent);
     } else {
@@ -1242,9 +1242,9 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
     }
   }
 
-  private void writeEnumDirection(PacketContainer packet, Direction direction) {
+  private void writeEnumDirection(NativePacket packet, Direction direction) {
     if (BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION && !packet.getType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
-      MovingObjectPositionBlock raytraceSent = packet.getMovingBlockPositions().readSafely(0);
+      NativeBlockHit raytraceSent = packet.getMovingBlockPositions().readSafely(0);
       raytraceSent.setDirection(direction.toDirection());
       packet.getMovingBlockPositions().write(0, raytraceSent);
     } else {

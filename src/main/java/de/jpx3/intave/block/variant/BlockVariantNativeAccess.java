@@ -1,6 +1,6 @@
 package de.jpx3.intave.block.variant;
 
-import com.comphenix.protocol.wrappers.WrappedBlockData;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedBlockData;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.block.access.BlockAccess;
 import de.jpx3.intave.block.access.VolatileBlockAccess;

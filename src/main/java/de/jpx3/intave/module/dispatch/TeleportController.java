@@ -14,11 +14,11 @@ package de.jpx3.intave.module.dispatch;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.wrappers.BukkitConverters;
-import com.comphenix.protocol.wrappers.WrappedParticle;
+import de.jpx3.intave.packet.nativeapi.wrappers.BukkitConverters;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedParticle;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntaveLogger;
 import de.jpx3.intave.IntavePlugin;
@@ -94,7 +94,7 @@ public final class TeleportController implements PacketEventSubscriber {
   )
   public void receiveOutgoingTeleport(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     User user = UserRepository.userOf(player);
     MovementMetadata movementData = user.meta().movement();
 
@@ -216,7 +216,7 @@ public final class TeleportController implements PacketEventSubscriber {
     User user = UserRepository.userOf(player);
     MovementMetadata movementData = user.meta().movement();
 
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     Integer teleportId = packet.getIntegers().read(0);
 
     if (movementData.teleportId == teleportId) {
@@ -240,7 +240,7 @@ public final class TeleportController implements PacketEventSubscriber {
 
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     if (packet.getPlayerDigTypes().read(0) == DROP_ITEM && user.meta().inventory().heldItemType() == Material.AIR) {
       if (IntaveControl.TELEPORT_FAR_AWAY_ON_Q_PRESS) {
         Synchronizer.synchronize(() -> {
@@ -288,7 +288,7 @@ public final class TeleportController implements PacketEventSubscriber {
       return;
     }
 
-    PacketContainer packet = ProtocolLibrary.getProtocolManager()
+    NativePacket packet = PacketRuntime.getPacketRuntimeManager()
       .createPacket(PacketType.Play.Server.EXPLOSION);
 
     // Explosion center (Vec3)
@@ -319,11 +319,11 @@ public final class TeleportController implements PacketEventSubscriber {
     // 1.21.11: block particle WeightedList
     packet.getModifier().write(6, createEmptyWeightedList(packet));
 
-    ProtocolLibrary.getProtocolManager().sendServerPacket(player, packet);
+    PacketRuntime.getPacketRuntimeManager().sendServerPacket(player, packet);
   }
 
 
-  private static Object createEmptyWeightedList(PacketContainer packet) {
+  private static Object createEmptyWeightedList(NativePacket packet) {
     try {
       // Field 6 is the WeightedList of block explosion particles
       Class<?> type = packet.getModifier().getField(6).getType();

@@ -1,6 +1,6 @@
 package de.jpx3.intave.packet.converter;
 
-import com.comphenix.protocol.reflect.EquivalentConverter;
+import de.jpx3.intave.packet.nativeapi.reflect.EquivalentConverter;
 import de.jpx3.intave.codec.CodecTranslator;
 import de.jpx3.intave.codec.StreamCodec;
 import de.jpx3.intave.share.PositionMoveRotation;

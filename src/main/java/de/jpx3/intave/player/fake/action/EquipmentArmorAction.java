@@ -2,9 +2,9 @@ package de.jpx3.intave.player.fake.action;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import com.comphenix.protocol.wrappers.Pair;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.wrappers.Pair;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.player.fake.FakePlayer;
 import de.jpx3.intave.player.fake.equipment.ArmorPiece;
@@ -40,7 +40,7 @@ public final class EquipmentArmorAction extends Action {
 
   private void sendEquipment(ArmorSlot slot, Material material) {
     ItemStack itemStack = new ItemStack(material);
-    PacketContainer packet = create(PacketType.Play.Server.ENTITY_EQUIPMENT);
+    NativePacket packet = create(PacketType.Play.Server.ENTITY_EQUIPMENT);
     packet.getIntegers().writeSafely(0, this.fakePlayer.identifier());
     if (HAS_OFF_HAND) {
       boolean modernProcessing = MinecraftVersions.VER1_16_0.atOrAbove();

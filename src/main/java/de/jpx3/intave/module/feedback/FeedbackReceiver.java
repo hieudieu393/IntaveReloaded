@@ -1,6 +1,6 @@
 package de.jpx3.intave.module.feedback;
 
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntaveLogger;
@@ -99,7 +99,7 @@ public final class FeedbackReceiver extends Module {
   public void receiveInventoryClick(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     Short clientTransactionId = packet.getShorts().readSafely(0);
     if (clientTransactionId == null) {
       return;
@@ -123,7 +123,7 @@ public final class FeedbackReceiver extends Module {
     Player player = event.getPlayer();
     User user = userOf(player);
     FeedbackQueue feedbackQueue = user.meta().connection().feedbackQueue();
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     short possibleUserKey = 0;
     if (MinecraftVersions.VER1_12_0.atOrAbove()) {
       possibleUserKey = packet.getLongs().readSafely(0).shortValue();
@@ -144,7 +144,7 @@ public final class FeedbackReceiver extends Module {
   )
   public void outgoingTransaction(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     User user = UserRepository.userOf(player);
     boolean noPingMask = user.meta().protocol().noPingMask();
     if (!hasValidUserKey(packet, noPingMask) && activeGenerator != IdGeneratorMode.highestCompatibility()) {
@@ -178,7 +178,7 @@ public final class FeedbackReceiver extends Module {
     MetadataBundle meta = user.meta();
     ConnectionMetadata connection = meta.connection();
     FeedbackQueue feedbackQueue = connection.feedbackQueue();
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     boolean noPingMask = user.meta().protocol().noPingMask();
 
     if (!hasValidUserKey(packet, noPingMask)) {
@@ -264,7 +264,7 @@ public final class FeedbackReceiver extends Module {
     event.setCancelled(true);
   }
 
-  private short userKeyFrom(PacketContainer packet, boolean noPingMask) {
+  private short userKeyFrom(NativePacket packet, boolean noPingMask) {
     if (USE_PING_PACKETS) {
       int inputInteger = packet.getIntegers().readSafely(0);
       return (short) (inputInteger & 0xffff);
@@ -273,7 +273,7 @@ public final class FeedbackReceiver extends Module {
     }
   }
 
-  private boolean hasValidUserKey(PacketContainer packet, boolean noPingMask) {
+  private boolean hasValidUserKey(NativePacket packet, boolean noPingMask) {
     short shortInput;
     if (USE_PING_PACKETS) {
       int inputInteger = packet.getIntegers().readSafely(0);

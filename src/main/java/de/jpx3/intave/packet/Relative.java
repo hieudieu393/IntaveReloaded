@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.protocol.teleport.RelativeFlag;
 import com.google.common.collect.Maps;
 import de.jpx3.intave.klass.Lookup;
 import de.jpx3.intave.klass.locate.Locate;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -66,6 +67,11 @@ public enum Relative {
 
   public static Set<?> fromSet(Set<Relative> flags) {
     return nativeFromIndex(indexOf(flags));
+  }
+
+  public static Set<Relative> flagsFrom(NativePacket packet) {
+    RelativeFlag flags = packet.getSpecificModifier(RelativeFlag.class).readSafely(0);
+    return flags == null ? new HashSet<Relative>() : fromPacketEvents(flags);
   }
 
   public static Set<Relative> fromPacketEvents(RelativeFlag flags) {

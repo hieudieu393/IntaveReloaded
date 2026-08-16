@@ -13,9 +13,9 @@ package de.jpx3.intave.check.movement;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.WrappedBlockData;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedBlockData;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.access.check.MitigationStrategy;
 import de.jpx3.intave.access.player.trust.TrustFactor;
@@ -1311,7 +1311,7 @@ public final class Physics extends Check {
 
   private void sendPacketWithExperience(Player player, int level) {
     BackgroundExecutors.execute(() -> {
-      PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.SET_EXPERIENCE);
+      NativePacket packet = PacketRuntime.getPacketRuntimeManager().createPacket(PacketType.Play.Server.SET_EXPERIENCE);
       packet.getFloat().write(0, 0f);
       packet.getIntegers().write(0, 0);
       packet.getIntegers().write(1, level);
@@ -1335,14 +1335,14 @@ public final class Physics extends Check {
   }
 
   private void refreshBlock(Player player, Location location) {
-    PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.BLOCK_CHANGE);
+    NativePacket packet = PacketRuntime.getPacketRuntimeManager().createPacket(PacketType.Play.Server.BLOCK_CHANGE);
     if (!VolatileBlockAccess.isInLoadedChunk(location.getWorld(), location.getBlockX(), location.getBlockZ())) {
       return;
     }
     Block block = VolatileBlockAccess.blockAccess(location);
     Object handle = BlockVariantNativeAccess.nativeVariantAccess(block);
     WrappedBlockData blockData = WrappedBlockData.fromHandle(handle);
-    com.comphenix.protocol.wrappers.BlockPosition position = new com.comphenix.protocol.wrappers.BlockPosition(location.getBlockX(), location.getBlockY(), location.getBlockZ());
+    de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition position = new de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition(location.getBlockX(), location.getBlockY(), location.getBlockZ());
     packet.getBlockData().write(0, blockData);
     packet.getBlockPositionModifier().write(0, position);
     PacketSender.sendServerPacket(player, packet);

@@ -13,10 +13,10 @@ package de.jpx3.intave.module.dispatch;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.wrappers.WrappedAttribute;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedAttribute;
 import com.google.common.collect.Lists;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.check.combat.Heuristics;
@@ -163,7 +163,7 @@ public final class AttackDispatcher extends Module {
     }
   )
   public void filterSharpness(ProtocolPacketEvent event) {
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     ItemStack item = packet.getItemModifier().read(0).clone();
     if (REDUCING_DISABLED) {
       if (item.containsEnchantment(Enchantment.DAMAGE_ALL)) {
@@ -243,7 +243,7 @@ public final class AttackDispatcher extends Module {
     if (!REDUCING_DISABLED) {
       return;
     }
-    PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.UPDATE_ATTRIBUTES);
+    NativePacket packet = PacketRuntime.getPacketRuntimeManager().createPacket(PacketType.Play.Server.UPDATE_ATTRIBUTES);
     packet.getIntegers().write(0, player.getEntityId());
     WrappedAttribute attribute = WrappedAttribute.newBuilder().packet(packet).attributeKey("generic.attackDamage").baseValue(0).modifiers(Collections.emptyList()).build();
     packet.getAttributeCollectionModifier().write(0, Lists.newArrayList(attribute));

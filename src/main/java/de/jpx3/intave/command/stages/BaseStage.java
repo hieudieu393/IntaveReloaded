@@ -11,7 +11,7 @@
 
 package de.jpx3.intave.command.stages;
 
-import com.comphenix.protocol.ProtocolLibrary;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.access.player.trust.TrustFactor;
 import de.jpx3.intave.command.CommandStage;
@@ -328,7 +328,7 @@ public final class BaseStage extends CommandStage {
     }
     String intaveVersion = IntavePlugin.fullVersion();
     String serverVersion = Bukkit.getName() + "@" + Bukkit.getVersion();
-    String packetEventsVersion = ProtocolLibrary.getPlugin().getDescription().getVersion();
+    String packetEventsVersion = PacketRuntime.getPlugin().getDescription().getVersion();
     sender.sendMessage(ChatColor.GRAY + "Spigot is " + ChatColor.WHITE + serverVersion);
     sender.sendMessage(ChatColor.GRAY + "PacketEvents is " + ChatColor.WHITE + packetEventsVersion);
     sender.sendMessage(ChatColor.GRAY + "Intave is " + ChatColor.WHITE + intaveVersion);

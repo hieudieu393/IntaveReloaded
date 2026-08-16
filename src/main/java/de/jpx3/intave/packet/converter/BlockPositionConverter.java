@@ -1,9 +1,9 @@
 package de.jpx3.intave.packet.converter;
 
-import com.comphenix.protocol.reflect.EquivalentConverter;
-import com.comphenix.protocol.reflect.FieldAccessException;
-import com.comphenix.protocol.reflect.StructureModifier;
-import com.comphenix.protocol.utility.MinecraftReflection;
+import de.jpx3.intave.packet.nativeapi.reflect.EquivalentConverter;
+import de.jpx3.intave.packet.nativeapi.reflect.FieldAccessException;
+import de.jpx3.intave.packet.nativeapi.reflect.NativeModifier;
+import de.jpx3.intave.packet.nativeapi.utility.MinecraftReflection;
 import de.jpx3.intave.share.BlockPosition;
 
 import java.lang.reflect.Constructor;
@@ -13,8 +13,8 @@ public final class BlockPositionConverter {
     ThreadLocal.withInitial(BlockPositionConverter::newConverter);
 
   private static Constructor<?> blockPositionConstructor;
-  private static StructureModifier<Integer> intModifier;
-  private static StructureModifier<Long> longModifier;
+  private static NativeModifier<Integer> intModifier;
+  private static NativeModifier<Long> longModifier;
 
   public static EquivalentConverter<BlockPosition> threadConverter() {
     return internalConverter.get();
@@ -41,14 +41,14 @@ public final class BlockPositionConverter {
         if (MinecraftReflection.isBlockPosition(generic)) {
           if (intModifier == null) {
             //noinspection unchecked
-            intModifier = (new StructureModifier(generic.getClass(), null, false)).withType(Integer.TYPE);
+            intModifier = (new NativeModifier(generic.getClass(), null, false)).withType(Integer.TYPE);
             if (intModifier.size() < 3) {
               throw new IllegalStateException("Cannot read class " + generic.getClass() + " for its integer fields.");
             }
           }
           if (intModifier.size() >= 3) {
             try {
-              StructureModifier<Integer> instance = intModifier.withTarget(generic);
+              NativeModifier<Integer> instance = intModifier.withTarget(generic);
               return new BlockPosition(
                 instance.read(0), instance.read(1), instance.read(2)
               );

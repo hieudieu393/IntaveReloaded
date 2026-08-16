@@ -13,7 +13,7 @@ package de.jpx3.intave.check.world.placementanalysis;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.block.access.BlockInteractionAccess;
@@ -69,7 +69,7 @@ public class RotationFlick extends PlayerCheckPart<PlacementAnalysis> {
 		}
 	)
 	public void receivePlacementPacket(
-		Player player, PacketContainer packet, BlockInteractionReader reader, CancellableEvent cancellable
+		Player player, NativePacket packet, BlockInteractionReader reader, CancellableEvent cancellable
 	) {
 		User user = userOf(player);
 		MovementMetadata movement = user.meta().movement();

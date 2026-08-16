@@ -13,8 +13,8 @@ package de.jpx3.intave.user;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.google.common.collect.Maps;
 import de.jpx3.intave.IntaveLogger;
@@ -674,7 +674,7 @@ final class PlayerUser implements User {
 
   private void sendStatsUpdate(Player player, int foodLevel, float saturationLevel) {
     float healthScale = (float) (player.isHealthScaled() ? player.getHealth() * player.getHealthScale() / player.getMaxHealth() : player.getHealth());
-    PacketContainer packet = ProtocolLibrary.getProtocolManager().createPacket(PacketType.Play.Server.UPDATE_HEALTH);
+    NativePacket packet = PacketRuntime.getPacketRuntimeManager().createPacket(PacketType.Play.Server.UPDATE_HEALTH);
     packet.getFloat().write(0, healthScale);
     packet.getFloat().write(1, saturationLevel);
     packet.getIntegers().write(0, foodLevel);

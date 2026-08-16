@@ -2,7 +2,7 @@ package de.jpx3.intave.player.fake.action;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import de.jpx3.intave.player.fake.FakePlayer;
 import org.bukkit.entity.Player;
 
@@ -15,7 +15,7 @@ public final class SwingAnimationAction extends Action {
 
   @Override
   public void perform() {
-    PacketContainer packet = create(PacketType.Play.Server.ANIMATION);
+    NativePacket packet = create(PacketType.Play.Server.ANIMATION);
     packet.getIntegers().writeSafely(0, this.fakePlayer.identifier());
     packet.getBytes().writeSafely(0, SWING_ANIMATION);
     send(packet);

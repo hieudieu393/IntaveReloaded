@@ -13,7 +13,7 @@ package de.jpx3.intave.check.world.interaction;
 
 import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import de.jpx3.intave.share.BlockPosition;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.access.player.event.BucketAction;

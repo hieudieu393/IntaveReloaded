@@ -1,7 +1,7 @@
 package de.jpx3.intave.player.fake;
 
-import com.comphenix.protocol.wrappers.WrappedGameProfile;
-import com.comphenix.protocol.wrappers.WrappedSignedProperty;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedGameProfile;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedSignedProperty;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.access.IntaveInternalException;
 import de.jpx3.intave.connect.IntaveDomains;

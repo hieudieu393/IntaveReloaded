@@ -1,3 +1,0 @@
-package com.comphenix.protocol.wrappers;
-import java.util.UUID;
-public class WrappedAttributeModifier { private final MinecraftKey key; private final UUID uuid; private final String name; private final double amount; private final Operation operation; public WrappedAttributeModifier(MinecraftKey k,UUID u,String n,double a,Operation o){key=k;uuid=u;name=n;amount=a;operation=o;} public MinecraftKey getKey(){return key;} public UUID getUUID(){return uuid;} public String getName(){return name;} public double getAmount(){return amount;} public Operation getOperation(){return operation;} public static class Operation{private final int id;public Operation(int id){this.id=id;}public int getId(){return id;}} }

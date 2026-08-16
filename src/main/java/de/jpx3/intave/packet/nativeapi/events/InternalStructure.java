@@ -1,0 +1,3 @@
+package de.jpx3.intave.packet.nativeapi.events;
+import de.jpx3.intave.packet.nativeapi.reflect.NativeModifier;
+public class InternalStructure { private final Object handle; public InternalStructure(Object handle){this.handle=handle;} public Object getHandle(){return handle;} public NativeModifier<Object> getModifier(){return new NativeModifier<>(handle);} public NativeModifier<Integer> getIntegers(){return getModifier().withType(int.class);} public NativeModifier<Boolean> getBooleans(){return getModifier().withType(boolean.class);} public NativeModifier<Double> getDoubles(){return getModifier().withType(double.class);} public NativeModifier<String> getStrings(){return getModifier().withType(String.class);} }

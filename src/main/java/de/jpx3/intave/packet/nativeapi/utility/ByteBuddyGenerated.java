@@ -1,0 +1,1 @@
+package de.jpx3.intave.packet.nativeapi.utility; public @interface ByteBuddyGenerated {}

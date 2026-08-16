@@ -1,1 +1,0 @@
-package com.comphenix.protocol.utility; public @interface ByteBuddyGenerated {}

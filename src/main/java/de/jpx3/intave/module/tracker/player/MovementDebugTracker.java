@@ -1,6 +1,6 @@
 package de.jpx3.intave.module.tracker.player;
 
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import de.jpx3.intave.connect.sibyl.LabyModChannelHelper;
 import de.jpx3.intave.module.Module;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
@@ -74,7 +74,7 @@ public final class MovementDebugTracker extends Module implements PluginMessageL
     packetsIn = {CUSTOM_PAYLOAD_IN}
   )
   public void onCustomPayloadIn(
-    User user, PacketContainer packet,
+    User user, NativePacket packet,
     CancellableEvent cancellable
   ) {
     if (!ENABLE_MOVEMENT_DEBUGGER_COLLECTOR) {
@@ -117,7 +117,7 @@ public final class MovementDebugTracker extends Module implements PluginMessageL
     debug = true
   )
   public void onTabCompleteIn(
-    User user, PacketContainer packet,
+    User user, NativePacket packet,
     CancellableEvent cancellable
   ) {
     if (!ENABLE_MOVEMENT_DEBUGGER_COLLECTOR) {

@@ -2,8 +2,8 @@ package de.jpx3.intave.module.feedback;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.movement.Timer;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
@@ -53,7 +53,7 @@ public final class PacketDelayer extends Module {
 //    ConnectionMetadata connection = user.meta().connection();
 //    MovementMetadata movement = user.meta().movement();
 //
-//    PacketContainer packetContainer = event.getPacket();
+//    NativePacket packetContainer = NativePacket.fromEvent(event);
 //    PacketTypeCommon packetType = event.getPacketType();
 //
 //    if (user.justJoined() || !(microLag) || user.trustFactor().atLeast(TrustFactor.YELLOW)) {
@@ -112,17 +112,17 @@ public final class PacketDelayer extends Module {
     ProtocolMetadata protocol = meta.protocol();
     SimulationEnvironment movement = meta.movement();
 
-    PacketContainer packetContainer = event.getPacket();
+    NativePacket packetContainer = NativePacket.fromEvent(event);
     PacketTypeCommon packetType = event.getPacketType();
 
 //    if (event.getPacketType() == PacketType.Play.Server.PLAYER_INFO_UPDATE) {
 ////      connection.lastRespawn = System.currentTimeMillis();
-//      System.out.println("Player info packet for " + event.getPacket().getPlayerInfoDataLists().read(0));
+//      System.out.println("Player info packet for " + NativePacket.fromEvent(event).getPlayerInfoDataLists().read(0));
 //      Thread.dumpStack();
 //    }
 
 //    if (event.getPacketType() == PacketType.Play.Server.PLAYER_INFO_UPDATE_REMOVE) {
-//      System.out.println("Player info remove packet for " + event.getPacket().getEntityModifier(player.getWorld()).read(0).getUniqueId());
+//      System.out.println("Player info remove packet for " + NativePacket.fromEvent(event).getEntityModifier(player.getWorld()).read(0).getUniqueId());
 //    }
 
     // spawn player
@@ -275,7 +275,7 @@ public final class PacketDelayer extends Module {
     if (packet == null) {
       return;
     }
-    ProtocolLibrary.getProtocolManager().sendServerPacket(player, PacketContainer.fromPacket(packet), true);
+    PacketRuntime.getPacketRuntimeManager().sendServerPacket(player, NativePacket.fromPacket(packet), true);
   }
 
   private long oldestPendingTransaction(User user) {

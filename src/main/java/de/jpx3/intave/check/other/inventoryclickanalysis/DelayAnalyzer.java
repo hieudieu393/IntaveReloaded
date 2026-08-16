@@ -3,7 +3,7 @@ package de.jpx3.intave.check.other.inventoryclickanalysis;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.adapter.MinecraftVersions;
-import de.jpx3.intave.adapter.ProtocolLibraryAdapter;
+import de.jpx3.intave.adapter.PacketRuntimeAdapter;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
 import de.jpx3.intave.klass.Lookup;
@@ -27,7 +27,7 @@ import java.util.List;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.WINDOW_CLICK;
 
 public final class DelayAnalyzer extends MetaCheckPart<InventoryClickAnalysis, DelayAnalyzer.ClickDelayMeta> {
-  private static final boolean MODERN_WINDOW_CLICK = ProtocolLibraryAdapter.serverVersion().isAtLeast(MinecraftVersions.VER1_9_0);
+  private static final boolean MODERN_WINDOW_CLICK = PacketRuntimeAdapter.serverVersion().isAtLeast(MinecraftVersions.VER1_9_0);
 
   private final IntavePlugin plugin;
   private final boolean highToleranceMode;
@@ -51,7 +51,7 @@ public final class DelayAnalyzer extends MetaCheckPart<InventoryClickAnalysis, D
     if (player.getGameMode().equals(GameMode.CREATIVE)) {
       return;
     }
-    if (ProtocolLibraryAdapter.serverVersion().isAtLeast(MinecraftVersions.VER1_13_0)) {
+    if (PacketRuntimeAdapter.serverVersion().isAtLeast(MinecraftVersions.VER1_13_0)) {
       return;
     }
     ClickDelayMeta meta = metaOf(user);

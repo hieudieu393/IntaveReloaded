@@ -14,11 +14,11 @@ package de.jpx3.intave.module.tracker.block;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.share.BlockPosition;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import com.comphenix.protocol.wrappers.WrappedBlockData;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedBlockData;
 import de.jpx3.intave.block.cache.BlockCache;
 import de.jpx3.intave.block.variant.BlockVariantNativeAccess;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
@@ -103,7 +103,7 @@ public final class BlockUpdateTracker extends Module {
     }
   )
   public void checkInteractionTarget(
-    User user, PacketContainer packet,
+    User user, NativePacket packet,
     BlockPositionReader reader, CancellableEvent cancellable
   ) {
     PacketTypeCommon packetType = packet.getType();
@@ -148,7 +148,7 @@ public final class BlockUpdateTracker extends Module {
     boolean speculativeBlocks = user.meta().protocol().clientSpeculativeBlocks();
     PendingCountingFeedbackObserver pendingBlockUpdates = user.meta().connection().pendingBlockUpdates;
 
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
 
     BlockChanges changes = PacketReaders.readerOf(packet);
     List<BlockPosition> blockPositions = changes.blockPositions();
@@ -197,7 +197,7 @@ public final class BlockUpdateTracker extends Module {
   public void blockChangedAck(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    int sequenceNumber = event.getPacket().getIntegers().read(0);
+    int sequenceNumber = NativePacket.fromEvent(event).getIntegers().read(0);
     user.packetTickFeedback(event, () ->
       user.blockCache().moveClientSpeculationsToOverride(player.getWorld(), sequenceNumber)
     );

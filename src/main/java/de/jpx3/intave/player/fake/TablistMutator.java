@@ -2,13 +2,13 @@ package de.jpx3.intave.player.fake;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import com.comphenix.protocol.wrappers.PlayerInfoData;
-import com.comphenix.protocol.wrappers.WrappedChatComponent;
-import com.comphenix.protocol.wrappers.WrappedGameProfile;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.PacketRuntimeManager;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.wrappers.PlayerInfoData;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedChatComponent;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedGameProfile;
 import de.jpx3.intave.packet.PacketSender;
 import org.bukkit.entity.Player;
 
@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class TablistMutator {
-  private static final ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
+  private static final PacketRuntimeManager protocolManager = PacketRuntime.getPacketRuntimeManager();
 
   public static void addToTabList(
     Player player,
@@ -32,7 +32,7 @@ public final class TablistMutator {
     WrappedGameProfile profile,
     WrappedChatComponent wrappedChatComponent
   ) {
-    PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO_UPDATE);
+    NativePacket packet = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO_UPDATE);
     PlayerInfoData playerInfoData = new PlayerInfoData(
       profile, ThreadLocalRandom.current().nextInt(20, 200),
       EnumWrappers.NativeGameMode.SURVIVAL,
@@ -49,7 +49,7 @@ public final class TablistMutator {
     Player player,
     WrappedGameProfile profile
   ) {
-    PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO_UPDATE);
+    NativePacket packet = protocolManager.createPacket(PacketType.Play.Server.PLAYER_INFO_UPDATE);
     WrappedChatComponent wrappedChatComponent = WrappedChatComponent.fromText(profile.getName());
     PlayerInfoData playerInfoData = new PlayerInfoData(
       profile, ThreadLocalRandom.current().nextInt(20, 200),

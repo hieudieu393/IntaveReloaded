@@ -13,10 +13,10 @@ package de.jpx3.intave.module.tracker.entity;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.reflect.StructureModifier;
-import com.comphenix.protocol.wrappers.WrappedWatchableObject;
+import de.jpx3.intave.packet.nativeapi.reflect.NativeModifier;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedWatchableObject;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.access.player.trust.TrustFactor;
@@ -120,7 +120,7 @@ public final class EntityTracker extends Module {
     ignoreCancelled = false
   )
   public void sendAttachEntityPacket(ProtocolPacketEvent event) {
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     if (event.getPacketType() == PacketType.Play.Server.SET_PASSENGERS) {
@@ -132,7 +132,7 @@ public final class EntityTracker extends Module {
         detachEntity(user, vehicleId, -1);
         return;
       }
-      int[] newPassengers = event.getPacket().getIntegerArrays().read(0);
+      int[] newPassengers = NativePacket.fromEvent(event).getIntegerArrays().read(0);
       List<Entity> oldPassengers = vehicle.passengers();
       List<Integer> toAdd = new ArrayList<>();
       List<Integer> toRemove = new ArrayList<>();
@@ -268,7 +268,7 @@ public final class EntityTracker extends Module {
     Set<Integer> duplicatedEntityIds = connection.duplicatedEntityIds;
     Map<Integer, Integer> duplicationOwners = connection.duplicationOwners;
 
-    Integer entityIdBoxed = event.getPacket().getIntegers().readSafely(0);
+    Integer entityIdBoxed = NativePacket.fromEvent(event).getIntegers().readSafely(0);
     if (entityIdBoxed == null) {
       return;
     }
@@ -292,8 +292,8 @@ public final class EntityTracker extends Module {
       duplicationOwners.put(newId, entityId);
 
       boolean makeOwnerInvisible = ThreadLocalRandom.current().nextBoolean();
-      PacketContainer oldPacket = event.getPacket();
-      PacketContainer newPacket = oldPacket.deepClone();
+      NativePacket oldPacket = NativePacket.fromEvent(event);
+      NativePacket newPacket = oldPacket.deepClone();
       modifyWatchablesOf((makeOwnerInvisible ? oldPacket : newPacket));
       //is this correct? - yes it is
       connection.shouldNotBeAttacked.add(entityId);
@@ -314,7 +314,7 @@ public final class EntityTracker extends Module {
 //  public void on(ProtocolPacketEvent event) {
 //    Player player = event.getPlayer();
 //    User user = UserRepository.userOf(player);
-//    PacketContainer packet = event.getPacket();
+//    NativePacket packet = NativePacket.fromEvent(event);
 //    EntityIterable reader = PacketReaders.readerOf(packet);
 //
 //    for (Integer integer : reader) {
@@ -323,7 +323,7 @@ public final class EntityTracker extends Module {
 //        continue;
 //      }
 //      if (entity.duplicationId != 0) {
-//        PacketContainer newPacket;
+//        NativePacket newPacket;
 //        try {
 //          newPacket = packet.deepClone();
 //        } catch (Exception exception) {
@@ -338,7 +338,7 @@ public final class EntityTracker extends Module {
 //    reader.release();
 //  }
 
-  private void modifyWatchablesOf(PacketContainer packet) {
+  private void modifyWatchablesOf(NativePacket packet) {
     List<WrappedWatchableObject> watchables = packet.getWatchableCollectionModifier().readSafely(0);
     if (watchables != null) {
       WrappedWatchableObject theObject = null;
@@ -373,7 +373,7 @@ public final class EntityTracker extends Module {
     User user = UserRepository.userOf(player);
     AttackMetadata attackData = user.meta().attack();
     PacketTypeCommon packetType = event.getPacketType();
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     EntityTypeData typeData;
     boolean entityIsPlayer = false;
     Integer entityId = packet.getIntegers().read(0);
@@ -451,7 +451,7 @@ public final class EntityTracker extends Module {
     if (entity != null && entity.duplicationId != 0) {
       connection.duplicatedEntityIds.remove(entity.duplicationId);
       connection.shouldNotBeAttacked.remove(connection.duplicationOwners.remove(entity.duplicationId));
-      PacketContainer packet = new PacketContainer(PacketType.Play.Server.DESTROY_ENTITIES);
+      NativePacket packet = new NativePacket(PacketType.Play.Server.DESTROY_ENTITIES);
       packet.getIntegerArrays().write(0, new int[]{entity.duplicationId});
       PacketSender.sendServerPacket(player, packet);
     }
@@ -559,14 +559,14 @@ public final class EntityTracker extends Module {
   public void receivePositionSync(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     Entity entity = wrappedEntityByEntityTeleportPacket(event);
     if (entity == null) {
       return;
     }
 
     if (entity.duplicationId != 0) {
-      PacketContainer newPacket = packet.deepClone();
+      NativePacket newPacket = packet.deepClone();
       newPacket.getIntegers().write(0, entity.duplicationId);
       PacketSender.sendServerPacket(player, newPacket);
     }
@@ -605,14 +605,14 @@ public final class EntityTracker extends Module {
   public void receiveEntityTeleport(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     Entity entity = wrappedEntityByEntityTeleportPacket(event);
     if (entity == null) {
       return;
     }
 
     if (entity.duplicationId != 0) {
-      PacketContainer newPacket = packet.deepClone();
+      NativePacket newPacket = packet.deepClone();
       newPacket.getIntegers().write(0, entity.duplicationId);
       PacketSender.sendServerPacket(player, newPacket);
     }
@@ -649,7 +649,7 @@ public final class EntityTracker extends Module {
   private Entity wrappedEntityByEntityTeleportPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     Integer entityIdBoxed = packet.getIntegers().readSafely(0);
     if (entityIdBoxed == null) {
       return null;
@@ -678,7 +678,7 @@ public final class EntityTracker extends Module {
   public void receiveEntityMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     Integer entityIdBoxed = packet.getIntegers().read(0);
     if (entityIdBoxed == null) {
       return;
@@ -693,7 +693,7 @@ public final class EntityTracker extends Module {
     }
 
     if (entity.duplicationId != 0) {
-      PacketContainer newPacket = packet.deepClone();
+      NativePacket newPacket = packet.deepClone();
       newPacket.getIntegers().write(0, entity.duplicationId);
       PacketSender.sendServerPacket(player, newPacket);
     }
@@ -798,12 +798,12 @@ public final class EntityTracker extends Module {
   }
 
   private Entity processPacketSpawnMob(
-    User user, PacketContainer packet,
+    User user, NativePacket packet,
     EntityTypeData entityTypeData,
     int entityId, boolean isPlayer
   ) {
     if (NEW_POSITION_PROCESSING_1_9) {
-      StructureModifier<Double> doubles = packet.getDoubles();
+      NativeModifier<Double> doubles = packet.getDoubles();
       Double posXBoxed = doubles.readSafely(0);
       Double posYBoxed = doubles.read(1);
       Double posZBoxed = doubles.read(2);
@@ -826,7 +826,7 @@ public final class EntityTracker extends Module {
       Integer serverPosY;
       Integer serverPosZ;
 
-      StructureModifier<Integer> integers = packet.getIntegers();
+      NativeModifier<Integer> integers = packet.getIntegers();
       if (packet.getType() == PacketType.Play.Server.SPAWN_ENTITY_LIVING) {
         // dead or living entities
         serverPosX = integers.readSafely(2);
@@ -913,7 +913,7 @@ public final class EntityTracker extends Module {
   )
   public void receiveUseEntity(ProtocolPacketEvent event) {
     User user = UserRepository.userOf(event.getPlayer());
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     ConnectionMetadata connection = user.meta().connection();
 
     Integer entityIdBoxed = packet.getIntegers().readSafely(0);
@@ -947,7 +947,7 @@ public final class EntityTracker extends Module {
     if (!user.hasPlayer()) {
       return;
     }
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     Integer entityID = packet.getIntegers().read(0);
     if (entityID == null) {
       return;
@@ -980,7 +980,7 @@ public final class EntityTracker extends Module {
   public void receiveEntityMetadata(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
 
     EntityMetadataReader reader = PacketReaders.readerOf(packet);
     int entityId = reader.entityId();
@@ -1029,10 +1029,10 @@ public final class EntityTracker extends Module {
     if (entity.duplicationId != 0) {
       // Rule #3151235: When editing metadata, do a deepClone().
       reader.release();
-      event.setPacket(packet = event.getPacket().deepClone());
+      event.setLastUsedWrapper((packet = NativePacket.fromEvent(event).deepClone()).wrapper());
       reader = PacketReaders.readerOf(packet);
 
-      PacketContainer packetCopy = packet.deepClone();
+      NativePacket packetCopy = packet.deepClone();
       ConnectionMetadata.DecoySide decoySide = decoySides.get(entityId);
       modifyWatchablesOf((decoySide == SECOND_IS_DECOY ? packet : packetCopy));
       packetCopy.getIntegers().write(0, entity.duplicationId);

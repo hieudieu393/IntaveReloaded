@@ -13,7 +13,7 @@ package de.jpx3.intave.player;
 
 import com.google.common.collect.Lists;
 import de.jpx3.intave.adapter.MinecraftVersion;
-import de.jpx3.intave.adapter.ProtocolLibraryAdapter;
+import de.jpx3.intave.adapter.PacketRuntimeAdapter;
 import de.jpx3.intave.annotate.Nullable;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.module.tracker.player.AbilityTracker;
@@ -48,7 +48,7 @@ public final class ItemProperties {
 
   public static void setup() {
     try {
-      MinecraftVersion serverVersion = ProtocolLibraryAdapter.serverVersion();
+      MinecraftVersion serverVersion = PacketRuntimeAdapter.serverVersion();
       loadDefaultUseItems(serverVersion);
       loadPotions();
       loadFoodItems();

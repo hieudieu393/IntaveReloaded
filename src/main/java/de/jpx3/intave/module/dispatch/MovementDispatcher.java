@@ -14,12 +14,12 @@ package de.jpx3.intave.module.dispatch;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.PacketRuntimeManager;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.reflect.StructureModifier;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.reflect.NativeModifier;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.access.player.trust.TrustFactor;
@@ -291,7 +291,7 @@ public final class MovementDispatcher extends Module {
       return;
     }
 
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     PlayerMoveReader reader = PacketReaders.readerOf(packet);
 
     User user = UserRepository.userOf(player);
@@ -612,7 +612,7 @@ public final class MovementDispatcher extends Module {
       user.player().sendMessage(IntavePlugin.prefix() + "Applying item usage reset as requested");
     }
     Player player = user.player();
-    ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
+    PacketRuntimeManager protocolManager = PacketRuntime.getPacketRuntimeManager();
     InventoryMetadata inventory = user.meta().inventory();
     if (ItemProperties.isBow(inventory.releaseItemType) || ItemProperties.isBow(inventory.activeItemType())) {
       inventory.blockNextArrow = true;
@@ -622,8 +622,8 @@ public final class MovementDispatcher extends Module {
       }
     }
     inventory.lastFoodConsumptionBlockRequest = System.currentTimeMillis();
-    PacketContainer packet = protocolManager.createPacket(PacketType.Play.Client.PLAYER_DIGGING);
-    packet.getBlockPositionModifier().write(0, new com.comphenix.protocol.wrappers.BlockPosition(0, 0, 0));
+    NativePacket packet = protocolManager.createPacket(PacketType.Play.Client.PLAYER_DIGGING);
+    packet.getBlockPositionModifier().write(0, new de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition(0, 0, 0));
     packet.getDirections().write(0, EnumWrappers.Direction.DOWN);
     packet.getPlayerDigTypes().write(0, DiggingAction.RELEASE_USE_ITEM);
     user.ignoreNextInboundPacket();
@@ -743,9 +743,9 @@ public final class MovementDispatcher extends Module {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     MovementMetadata movementData = user.meta().movement();
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     if (MinecraftVersions.VER1_21_3.atOrAbove() && user.meta().protocol().sendsInputs()) {
-      StructureModifier<Boolean> inputBooleans = packet.getStructures().read(0).getBooleans();
+      NativeModifier<Boolean> inputBooleans = packet.getStructures().read(0).getBooleans();
       movementData.lastInput = movementData.input;
       movementData.input = new Input(
         inputBooleans.read(0),
@@ -783,7 +783,7 @@ public final class MovementDispatcher extends Module {
   public void catchFoodUpdate(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    Integer originalFoodLevel = event.getPacket().getIntegers().read(0);
+    Integer originalFoodLevel = NativePacket.fromEvent(event).getIntegers().read(0);
     user.tickFeedback(() -> {
       MetadataBundle meta = user.meta();
       if (originalFoodLevel <= 6) {
@@ -1188,14 +1188,14 @@ public final class MovementDispatcher extends Module {
   public void onInputs(
     ProtocolPacketEvent event
   ) {
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     if (!user.meta().protocol().sneakAsVehicleSteer()) {
       return;
     }
     MovementMetadata movement = user.meta().movement();
-    StructureModifier<Input> inputs = packet.getModifier().withType(
+    NativeModifier<Input> inputs = packet.getModifier().withType(
       InputConverter.inputClass, InputConverter.INSTANCE
     );
     Input input = inputs.read(0);

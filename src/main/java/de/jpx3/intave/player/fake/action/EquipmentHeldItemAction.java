@@ -2,9 +2,9 @@ package de.jpx3.intave.player.fake.action;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import com.comphenix.protocol.wrappers.Pair;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.wrappers.Pair;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.player.fake.FakePlayer;
 import de.jpx3.intave.player.fake.equipment.Equipment;
@@ -35,7 +35,7 @@ public final class EquipmentHeldItemAction extends Action {
 
   private void updateHeldItem(Material material) {
     ItemStack itemStack = new ItemStack(material);
-    PacketContainer packet = create(PacketType.Play.Server.ENTITY_EQUIPMENT);
+    NativePacket packet = create(PacketType.Play.Server.ENTITY_EQUIPMENT);
     packet.getIntegers().write(0, this.fakePlayer.identifier());
     if (HAS_OFF_HAND) {
       EnumWrappers.ItemSlot hand = ThreadLocalRandom.current().nextInt(0, 10) == 5

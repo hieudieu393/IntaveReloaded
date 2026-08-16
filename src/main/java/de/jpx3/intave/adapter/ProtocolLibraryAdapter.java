@@ -9,8 +9,8 @@ import org.bukkit.Bukkit;
  * The packet backend is PacketEvents; ProtocolLib is no longer required or loaded.
  */
 @Deprecated
-public final class ProtocolLibraryAdapter {
-  private ProtocolLibraryAdapter() {}
+public final class PacketRuntimeAdapter {
+  private PacketRuntimeAdapter() {}
 
   @Deprecated
   public static MinecraftVersion serverVersion() {

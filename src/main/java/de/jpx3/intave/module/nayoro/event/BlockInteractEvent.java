@@ -1,7 +1,7 @@
 package de.jpx3.intave.module.nayoro.event;
 
 import com.github.retrooper.packetevents.protocol.player.InteractionHand;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
 import de.jpx3.intave.module.nayoro.Environment;
 import de.jpx3.intave.module.nayoro.event.sink.EventSink;
 import de.jpx3.intave.share.Position;

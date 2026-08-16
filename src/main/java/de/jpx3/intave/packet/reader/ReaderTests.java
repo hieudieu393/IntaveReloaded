@@ -1,5 +1,7 @@
 package de.jpx3.intave.packet.reader;
 
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import de.jpx3.intave.test.IntegrationTests;
