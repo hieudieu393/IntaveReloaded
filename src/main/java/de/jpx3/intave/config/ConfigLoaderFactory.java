@@ -15,17 +15,9 @@ public final class ConfigLoaderFactory {
   }
 
   public ConfigurationLoader loaderFor(ConfigSelection selection) {
-    switch (selection) {
-      case NONE:
-        return new NoneConfigurationLoader(currentConfiguration.get());
-      case THIS:
-        return new SimpleConfigurationConverter(
-          new FileConfigurationLoader(new File(dataFolder, "advanced.yml"), currentConfiguration.get())
-        );
-      case COPYCAT:
-        return new FileConfigurationLoader(new File(dataFolder, "copycat.yml"), currentConfiguration.get());
-      default:
-        throw new IllegalArgumentException("Unsupported configuration selection: " + selection);
+    if (selection == null) {
+      throw new IllegalArgumentException("Configuration selection must not be null");
     }
+    return selection.loader();
   }
 }
