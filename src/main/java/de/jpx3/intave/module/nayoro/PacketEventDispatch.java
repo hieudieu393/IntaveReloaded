@@ -11,10 +11,10 @@
 
 package de.jpx3.intave.module.nayoro;
 
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
-import com.comphenix.protocol.events.PacketContainer;
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientHeldItemChange;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
 import de.jpx3.intave.module.linker.packet.ListenerPriority;
 import de.jpx3.intave.module.linker.packet.PacketEventSubscriber;
 import de.jpx3.intave.module.linker.packet.PacketId;
@@ -35,8 +35,6 @@ import java.util.function.Consumer;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.TELEPORT;
 import static de.jpx3.intave.module.linker.packet.ListenerPriority.LOWEST;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
-import static de.jpx3.intave.module.linker.packet.PacketId.Client.POSITION;
-import static de.jpx3.intave.module.linker.packet.PacketId.Client.VEHICLE_MOVE;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.*;
 import static de.jpx3.intave.module.nayoro.event.WindowActionEvent.Action.CLOSE;
 import static de.jpx3.intave.module.nayoro.event.WindowActionEvent.Action.INFER_OPEN;
@@ -48,11 +46,7 @@ public final class PacketEventDispatch implements PacketEventSubscriber {
     this.reverseSink = sinkCallback;
   }
 
-  @PacketSubscription(
-    packetsIn = {
-      ARM_ANIMATION
-    }
-  )
+  @PacketSubscription(packetsIn = {ARM_ANIMATION})
   public void onClick(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
@@ -60,17 +54,9 @@ public final class PacketEventDispatch implements PacketEventSubscriber {
     reverseSink.accept(user, clickEvent::accept);
   }
 
-  @PacketSubscription(
-    priority = LOWEST,
-    packetsIn = {
-      ATTACK_ENTITY, USE_ENTITY
-    }
-  )
-  public void onUse(ProtocolPacketEvent event) {
+  @PacketSubscription(priority = LOWEST, packetsIn = {ATTACK_ENTITY, USE_ENTITY})
+  public void onUse(User user, EntityUseReader reader, ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
-    EntityUseReader reader = PacketReaders.readerOf(packet);
     WrapperPlayClientInteractEntity.InteractAction useAction = reader.useAction();
     if (useAction == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
       int attackerId = player.getEntityId();
@@ -78,15 +64,9 @@ public final class PacketEventDispatch implements PacketEventSubscriber {
       AttackEvent attackEvent = AttackEvent.create(attackerId, targetId);
       reverseSink.accept(user, attackEvent::accept);
     }
-    reader.release();
   }
 
-  @PacketSubscription(
-    priority = ListenerPriority.HIGH,
-    packetsIn = {
-      FLYING, LOOK, POSITION, POSITION_LOOK, VEHICLE_MOVE
-    }
-  )
+  @PacketSubscription(priority = ListenerPriority.HIGH, packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, VEHICLE_MOVE})
   public void receiveMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
@@ -108,7 +88,6 @@ public final class PacketEventDispatch implements PacketEventSubscriber {
     boolean collidedVertically = movement.collidedVertically || movement.onGround();
     boolean inWater = movement.inWater();
     boolean inLava = movement.inLava();
-
     boolean inVehicle = movement.isInVehicle();
     boolean sneaking = movement.isSneaking();
     boolean recentlyTeleported = movement.ticksPast(TELEPORT) <= 3;
@@ -125,27 +104,19 @@ public final class PacketEventDispatch implements PacketEventSubscriber {
     movementFlags |= jumped ? 128 : 0;
 
     PlayerMoveEvent movementEvent = PlayerMoveEvent.create(
-      keyStrafe, keyForward,
-      x, y, z,
-      yaw, pitch,
-      lastX, lastY, lastZ,
-      lastYaw, lastPitch,
-      movementFlags,
-      movement.recordedMoves++ % 200 == 0
+      keyStrafe, keyForward, x, y, z, yaw, pitch,
+      lastX, lastY, lastZ, lastYaw, lastPitch,
+      movementFlags, movement.recordedMoves++ % 200 == 0
     );
     reverseSink.accept(user, movementEvent::accept);
   }
 
-  @PacketSubscription(
-    priority = ListenerPriority.HIGH,
-    packetsIn = {
-      HELD_ITEM_SLOT_IN
-    }
-  )
+  @PacketSubscription(priority = ListenerPriority.HIGH, packetsIn = {HELD_ITEM_SLOT_IN})
   public void receiveHeldItemSlot(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    int slot = event.getPacket().getIntegers().read(0);
+    if (!(event instanceof PacketReceiveEvent)) return;
+    int slot = new WrapperPlayClientHeldItemChange((PacketReceiveEvent) event).getSlot();
     ItemStack item = player.getInventory().getItem(slot);
     Material type;
     int amount;
@@ -156,21 +127,12 @@ public final class PacketEventDispatch implements PacketEventSubscriber {
       type = Material.AIR;
       amount = 0;
     }
-    SlotSwitchEvent slotSwitchEvent = SlotSwitchEvent.create(
-      slot, type.name(), amount
-    );
+    SlotSwitchEvent slotSwitchEvent = SlotSwitchEvent.create(slot, type.name(), amount);
     reverseSink.accept(user, slotSwitchEvent::accept);
   }
 
-  @PacketSubscription(
-    priority = ListenerPriority.HIGH,
-    packetsIn = {
-      WINDOW_CLICK
-    }
-  )
-  public void receiveWindowClick(
-    User user, WindowClickReader reader
-  ) {
+  @PacketSubscription(priority = ListenerPriority.HIGH, packetsIn = {WINDOW_CLICK})
+  public void receiveWindowClick(User user, WindowClickReader reader) {
     boolean assumeWindowOpen = user.meta().connection().assumeWindowOpen;
     if (!assumeWindowOpen) {
       user.meta().connection().assumeWindowOpen = true;
@@ -183,12 +145,7 @@ public final class PacketEventDispatch implements PacketEventSubscriber {
     reverseSink.accept(user, clickEvent::accept);
   }
 
-  @PacketSubscription(
-    priority = ListenerPriority.LOW,
-    packetsIn = {
-      PacketId.Client.CLOSE_WINDOW
-    }
-  )
+  @PacketSubscription(priority = ListenerPriority.LOW, packetsIn = {PacketId.Client.CLOSE_WINDOW})
   public void receiveWindowClose(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
@@ -197,42 +154,17 @@ public final class PacketEventDispatch implements PacketEventSubscriber {
     user.meta().connection().assumeWindowOpen = false;
   }
 
-  @PacketSubscription(
-    priority = ListenerPriority.HIGH,
-    packetsOut = {
-      OPEN_WINDOW
-    }
-  )
-  public void sentWindowOpen(
-    User user, WindowOpenReader reader
-  ) {
-    int slots = reader.slots();
-    user.meta().connection().nextWindowOpenSlots = slots;
+  @PacketSubscription(priority = ListenerPriority.HIGH, packetsOut = {OPEN_WINDOW})
+  public void sentWindowOpen(User user, WindowOpenReader reader) {
+    user.meta().connection().nextWindowOpenSlots = reader.slots();
   }
 
-  @PacketSubscription(
-    priority = ListenerPriority.HIGH,
-    packetsOut = {
-      WINDOW_ITEMS, SET_SLOT
-    }
-  )
-  public void sendWindowItems(
-    User user, WindowItemReader reader
-  ) {
+  @PacketSubscription(priority = ListenerPriority.HIGH, packetsOut = {WINDOW_ITEMS, SET_SLOT})
+  public void sendWindowItems(User user, WindowItemReader reader) {
     int container = reader.windowId();
     int slots = user.meta().connection().nextWindowOpenSlots;
-    if (slots == 0) {
-      slots = 9 * 3;
-    }
-    if (container != 0) {
-      user.meta().connection().nextWindowOpenSlots = 0;
-    }
-
-    // inventory
+    if (slots == 0) slots = 9 * 3;
+    if (container != 0) user.meta().connection().nextWindowOpenSlots = 0;
     slots += 4 * 9;
-//    System.out.println("Sent window items: " + slots);
-//    Map<Integer, ItemStack> items = reader.itemMap();
-//    WindowItemsEvent event = WindowItemsEvent.create(container, slots, items);
-//    reverseSink.accept(user, event::accept);
   }
 }
