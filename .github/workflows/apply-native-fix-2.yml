@@ -1,0 +1,139 @@
+name: Apply native compile fixes 2
+on:
+  push:
+    branches: [ agent/audit-hardening ]
+    paths: [ '.github/workflows/apply-native-fix-2.yml' ]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/audit-hardening
+          fetch-depth: 0
+      - name: Apply targeted compile fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('src/main/java/de/jpx3/intave')
+          def rw(rel, fn):
+            p=root/rel; s=p.read_text(); n=fn(s); p.write_text(n)
+
+          # class/file rename left by namespace migration
+          old=root/'adapter/ProtocolLibraryAdapter.java'; new=root/'adapter/PacketRuntimeAdapter.java'
+          if old.exists(): old.rename(new)
+
+          # Native facade exposes PacketEvents packet identity/enums where migrated callers need them.
+          def nativepacket(s):
+            s=s.replace('import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;',
+              'import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;\nimport com.github.retrooper.packetevents.protocol.player.DiggingAction;\nimport com.github.retrooper.packetevents.protocol.player.InteractionHand;')
+            s=s.replace('  public PacketType getType() { return type; }',
+              '  public PacketType getType() { return type; }\n  public PacketTypeCommon packetType() { return type == null ? null : type.handle(); }')
+            s=s.replace('public NativeModifier<EnumWrappers.PlayerDigType> getPlayerDigTypes() { return getModifier().withType(EnumWrappers.PlayerDigType.class); }',
+              'public NativeModifier<DiggingAction> getPlayerDigTypes() { return getModifier().withType(DiggingAction.class); }')
+            s=s.replace('public NativeModifier<EnumWrappers.Hand> getHands() { return getModifier().withType(EnumWrappers.Hand.class); }',
+              'public NativeModifier<InteractionHand> getHands() { return getModifier().withType(InteractionHand.class); }')
+            return s
+          rw('packet/nativeapi/events/NativePacket.java', nativepacket)
+
+          # Provide native hand from PacketEvents block interaction wrappers.
+          def blockreader(s):
+            if 'protocol.player.InteractionHand' not in s:
+              s=s.replace('import com.github.retrooper.packetevents.protocol.packettype.PacketType;', 'import com.github.retrooper.packetevents.protocol.packettype.PacketType;\nimport com.github.retrooper.packetevents.protocol.player.InteractionHand;')
+            marker='  public int enumDirection() {'
+            if 'public InteractionHand hand()' not in s:
+              s=s.replace(marker, '  public InteractionHand hand() {\n    if (placement != null) return placement.getHand();\n    if (useItem != null) return useItem.getHand();\n    return InteractionHand.MAIN_HAND;\n  }\n\n'+marker)
+            return s
+          rw('packet/reader/BlockInteractionReader.java', blockreader)
+
+          # PacketEvents constant names.
+          for rel in ['player/fake/action/SwingAnimationAction.java','player/fake/action/HurtAnimationAction.java','module/feedback/PacketDelayer.java']:
+            rw(rel, lambda s:s.replace('PacketType.Play.Server.ANIMATION','PacketType.Play.Server.ENTITY_ANIMATION'))
+
+          # Diagnostics: actual Timing API + use native compatibility packet identifiers for legacy adapter.
+          def diagnostics(s):
+            s=s.replace('import com.github.retrooper.packetevents.protocol.packettype.PacketType;', 'import de.jpx3.intave.packet.nativeapi.PacketType;')
+            s=s.replace('timing.isProtocolPacketEventTiming()', 'timing.isPacketEventTiming()')
+            return s
+          rw('command/stages/DiagnosticsStage.java', diagnostics)
+
+          # Attack reader action is PacketEvents native enum.
+          def attack(s):
+            if 'WrapperPlayClientInteractEntity.InteractAction' not in s:
+              s=s.replace('import com.github.retrooper.packetevents', 'import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity.InteractAction;\nimport com.github.retrooper.packetevents',1)
+            s=s.replace('EntityUseAction action = reader.useAction();','InteractAction action = reader.useAction();')
+            return s
+          rw('check/combat/AttackRaytrace.java', attack)
+
+          # InteractionRaytrace type cleanup and PacketEvents digging names.
+          def interaction(s):
+            s=s.replace('de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition blockPosition = reader.blockPosition();','BlockPosition blockPosition = reader.blockPosition();')
+            s=s.replace('InteractionHand handSlot = packet.getHands().readSafely(0);','InteractionHand handSlot = reader.hand();')
+            # receiveBreak legacy converter result -> shared type
+            old='''    de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition blockPosition = NativePacket.fromEvent(event).getModifier()\n      .withType(Lookup.serverClass("BlockPosition"), BlockPositionConverter.threadConverter())\n      .read(0);'''
+            new='''    de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition legacyBlockPosition = NativePacket.fromEvent(event).getModifier()\n      .withType(Lookup.serverClass("BlockPosition"), BlockPositionConverter.threadConverter())\n      .read(0);\n    BlockPosition blockPosition = legacyBlockPosition == null ? null : new BlockPosition(legacyBlockPosition.toVector());'''
+            s=s.replace(old,new)
+            s=s.replace('START_DESTROY_BLOCK','START_DIGGING').replace('STOP_DESTROY_BLOCK','FINISHED_DIGGING').replace('ABORT_DESTROY_BLOCK','CANCELLED_DIGGING')
+            s=s.replace('NativePacket.fromEvent(event).getType() == PacketType.Play.Client.ANIMATION','event.getPacketType() == PacketType.Play.Client.ANIMATION')
+            s=s.replace('new de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition(raycastLocation.toVector())','new BlockPosition(raycastLocation.toVector())')
+            s=s.replace('PacketType.Play.Server.BLOCK_CHANGED_ACK','PacketType.Play.Server.ACKNOWLEDGE_BLOCK_CHANGES')
+            s=s.replace('packet.getType().equals(PacketType.Play.Client.PLAYER_DIGGING)','packet.packetType().equals(PacketType.Play.Client.PLAYER_DIGGING)')
+            s=s.replace('raytraceSent.setDirection(direction.toDirection());','raytraceSent.setDirection(EnumWrappers.Direction.valueOf(direction.name()));')
+            s=s.replace('packet.getDirections().write(0, direction.toDirection());','packet.getDirections().write(0, EnumWrappers.Direction.valueOf(direction.name()));')
+            return s
+          rw('check/world/InteractionRaytrace.java', interaction)
+
+          # Packet logger is intentionally on Intave's listener adapter, so enumerate nativeapi identifiers.
+          def packetlog(s):
+            s=s.replace('import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;','import de.jpx3.intave.packet.nativeapi.PacketType;')
+            s=s.replace('List<PacketTypeCommon> listenerTypes = new ArrayList<>();','List<PacketType> listenerTypes = new ArrayList<>();')
+            s=s.replace('for (PacketTypeCommon value : PacketTypeCommon.values())','for (PacketType value : PacketType.values())')
+            s=s.replace('event.getPacketType().getName()','event.getPacketType().name()')
+            s=s.replace('NativePacket.fromEvent(event)','event.getPacket()')
+            return s
+          rw('module/tracker/player/PacketLogging.java', packetlog)
+
+          # Vanish filter consumes native PacketEvents PlayerInfoUpdate entries; UUID access is reflection-isolated for API drift.
+          def vanish(s):
+            s=s.replace('import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;','import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfoUpdate;')
+            s=s.replace('    Set<EnumWrappers.PlayerInfoAction> actions = reader.playerInfoActions();\n    List<PlayerInfoData> playerInfos = reader.playerInfoData();\n\n    for (EnumWrappers.PlayerInfoAction action : actions) {',
+              '    Set<WrapperPlayServerPlayerInfoUpdate.Action> actions = reader.playerInfoActions();\n    List<WrapperPlayServerPlayerInfoUpdate.PlayerInfo> playerInfos = new ArrayList<>(reader.playerInfoData());\n\n    for (WrapperPlayServerPlayerInfoUpdate.Action action : actions) {')
+            # Remove PLAYER_INFO legacy remove action: modern removal is separate packet and handled by PlayerInfoRemoveReader elsewhere.
+            s=re.sub(r'\n        case REMOVE_PLAYER:\n          playerInfos\.removeIf\(playerInfoData -> \{.*?\n          \}\);\n          break;', '', s, flags=re.S)
+            s=s.replace('UUID uuid = data.getProfile().getUUID();','UUID uuid = playerInfoUuid(data);')
+            s=s.replace('UUID infoId = playerInfo.getProfile().getUUID();','UUID infoId = playerInfoUuid(playerInfo);')
+            helper='''\n  private static UUID playerInfoUuid(Object info) {\n    if (info == null) return new UUID(0L, 0L);\n    try {\n      Object profile;\n      try { profile = info.getClass().getMethod("getGameProfile").invoke(info); }\n      catch (NoSuchMethodException ignored) { profile = info.getClass().getMethod("getProfile").invoke(info); }\n      for (String method : new String[]{"getUUID", "getUuid", "getId"}) {\n        try { Object id = profile.getClass().getMethod(method).invoke(profile); if (id instanceof UUID) return (UUID) id; }\n        catch (NoSuchMethodException ignored) {}\n      }\n    } catch (ReflectiveOperationException ignored) {}\n    return new UUID(0L, 0L);\n  }\n'''
+            if 'private static UUID playerInfoUuid' not in s:
+              s=s.replace('\n  @PacketSubscription(\n//    engine = Engine.ASYNC_INTERNAL,', helper+'\n  @PacketSubscription(\n//    engine = Engine.ASYNC_INTERNAL,')
+            return s
+          rw('module/filter/VanishFilter.java', vanish)
+
+          # Digging enum aliases and packet identity in trackers/dispatch.
+          for rel in ['module/tracker/player/PlayerHandTracker.java','module/tracker/block/BlockUpdateTracker.java','module/dispatch/TeleportController.java','module/dispatch/MovementDispatcher.java']:
+            rw(rel, lambda s:s.replace('START_DESTROY_BLOCK','START_DIGGING').replace('STOP_DESTROY_BLOCK','FINISHED_DIGGING').replace('ABORT_DESTROY_BLOCK','CANCELLED_DIGGING').replace('DROP_ALL_ITEMS','DROP_ITEM_STACK'))
+          rw('module/tracker/block/BlockUpdateTracker.java', lambda s:s.replace('PacketTypeCommon packetType = packet.getType();','PacketTypeCommon packetType = packet.packetType();').replace('List<WrappedBlockData> blockDataList = changes.blockDataList();','List<com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState> blockDataList = changes.blockDataList();').replace('WrappedBlockData blockData = blockDataList.get(i);','WrappedBlockData blockData = WrappedBlockData.fromHandle(blockDataList.get(i));'))
+          rw('module/dispatch/MovementDispatcher.java', lambda s:s.replace('PacketType.Play.Client.PLAYER_POSITION_LOOK','PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION').replace('} else if (!event.isReadOnly()){','} else {'))
+
+          # Entity tracker current PacketEvents names / packet identity / overload ambiguity.
+          rw('module/tracker/entity/EntityTracker.java', lambda s:s.replace('PacketType.Play.Server.SPAWN_ENTITY_LIVING','PacketType.Play.Server.SPAWN_LIVING_ENTITY').replace('packet.getType() == PacketType.Play.Server.', 'packet.packetType() == PacketType.Play.Server.').replace('UserRepository.userOf(event.getPlayer())','UserRepository.userOf((Player) event.getPlayer())'))
+
+          # Sanity: bridge namespace/tokens remain forbidden.
+          forbidden=('com.comphenix.protocol','ProtocolLibrary','ProtocolManager','PacketContainer','StructureModifier','MovingObjectPositionBlock')
+          off=[]
+          for p in root.rglob('*.java'):
+            t=p.read_text()
+            if any(x in t for x in forbidden): off.append(str(p))
+          if off: raise SystemExit('legacy tokens remain: '+str(off))
+          PY
+          git status --short
+          git add -A src/main/java
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Fix native PacketEvents compile integration'
+          git push origin HEAD:agent/audit-hardening
