@@ -359,7 +359,7 @@ public final class MovementDispatcher extends Module {
 
     // see MultiPlayerGameMode#useItem
     if (protocol.useItemMovementPacket() && !movement.awaitTeleport
-      && packet.getType() == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION
+      && packet.packetType() == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION
     ) {
       double positionX = reader.positionX();
       double positionY = reader.positionY();

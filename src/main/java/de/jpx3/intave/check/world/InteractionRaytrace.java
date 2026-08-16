@@ -327,10 +327,9 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
 
     NativePacket packet = NativePacket.fromEvent(event);
 
-    de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition legacyBlockPosition = NativePacket.fromEvent(event).getModifier()
+    BlockPosition blockPosition = NativePacket.fromEvent(event).getModifier()
       .withType(Lookup.serverClass("BlockPosition"), BlockPositionConverter.threadConverter())
       .read(0);
-    BlockPosition blockPosition = legacyBlockPosition == null ? null : new BlockPosition(legacyBlockPosition.toVector());
 
     if (blockPosition == null || event.isCancelled()) {
       if (attack.inBreakProcess) {

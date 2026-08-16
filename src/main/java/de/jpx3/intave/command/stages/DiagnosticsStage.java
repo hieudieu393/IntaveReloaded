@@ -693,11 +693,11 @@ public final class DiagnosticsStage extends CommandStage {
     UUID userId = player.getUniqueId();
 
     player.sendMessage(ChatColor.RED + "You will need to wait one minute to get feedback again.");
-    PacketAdapter adapter = new PacketAdapter(IntavePlugin.singletonInstance(), PacketType.Play.Server.WINDOW_CONFIRMATION, PacketType.Play.Server.PING) {
+    PacketAdapter adapter = new PacketAdapter(IntavePlugin.singletonInstance(), PacketType.Play.Server.TRANSACTION, PacketType.Play.Server.PING) {
       final long timeout = System.currentTimeMillis() + 60000;
 
       @Override
-      public void onPacketSending(ProtocolPacketEvent event) {
+      public void onPacketSending(PacketEvent event) {
         if (System.currentTimeMillis() > timeout) {
           PacketRuntime.getPacketRuntimeManager().removePacketListener(this);
           adapterMap.remove(userId);
@@ -712,7 +712,7 @@ public final class DiagnosticsStage extends CommandStage {
       }
 
       @Override
-      public void onPacketReceiving(ProtocolPacketEvent event) {
+      public void onPacketReceiving(PacketEvent event) {
       }
     };
     adapterMap.put(userId, adapter);
