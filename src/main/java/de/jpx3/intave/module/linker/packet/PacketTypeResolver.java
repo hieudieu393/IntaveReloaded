@@ -13,18 +13,14 @@ public final class PacketTypeResolver {
   private PacketTypeResolver() {}
 
   public static PacketTypeCommon[] client(PacketId.Client[] ids) {
-    if (ids.length == 1 && "*".equals(ids[0].lookupName())) {
-      return PacketType.Play.Client.values();
-    }
+    if (ids.length == 1 && "*".equals(ids[0].lookupName())) return PacketType.Play.Client.values();
     Set<PacketTypeCommon> out = new LinkedHashSet<>();
     for (PacketId.Client id : ids) addClient(out, id.lookupName());
     return out.toArray(new PacketTypeCommon[0]);
   }
 
   public static PacketTypeCommon[] server(PacketId.Server[] ids) {
-    if (ids.length == 1 && "*".equals(ids[0].lookupName())) {
-      return PacketType.Play.Server.values();
-    }
+    if (ids.length == 1 && "*".equals(ids[0].lookupName())) return PacketType.Play.Server.values();
     Set<PacketTypeCommon> out = new LinkedHashSet<>();
     for (PacketId.Server id : ids) addServer(out, id.lookupName());
     return out.toArray(new PacketTypeCommon[0]);
@@ -122,7 +118,7 @@ public final class PacketTypeResolver {
       case "BLOCK_BREAK": return a("ACKNOWLEDGE_PLAYER_DIGGING");
       case "BLOCK_CHANGED_ACK": return a("ACKNOWLEDGE_BLOCK_CHANGES");
       case "BOSS": return a("BOSS_BAR");
-      case "CHAT": return a("CHAT_MESSAGE", "SYSTEM_CHAT_MESSAGE", "DISGUISED_CHAT");
+      case "CHAT": return a("CHAT_MESSAGE", "SYSTEM_CHAT_MESSAGE", "DISGUISED_CHAT", "ACTION_BAR");
       case "COLLECT": return a("COLLECT_ITEM");
       case "COMBAT_EVENT": return a("COMBAT_EVENT", "DEATH_COMBAT_EVENT", "END_COMBAT_EVENT", "ENTER_COMBAT_EVENT");
       case "COMMANDS": return a("DECLARE_COMMANDS");
