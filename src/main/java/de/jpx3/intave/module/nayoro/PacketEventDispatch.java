@@ -35,7 +35,9 @@ import java.util.function.Consumer;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.TELEPORT;
 import static de.jpx3.intave.module.linker.packet.ListenerPriority.LOWEST;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
-import static de.jpx3.intave.module.linker.packet.PacketId.Server.*;
+import static de.jpx3.intave.module.linker.packet.PacketId.Server.OPEN_WINDOW;
+import static de.jpx3.intave.module.linker.packet.PacketId.Server.SET_SLOT;
+import static de.jpx3.intave.module.linker.packet.PacketId.Server.WINDOW_ITEMS;
 import static de.jpx3.intave.module.nayoro.event.WindowActionEvent.Action.CLOSE;
 import static de.jpx3.intave.module.nayoro.event.WindowActionEvent.Action.INFER_OPEN;
 
@@ -59,14 +61,15 @@ public final class PacketEventDispatch implements PacketEventSubscriber {
     Player player = event.getPlayer();
     WrapperPlayClientInteractEntity.InteractAction useAction = reader.useAction();
     if (useAction == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
-      int attackerId = player.getEntityId();
-      int targetId = reader.entityId();
-      AttackEvent attackEvent = AttackEvent.create(attackerId, targetId);
+      AttackEvent attackEvent = AttackEvent.create(player.getEntityId(), reader.entityId());
       reverseSink.accept(user, attackEvent::accept);
     }
   }
 
-  @PacketSubscription(priority = ListenerPriority.HIGH, packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, VEHICLE_MOVE})
+  @PacketSubscription(
+    priority = ListenerPriority.HIGH,
+    packetsIn = {FLYING, LOOK, PacketId.Client.POSITION, POSITION_LOOK, PacketId.Client.VEHICLE_MOVE}
+  )
   public void receiveMovement(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
@@ -118,23 +121,15 @@ public final class PacketEventDispatch implements PacketEventSubscriber {
     if (!(event instanceof PacketReceiveEvent)) return;
     int slot = new WrapperPlayClientHeldItemChange((PacketReceiveEvent) event).getSlot();
     ItemStack item = player.getInventory().getItem(slot);
-    Material type;
-    int amount;
-    if (item != null) {
-      type = item.getType();
-      amount = item.getAmount();
-    } else {
-      type = Material.AIR;
-      amount = 0;
-    }
+    Material type = item == null ? Material.AIR : item.getType();
+    int amount = item == null ? 0 : item.getAmount();
     SlotSwitchEvent slotSwitchEvent = SlotSwitchEvent.create(slot, type.name(), amount);
     reverseSink.accept(user, slotSwitchEvent::accept);
   }
 
   @PacketSubscription(priority = ListenerPriority.HIGH, packetsIn = {WINDOW_CLICK})
   public void receiveWindowClick(User user, WindowClickReader reader) {
-    boolean assumeWindowOpen = user.meta().connection().assumeWindowOpen;
-    if (!assumeWindowOpen) {
+    if (!user.meta().connection().assumeWindowOpen) {
       user.meta().connection().assumeWindowOpen = true;
       WindowActionEvent openEvent = WindowActionEvent.create(INFER_OPEN, user.player().getInventory().getArmorContents());
       reverseSink.accept(user, openEvent::accept);
@@ -147,8 +142,7 @@ public final class PacketEventDispatch implements PacketEventSubscriber {
 
   @PacketSubscription(priority = ListenerPriority.LOW, packetsIn = {PacketId.Client.CLOSE_WINDOW})
   public void receiveWindowClose(ProtocolPacketEvent event) {
-    Player player = event.getPlayer();
-    User user = UserRepository.userOf(player);
+    User user = UserRepository.userOf((Player) event.getPlayer());
     WindowActionEvent closeEvent = WindowActionEvent.create(CLOSE, user.player().getInventory().getArmorContents());
     reverseSink.accept(user, closeEvent::accept);
     user.meta().connection().assumeWindowOpen = false;
