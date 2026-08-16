@@ -243,7 +243,7 @@ public class PlayerHandTracker extends Module {
 
     switch (digType) {
       case RELEASE_USE_ITEM:
-      case DROP_ALL_ITEMS:
+      case DROP_ITEM_STACK:
       case DROP_ITEM: {
         inventoryData.deactivateHand();
         break;

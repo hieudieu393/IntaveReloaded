@@ -280,7 +280,7 @@ public final class EntityTracker extends Module {
     if (entity == null) {
       return;
     }
-    boolean isLivingEntity = (event.getPacketType() == PacketType.Play.Server.SPAWN_ENTITY_LIVING ||
+    boolean isLivingEntity = (event.getPacketType() == PacketType.Play.Server.SPAWN_LIVING_ENTITY ||
       event.getPacketType() == PacketType.Play.Server.SPAWN_PLAYER) && entity.typeData().isLivingEntity();
     boolean isPlayer = event.getPacketType() == PacketType.Play.Server.SPAWN_PLAYER;
     boolean hasRedTrustfactor = !user.trustFactor().atLeast(TrustFactor.ORANGE);
@@ -380,7 +380,7 @@ public final class EntityTracker extends Module {
     if (packetType == PacketType.Play.Server.SPAWN_ENTITY) {
       // dead entities
       typeData = entityTypeResolver.entityTypeDataOfDeadEntity(event);
-    } else if (packetType == PacketType.Play.Server.SPAWN_ENTITY_LIVING) {
+    } else if (packetType == PacketType.Play.Server.SPAWN_LIVING_ENTITY) {
       // entities
       typeData = entityTypeResolver.entityTypeDataOfLivingEntity(event);
     } else {
@@ -827,7 +827,7 @@ public final class EntityTracker extends Module {
       Integer serverPosZ;
 
       NativeModifier<Integer> integers = packet.getIntegers();
-      if (packet.getType() == PacketType.Play.Server.SPAWN_ENTITY_LIVING) {
+      if (packet.packetType() == PacketType.Play.Server.SPAWN_LIVING_ENTITY) {
         // dead or living entities
         serverPosX = integers.readSafely(2);
         serverPosY = integers.readSafely(3);
@@ -912,7 +912,7 @@ public final class EntityTracker extends Module {
     priority = ListenerPriority.LOWEST
   )
   public void receiveUseEntity(ProtocolPacketEvent event) {
-    User user = UserRepository.userOf(event.getPlayer());
+    User user = UserRepository.userOf((Player) event.getPlayer());
     NativePacket packet = NativePacket.fromEvent(event);
     ConnectionMetadata connection = user.meta().connection();
 

@@ -114,7 +114,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
     inventory.lastBlockSequenceNumber = reader.sequenceNumber(user);
 
     try {
-      de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition blockPosition = reader.blockPosition();
+      BlockPosition blockPosition = reader.blockPosition();
       if (blockPosition == null || event.isCancelled() || movementData.isInVehicle()) {
         return;
       }
@@ -151,7 +151,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
         return;
       }
 
-      InteractionHand handSlot = packet.getHands().readSafely(0);
+      InteractionHand handSlot = reader.hand();
       handSlot = handSlot == null ? InteractionHand.MAIN_HAND : handSlot;
 
       ItemStack heldItem = inventory.heldItem();
@@ -327,9 +327,10 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
 
     NativePacket packet = NativePacket.fromEvent(event);
 
-    de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition blockPosition = NativePacket.fromEvent(event).getModifier()
+    de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition legacyBlockPosition = NativePacket.fromEvent(event).getModifier()
       .withType(Lookup.serverClass("BlockPosition"), BlockPositionConverter.threadConverter())
       .read(0);
+    BlockPosition blockPosition = legacyBlockPosition == null ? null : new BlockPosition(legacyBlockPosition.toVector());
 
     if (blockPosition == null || event.isCancelled()) {
       if (attack.inBreakProcess) {
@@ -340,7 +341,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
     }
 
     DiggingAction playerDigType = packet.getPlayerDigTypes().readSafely(0);
-    boolean blockInteraction = playerDigType == START_DESTROY_BLOCK || playerDigType == STOP_DESTROY_BLOCK || playerDigType == ABORT_DESTROY_BLOCK;
+    boolean blockInteraction = playerDigType == START_DIGGING || playerDigType == FINISHED_DIGGING || playerDigType == CANCELLED_DIGGING;
     ItemStack heldItemStack = inventoryData.heldItem();
     Material heldItemType = inventoryData.heldItemType();
     if (blockInteraction && ItemProperties.isSwordItem(heldItemStack) && user.meta().abilities().inGameMode(GameMode.CREATIVE)) {
@@ -357,7 +358,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
 
     float blockDamage = BlockInteractionAccess.blockDamage(player, inventoryData.heldItem(), blockPosition);
     boolean instantBreak = blockDamage >= 1.0f || abilityData.inGameMode(CREATIVE);
-    boolean breakBlock = instantBreak || playerDigType == STOP_DESTROY_BLOCK;
+    boolean breakBlock = instantBreak || playerDigType == FINISHED_DIGGING;
 
     EnumWrappers.Direction direction = packet.getDirections().readSafely(0);
     int enumDirection = direction == null ? 0 : direction.ordinal();
@@ -432,10 +433,10 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
         });
       }
     }
-    if (breakBlock || playerDigType == ABORT_DESTROY_BLOCK) {
+    if (breakBlock || playerDigType == CANCELLED_DIGGING) {
       interactionMeta.isBreakingBlock = attack.inBreakProcess = false;
       attack.lastBreak = System.currentTimeMillis();
-    } else if (playerDigType == START_DESTROY_BLOCK) {
+    } else if (playerDigType == START_DIGGING) {
       interactionMeta.isBreakingBlock = attack.inBreakProcess = true;
     }
   }
@@ -483,7 +484,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
   public void receiveAnyTickContextPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
-    receivedAnyTickContextPacket(user, NativePacket.fromEvent(event).getType() == PacketType.Play.Client.ANIMATION, event.getPacketType().getName());
+    receivedAnyTickContextPacket(user, event.getPacketType() == PacketType.Play.Client.ANIMATION, event.getPacketType().getName());
   }
 
   private void receivedAnyTickContextPacket(
@@ -518,7 +519,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
     MovementMetadata movementData = user.meta().movement();
     InteractionMeta interactionMeta = metaOf(user);
 
-    if (interaction.type() == START_BREAK && interaction.digType() == ABORT_DESTROY_BLOCK) {
+    if (interaction.type() == START_BREAK && interaction.digType() == CANCELLED_DIGGING) {
       // the block will be invalid regardless
       return PreprocessResult.OK;
     }
@@ -702,7 +703,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
       && !ItemProperties.isPotion(interaction.itemTypeInHand());
     Location targetLocation = interaction.targetBlock().toLocation(world);
 
-    if (interaction.digType() == STOP_DESTROY_BLOCK || interaction.digType() == ABORT_DESTROY_BLOCK) {
+    if (interaction.digType() == FINISHED_DIGGING || interaction.digType() == CANCELLED_DIGGING) {
       interactionMeta.remainingBlockStart--;
     }
     if (!interaction.hasTargetBlock()) {
@@ -826,7 +827,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
       MovingObjectPosition movingObjectPosition = bestRaytrace.raycastResult();
       Location location = estimateMouseDelayFix ? playerLocationmdf : playerLocation;
       boolean atLeastLookingAtBlock = movingObjectPosition != null && atLeastLookingAtBlock(user, location, targetLocation, movingObjectPosition);
-      boolean doNotFlagType = interaction.digType() == ABORT_DESTROY_BLOCK || interaction.type() == EMPTY_INTERACT;
+      boolean doNotFlagType = interaction.digType() == CANCELLED_DIGGING || interaction.type() == EMPTY_INTERACT;
       flag = enabled() && !doNotFlagType && performFlag(
         interaction, movingObjectPosition, targetLocation, bestRaytrace, atLeastLookingAtBlock, index
       );
@@ -907,7 +908,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
       flag = true;
     }
     boolean refreshBlocks = interaction.type() != InteractionType.INTERACT;
-    boolean canBeReceivedAsIsWithoutProblems = interaction.digType() == ABORT_DESTROY_BLOCK;
+    boolean canBeReceivedAsIsWithoutProblems = interaction.digType() == CANCELLED_DIGGING;
 
     if (response == ResponseType.RAYTRACE_CAST) {
       if (hitMiss || raycastResult == null) {
@@ -926,7 +927,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
             World world = player.getWorld();
             Material material = user.meta().inventory().heldItemType();
             int dat = 0;
-            boolean replace = BlockInteractionAccess.replacedOnPlacement(world, player, new de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition(raycastLocation.toVector()));
+            boolean replace = BlockInteractionAccess.replacedOnPlacement(world, player, new BlockPosition(raycastLocation.toVector()));
             Location placementLocation = replace ? raycastLocation : raycastLocation.clone().add(raycastResult.sideHit.directionVector().convertToBukkitVec());
             boolean raytraceCollidesWithPosition = material.isBlock() && Collision.playerInImaginaryBlock(
               user, user.meta().movement(), world,
@@ -988,7 +989,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
     if (!MinecraftVersions.VER1_19.atOrAbove()) {
       return;
     }
-    NativePacket ack = new NativePacket(PacketType.Play.Server.BLOCK_CHANGED_ACK);
+    NativePacket ack = new NativePacket(PacketType.Play.Server.ACKNOWLEDGE_BLOCK_CHANGES);
     ack.getIntegers().write(0, sequenceNumber);
     PacketSender.sendServerPacket(player, ack);
   }
@@ -1233,7 +1234,7 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
   private static final boolean BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION = MinecraftVersions.VER1_14_0.atOrAbove();
 
   private void writeBlockPosition(NativePacket packet, de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition blockPosition) {
-    if (BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION && !packet.getType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
+    if (BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION && !packet.packetType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
       NativeBlockHit raytraceSent = packet.getMovingBlockPositions().readSafely(0);
       raytraceSent.setBlockPosition(blockPosition);
       packet.getMovingBlockPositions().write(0, raytraceSent);
@@ -1243,13 +1244,13 @@ public final class InteractionRaytrace extends MetaCheck<InteractionRaytrace.Int
   }
 
   private void writeEnumDirection(NativePacket packet, Direction direction) {
-    if (BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION && !packet.getType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
+    if (BLOCK_DATA_WRAPPED_IN_MOVING_OBJECT_POSITION && !packet.packetType().equals(PacketType.Play.Client.PLAYER_DIGGING)) {
       NativeBlockHit raytraceSent = packet.getMovingBlockPositions().readSafely(0);
-      raytraceSent.setDirection(direction.toDirection());
+      raytraceSent.setDirection(EnumWrappers.Direction.valueOf(direction.name()));
       packet.getMovingBlockPositions().write(0, raytraceSent);
     } else {
       if (packet.getDirections().size() > 0) {
-        packet.getDirections().write(0, direction.toDirection());
+        packet.getDirections().write(0, EnumWrappers.Direction.valueOf(direction.name()));
       } else {
         packet.getIntegers().write(0, direction.getIndex());
       }

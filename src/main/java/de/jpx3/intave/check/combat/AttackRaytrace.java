@@ -106,7 +106,7 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
 
     NativePacket packet = NativePacket.fromEvent(event);
     EntityUseReader reader = PacketReaders.readerOf(packet);
-    EntityUseAction action = reader.useAction();
+    InteractAction action = reader.useAction();
 
     // Only process attacks, interactions should not be checked
     if (action == ATTACK) {

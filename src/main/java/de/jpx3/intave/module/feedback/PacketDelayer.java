@@ -156,7 +156,7 @@ public final class PacketDelayer extends Module {
     long positionBlockTolerance = connection.transactionPingAverage() + LatencyStudy.pingAverage() / 2 + lagTolerance + positionTimeoutTolerance;
     boolean positionTimeout = !activeExclude && lastMovementPacket > positionBlockTolerance;
 
-    boolean idAddressed = packetType == PacketType.Play.Server.ANIMATION ||
+    boolean idAddressed = packetType == PacketType.Play.Server.ENTITY_ANIMATION ||
       packetType == PacketType.Play.Server.ENTITY_STATUS ||
       packetType == PacketType.Play.Server.ENTITY_METADATA ||
       packetType == PacketType.Play.Server.ENTITY_TELEPORT ||

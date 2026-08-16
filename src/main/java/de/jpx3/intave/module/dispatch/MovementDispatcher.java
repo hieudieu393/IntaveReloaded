@@ -359,7 +359,7 @@ public final class MovementDispatcher extends Module {
 
     // see MultiPlayerGameMode#useItem
     if (protocol.useItemMovementPacket() && !movement.awaitTeleport
-      && packet.getType() == PacketType.Play.Client.PLAYER_POSITION_LOOK
+      && packet.getType() == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION
     ) {
       double positionX = reader.positionX();
       double positionY = reader.positionY();
@@ -901,7 +901,7 @@ public final class MovementDispatcher extends Module {
           motion.setMotionY(Math.min(0, motion.motionY()));
           motion.setMotionZ(motion.motionZ() / pendingVelocityPackets);
           reader.setMotion(motion);
-        } else if (!event.isReadOnly()){
+        } else {
           cancellable.setCancelled(true);
           return;
         }

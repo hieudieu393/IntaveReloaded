@@ -106,12 +106,12 @@ public final class BlockUpdateTracker extends Module {
     User user, NativePacket packet,
     BlockPositionReader reader, CancellableEvent cancellable
   ) {
-    PacketTypeCommon packetType = packet.getType();
+    PacketTypeCommon packetType = packet.packetType();
     boolean check = true;
 
     if (packetType == PacketType.Play.Client.PLAYER_DIGGING) {
       DiggingAction playerDigType = packet.getPlayerDigTypes().read(0);
-      check = playerDigType == START_DESTROY_BLOCK || playerDigType == STOP_DESTROY_BLOCK || playerDigType == ABORT_DESTROY_BLOCK;
+      check = playerDigType == START_DIGGING || playerDigType == FINISHED_DIGGING || playerDigType == CANCELLED_DIGGING;
     } else if (packetType == PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT) {
       BlockPosition blockPosition = reader.blockPosition();
       if (blockPosition == null) {
@@ -152,7 +152,7 @@ public final class BlockUpdateTracker extends Module {
 
     BlockChanges changes = PacketReaders.readerOf(packet);
     List<BlockPosition> blockPositions = changes.blockPositions();
-    List<WrappedBlockData> blockDataList = changes.blockDataList();
+    List<com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState> blockDataList = changes.blockDataList();
     changes.release();
 
     World world = player.getWorld();
@@ -161,7 +161,7 @@ public final class BlockUpdateTracker extends Module {
       Location verifiedLocation = user.meta().movement().verifiedLocation();
       for (int i = 0; i < blockPositions.size(); i++) {
         BlockPosition blockPosition = blockPositions.get(i);
-        WrappedBlockData blockData = blockDataList.get(i);
+        WrappedBlockData blockData = WrappedBlockData.fromHandle(blockDataList.get(i));
         if (distance(verifiedLocation, blockPosition) < 2) {
           user.meta().movement().activeTick(NEARBY_COLLISION_INACCURACY);
         }

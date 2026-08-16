@@ -4,6 +4,8 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import com.github.retrooper.packetevents.resources.ResourceLocation;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import de.jpx3.intave.packet.nativeapi.PacketType;
@@ -222,6 +224,7 @@ public class NativePacket {
   }
 
   public PacketType getType() { return type; }
+  public PacketTypeCommon packetType() { return type == null ? null : type.handle(); }
   public Object getHandle() { return wrapper; }
   public PacketWrapper<?> wrapper() { return wrapper; }
   public ProtocolPacketEvent protocolEvent() { return event; }
@@ -280,9 +283,9 @@ public class NativePacket {
   public NativeModifier<EnumWrappers.EntityUseAction> getEntityUseActions() { return getModifier().withType(EnumWrappers.EntityUseAction.class); }
   public NativeModifier<EnumWrappers.EnumEntityUseAction> getEnumEntityUseActions() { return getModifier().withType(EnumWrappers.EnumEntityUseAction.class); }
   public NativeModifier<org.bukkit.WorldType> getWorldTypeModifier() { return getModifier().withType(org.bukkit.WorldType.class); }
-  public NativeModifier<EnumWrappers.PlayerDigType> getPlayerDigTypes() { return getModifier().withType(EnumWrappers.PlayerDigType.class); }
+  public NativeModifier<DiggingAction> getPlayerDigTypes() { return getModifier().withType(DiggingAction.class); }
   public NativeModifier<EnumWrappers.Direction> getDirections() { return getModifier().withType(EnumWrappers.Direction.class); }
-  public NativeModifier<EnumWrappers.Hand> getHands() { return getModifier().withType(EnumWrappers.Hand.class); }
+  public NativeModifier<InteractionHand> getHands() { return getModifier().withType(InteractionHand.class); }
   public NativeModifier<EnumWrappers.ChatType> getChatTypes() { return getModifier().withType(EnumWrappers.ChatType.class); }
   public NativeModifier<EnumWrappers.ItemSlot> getItemSlots() { return getModifier().withType(EnumWrappers.ItemSlot.class); }
   public NativeModifier<EnumWrappers.SoundCategory> getSoundCategories() { return getModifier().withType(EnumWrappers.SoundCategory.class); }

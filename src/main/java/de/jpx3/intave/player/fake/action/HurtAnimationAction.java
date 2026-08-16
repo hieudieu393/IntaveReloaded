@@ -43,7 +43,7 @@ public final class HurtAnimationAction extends Action {
   private static final byte DAMAGE_ANIMATION = 1;
 
   private void sendHurtAnimation() {
-    NativePacket packet = create(PacketType.Play.Server.ANIMATION);
+    NativePacket packet = create(PacketType.Play.Server.ENTITY_ANIMATION);
     packet.getIntegers().writeSafely(0, this.fakePlayer.identifier());
     packet.getModifier().writeSafely(1, DAMAGE_ANIMATION);
     send(packet);

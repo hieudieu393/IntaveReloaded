@@ -13,7 +13,7 @@ package de.jpx3.intave.module.tracker.player;
 
 import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 
-import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.packet.nativeapi.PacketType;
 import de.jpx3.intave.packet.nativeapi.PacketRuntime;
 import de.jpx3.intave.packet.nativeapi.events.*;
 import de.jpx3.intave.IntavePlugin;
@@ -97,8 +97,8 @@ public class PacketLogging extends Module {
       PrintStream printStream = new PrintStream(stream);
 
       UUID finalUserId = userId;
-      List<PacketTypeCommon> listenerTypes = new ArrayList<>();
-      for (PacketTypeCommon value : PacketTypeCommon.values()) {
+      List<PacketType> listenerTypes = new ArrayList<>();
+      for (PacketType value : PacketType.values()) {
         if (value.isSupported()) {
           listenerTypes.add(value);
         }
@@ -111,7 +111,7 @@ public class PacketLogging extends Module {
           }
           if (event.getPlayer().getUniqueId().equals(finalUserId)) {
             synchronized (printStream) {
-              printStream.println((System.currentTimeMillis() % 1000) + " <--out-- " + event.getPacketType().getName() + (event.isCancelled() ? " (cancelled)" : "") + " " + packetContent(NativePacket.fromEvent(event), UserRepository.userOf(event.getPlayer())));
+              printStream.println((System.currentTimeMillis() % 1000) + " <--out-- " + event.getPacketType().name() + (event.isCancelled() ? " (cancelled)" : "") + " " + packetContent(event.getPacket(), UserRepository.userOf(event.getPlayer())));
             }
           }
         }
@@ -123,7 +123,7 @@ public class PacketLogging extends Module {
           }
           if (event.getPlayer().getUniqueId().equals(finalUserId)) {
             synchronized (printStream) {
-              printStream.println((System.currentTimeMillis() % 1000) + " --in--> " + event.getPacketType().getName() + (event.isCancelled() ? " (cancelled)" : "") + " " + packetContent(NativePacket.fromEvent(event), UserRepository.userOf(event.getPlayer())));
+              printStream.println((System.currentTimeMillis() % 1000) + " --in--> " + event.getPacketType().name() + (event.isCancelled() ? " (cancelled)" : "") + " " + packetContent(event.getPacket(), UserRepository.userOf(event.getPlayer())));
             }
           }
         }

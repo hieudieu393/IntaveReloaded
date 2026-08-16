@@ -14,7 +14,7 @@ package de.jpx3.intave.command.stages;
 import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import de.jpx3.intave.packet.nativeapi.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import de.jpx3.intave.packet.nativeapi.PacketRuntime;
 import de.jpx3.intave.packet.nativeapi.PacketRuntimeManager;
@@ -422,7 +422,7 @@ public final class DiagnosticsStage extends CommandStage {
     timings.sort(Timing::compareTo);
 
     timings.forEach(timing -> {
-      if (timing.isProtocolPacketEventTiming() || timing.isBukkitEventTiming()) {
+      if (timing.isPacketEventTiming() || timing.isBukkitEventTiming()) {
         return;
       }
       boolean suspicious = timing.averageCallDurationInMillis() > 0.5d;

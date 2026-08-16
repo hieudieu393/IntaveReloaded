@@ -15,7 +15,7 @@ public final class SwingAnimationAction extends Action {
 
   @Override
   public void perform() {
-    NativePacket packet = create(PacketType.Play.Server.ANIMATION);
+    NativePacket packet = create(PacketType.Play.Server.ENTITY_ANIMATION);
     packet.getIntegers().writeSafely(0, this.fakePlayer.identifier());
     packet.getBytes().writeSafely(0, SWING_ANIMATION);
     send(packet);

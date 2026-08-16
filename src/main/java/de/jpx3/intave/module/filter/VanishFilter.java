@@ -2,7 +2,7 @@ package de.jpx3.intave.module.filter;
 
 import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfoUpdate;
 import de.jpx3.intave.packet.nativeapi.wrappers.PlayerInfoData;
 import de.jpx3.intave.packet.nativeapi.wrappers.WrappedGameProfile;
 import com.google.common.collect.Lists;
@@ -92,14 +92,14 @@ public final class VanishFilter extends Filter {
     Set<UUID> shownPlayers = protocol.shownPlayers;
 
     PlayerInfoReader reader = PacketReaders.readerOf(packet);
-    Set<EnumWrappers.PlayerInfoAction> actions = reader.playerInfoActions();
-    List<PlayerInfoData> playerInfos = reader.playerInfoData();
+    Set<WrapperPlayServerPlayerInfoUpdate.Action> actions = reader.playerInfoActions();
+    List<WrapperPlayServerPlayerInfoUpdate.PlayerInfo> playerInfos = new ArrayList<>(reader.playerInfoData());
 
-    for (EnumWrappers.PlayerInfoAction action : actions) {
+    for (WrapperPlayServerPlayerInfoUpdate.Action action : actions) {
       switch (action) {
         case ADD_PLAYER:
           playerInfos.forEach(data -> {
-            UUID uuid = data.getProfile().getUUID();
+            UUID uuid = playerInfoUuid(data);
             if (shownPlayers.contains(uuid)) {
               return;
             }
@@ -113,23 +113,12 @@ public final class VanishFilter extends Filter {
         case UPDATE_GAME_MODE:
         case UPDATE_LATENCY:
           playerInfos.removeIf(playerInfo -> {
-            UUID infoId = playerInfo.getProfile().getUUID();
+            UUID infoId = playerInfoUuid(playerInfo);
             boolean toBeRemoved = !shownPlayers.contains(infoId);
             if (toBeRemoved) {
 //              System.out.println("Hiding " + playerInfo.getProfile().getName() + " from " + player.getName());
             }
             return toBeRemoved;
-          });
-          break;
-        case REMOVE_PLAYER:
-          playerInfos.removeIf(playerInfoData -> {
-            UUID uuid = playerInfoData.getProfile().getUUID();
-            boolean wasVisible = shownPlayers.remove(uuid);
-//            System.out.println("Hiding " + playerInfoData.getProfile().getName() + " from you (was visible: "+wasVisible +")");
-//            Synchronizer.synchronize(() -> {
-//              player.sendMessage("Hiding " + playerInfoData.getProfile().getName() + " from you (was visible: "+wasVisible +")");
-//            });
-            return !wasVisible;
           });
           break;
       }
@@ -144,6 +133,20 @@ public final class VanishFilter extends Filter {
 //    lists.write(0, playerInfos);
     reader.writePlayerInfoData(playerInfos);
     reader.release();
+  }
+
+  private static UUID playerInfoUuid(Object info) {
+    if (info == null) return new UUID(0L, 0L);
+    try {
+      Object profile;
+      try { profile = info.getClass().getMethod("getGameProfile").invoke(info); }
+      catch (NoSuchMethodException ignored) { profile = info.getClass().getMethod("getProfile").invoke(info); }
+      for (String method : new String[]{"getUUID", "getUuid", "getId"}) {
+        try { Object id = profile.getClass().getMethod(method).invoke(profile); if (id instanceof UUID) return (UUID) id; }
+        catch (NoSuchMethodException ignored) {}
+      }
+    } catch (ReflectiveOperationException ignored) {}
+    return new UUID(0L, 0L);
   }
 
   @PacketSubscription(

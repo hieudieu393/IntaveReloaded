@@ -12,6 +12,7 @@
 package de.jpx3.intave.packet.reader;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import com.github.retrooper.packetevents.protocol.world.BlockFace;
 import com.github.retrooper.packetevents.util.Vector3f;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement;
@@ -78,6 +79,12 @@ public final class BlockInteractionReader extends BlockPositionReader {
     }
     Vector3f cursor = placement.getCursorPosition();
     return cursor == null ? null : new Vector(cursor.getX(), cursor.getY(), cursor.getZ());
+  }
+
+  public InteractionHand hand() {
+    if (placement != null) return placement.getHand();
+    if (useItem != null) return useItem.getHand();
+    return InteractionHand.MAIN_HAND;
   }
 
   public int enumDirection() {
