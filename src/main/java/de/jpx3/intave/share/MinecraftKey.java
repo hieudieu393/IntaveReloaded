@@ -38,20 +38,8 @@ public final class MinecraftKey {
     return path;
   }
 
-	public String fullKey() {
-		return namespace + ":" + path;
-	}
-
-  public static @Nullable MinecraftKey fromProtocolLib(
-    @Nullable com.comphenix.protocol.wrappers.MinecraftKey protocolLibKey
-  ) {
-    if (protocolLibKey == null) {
-      return null;
-    }
-    return new MinecraftKey(
-      protocolLibKey.getPrefix(),
-      protocolLibKey.getKey()
-    );
+  public String fullKey() {
+    return namespace + ":" + path;
   }
 
   public static MinecraftKey withDefaultNamespace(String path) {
@@ -85,5 +73,10 @@ public final class MinecraftKey {
     } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Override
+  public String toString() {
+    return fullKey();
   }
 }
