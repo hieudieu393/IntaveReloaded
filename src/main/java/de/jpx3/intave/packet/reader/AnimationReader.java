@@ -11,9 +11,26 @@
 
 package de.jpx3.intave.packet.reader;
 
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientAnimation;
+
 public final class AnimationReader extends EntityReader {
+	private Animation animation;
+
+	@Override
+	protected void read() {
+		WrapperPlayClientAnimation wrapper = new WrapperPlayClientAnimation(receiveEvent());
+		animation = wrapper.getHand() == InteractionHand.OFF_HAND ? Animation.SWING_OFFHAND : Animation.SWING;
+	}
+
 	public Animation animation() {
-		return Animation.values()[packet().getIntegers().read(1)];
+		return animation;
+	}
+
+	@Override
+	public void release() {
+		animation = null;
+		super.release();
 	}
 
 	public enum Animation {
@@ -23,5 +40,5 @@ public final class AnimationReader extends EntityReader {
 		SWING_OFFHAND,
 		CRIT,
 		CRIT_MAGIC
-	};
+	}
 }

@@ -11,8 +11,23 @@
 
 package de.jpx3.intave.packet.reader;
 
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSteerVehicle;
+
 public final class SteerVehicleReader extends AbstractPacketReader {
+  private boolean jumping;
+
+  @Override
+  protected void read() {
+    jumping = new WrapperPlayClientSteerVehicle(receiveEvent()).isJump();
+  }
+
   public boolean isJumping() {
-    return Boolean.TRUE.equals(packet().getBooleans().readSafely(0));
+    return jumping;
+  }
+
+  @Override
+  public void release() {
+    jumping = false;
+    super.release();
   }
 }
