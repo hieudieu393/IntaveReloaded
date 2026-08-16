@@ -1,0 +1,33 @@
+name: Apply PacketEvent import fix
+on:
+  push:
+    branches: [ agent/audit-hardening ]
+    paths: [ '.github/workflows/apply-native-fix-4.yml' ]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/audit-hardening
+          fetch-depth: 0
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/main/java/de/jpx3/intave/command/stages/DiagnosticsStage.java')
+          s=p.read_text()
+          imp='import de.jpx3.intave.packet.nativeapi.events.PacketEvent;'
+          if imp not in s:
+            s=s.replace('import de.jpx3.intave.packet.nativeapi.events.PacketAdapter;', 'import de.jpx3.intave.packet.nativeapi.events.PacketAdapter;\n'+imp)
+          p.write_text(s)
+          PY
+          git add src/main/java/de/jpx3/intave/command/stages/DiagnosticsStage.java
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Import native packet event in diagnostics'
+          git push origin HEAD:agent/audit-hardening
