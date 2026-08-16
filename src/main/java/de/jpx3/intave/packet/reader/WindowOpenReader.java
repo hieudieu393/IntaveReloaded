@@ -1,132 +1,72 @@
 package de.jpx3.intave.packet.reader;
 
-import de.jpx3.intave.adapter.MinecraftVersions;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerOpenWindow;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
+/** Native PacketEvents reader for OPEN_WINDOW and OPEN_HORSE_WINDOW. */
 public final class WindowOpenReader extends AbstractPacketReader implements EntityIterable {
+  private WrapperPlayServerOpenWindow wrapper;
+
+  @Override
+  protected void read() {
+    wrapper = new WrapperPlayServerOpenWindow(sendEvent());
+  }
+
   public int containerId() {
-    return packet().getIntegers().read(0);
+    return wrapper.getContainerId();
   }
 
   public int slots() {
-    if (MinecraftVersions.VER1_19.atOrAbove()) {
-//      Containers containers = packet().getSpecificModifier(Containers.class).read(0);
-//      String lookupKey = RegistryKeyLookup.keyFrom("menu", containers);
-//      String key = packet().getRegistrableModifier(Containers.class).read(0).getKey().getKey();
-//      System.out.println(key + " / " + lookupKey);
-//      switch (key) {
-//        case "generic_9x1":
-//        case "generic_3x3":
-//          return 9;
-//        case "generic_9x2":
-//          return 18;
-//        case "generic_9x3":
-//        case "shulker_box":
-//          return 27;
-//        case "generic_9x4":
-//          return 36;
-//        case "generic_9x5":
-//          return 45;
-//        case "generic_9x6":
-//          return 54;
-//        case "anvil":
-//        case "cartography_table":
-//        case "smoker":
-//        case "smithing":
-//        case "merchant":
-//        case "grindstone":
-//        case "furnace":
-//        case "blast_furnace":
-//          return 3;
-//        case "beacon":
-//        case "lectern":
-//          return 1;
-//        case "brewing_stand":
-//        case "hopper":
-//          return 5;
-//        case "crafting":
-//          return 10;
-//        case "enchantment":
-//        case "stonecutter":
-//          return 2;
-//        case "loom":
-//          return 4;
-//      }
-      return 27;
-    } else if (MinecraftVersions.VER1_14_0.atOrAbove()) {
-      int menuType = packet().getIntegers().read(0);
-      switch (menuType) {
-        case 0:
-          return 9;
-        case 1:
-          return 18;
-        case 2:
-          return 27;
-        case 3:
-          return 36;
-        case 4:
-          return 45;
-        case 5:
-          return 54;
-        default:
-          return 27;
-      }
-    } else {
-      return packet().getIntegers().read(1);
+    int legacySlots = wrapper.getLegacySlots();
+    if (legacySlots > 0) return legacySlots;
+    switch (wrapper.getType()) {
+      case 0: return 9;
+      case 1: return 18;
+      case 2: return 27;
+      case 3: return 36;
+      case 4: return 45;
+      case 5: return 54;
+      default: return 27;
     }
   }
 
   public Optional<Integer> optionalEntityId() {
-    Integer read = packet().getIntegers().read(2);
-    if (read == null) {
-      return Optional.empty();
-    } else if (read == 0) {
-      return Optional.empty();
-    }
-    return Optional.of(read);
+    int entityId = wrapper.getHorseId();
+    return entityId == 0 ? Optional.empty() : Optional.of(entityId);
   }
 
   @Override
   public @NotNull SubstitutionIterator<Integer> iterator() {
-    Optional<Integer> integer = optionalEntityId();
-    if (!integer.isPresent()) {
-      return new SubstitutionIterator<Integer>() {
-        @Override
-        public void set(Integer integer) {
-        }
+    return new SubstitutionIterator<Integer>() {
+      private final boolean available = optionalEntityId().isPresent();
+      private boolean returned;
 
-        @Override
-        public boolean hasNext() {
-          return false;
-        }
+      @Override
+      public void set(Integer integer) {
+        if (!returned) throw new IllegalStateException("next() must be called before set()");
+        wrapper.setHorseId(integer);
+      }
 
-        @Override
-        public Integer next() {
-          throw new UnsupportedOperationException();
-        }
-      };
-    } else {
-      return new SubstitutionIterator<Integer>() {
-        boolean hasNext = false;
+      @Override
+      public boolean hasNext() {
+        return available && !returned;
+      }
 
-        @Override
-        public void set(Integer integer) {
-          packet().getIntegers().write(2, integer);
-        }
+      @Override
+      public Integer next() {
+        if (!hasNext()) throw new NoSuchElementException();
+        returned = true;
+        return wrapper.getHorseId();
+      }
+    };
+  }
 
-        @Override
-        public boolean hasNext() {
-          return hasNext;
-        }
-
-        @Override
-        public Integer next() {
-          hasNext = false;
-          return integer.get();
-        }
-      };
-    }
+  @Override
+  public void release() {
+    wrapper = null;
+    super.release();
   }
 }

@@ -1,8 +1,6 @@
 package de.jpx3.intave.packet;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.reflect.EquivalentConverter;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.protocol.teleport.RelativeFlag;
 import com.google.common.collect.Maps;
 import de.jpx3.intave.klass.Lookup;
 import de.jpx3.intave.klass.locate.Locate;
@@ -70,27 +68,19 @@ public enum Relative {
     return nativeFromIndex(indexOf(flags));
   }
 
-  private static Class<?> nativeClass = null;
-  private static EquivalentConverter<Relative> genericConverter;
-
-  public static Set<Relative> flagsFrom(PacketContainer packet) {
-    if (nativeClass == null) {
-      nativeClass = Lookup.serverClass("PacketPlayOutPosition$EnumPlayerTeleportFlags");
+  public static Set<Relative> fromPacketEvents(RelativeFlag flags) {
+    Set<Relative> result = new HashSet<>();
+    int mask = flags.getFullMask();
+    for (Relative value : values()) {
+      if (value.matchesIndex(mask)) {
+        result.add(value);
+      }
     }
-    if (genericConverter == null) {
-      genericConverter = EnumWrappers.getGenericConverter(nativeClass, Relative.class);
-    }
-    return packet.getSets(genericConverter).read(0);
+    return result;
   }
 
-  public static void writeFlags(PacketContainer packet, Set<Relative> flags) {
-    if (nativeClass == null) {
-      nativeClass = Lookup.serverClass("PacketPlayOutPosition$EnumPlayerTeleportFlags");
-    }
-    if (genericConverter == null) {
-      genericConverter = EnumWrappers.getGenericConverter(nativeClass, Relative.class);
-    }
-    packet.getSets(genericConverter).write(0, flags);
+  public static RelativeFlag toPacketEvents(Set<Relative> flags) {
+    return new RelativeFlag(indexOf(flags));
   }
 
   private static final Map<Integer, Set<?>> flagCache = Maps.newConcurrentMap();
