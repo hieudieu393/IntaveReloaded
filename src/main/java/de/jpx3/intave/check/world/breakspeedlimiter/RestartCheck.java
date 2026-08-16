@@ -15,6 +15,7 @@ import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.module.violation.ViolationContext;
 import de.jpx3.intave.module.violation.ViolationProcessor;
+import de.jpx3.intave.packet.PacketEventsBlockState;
 import de.jpx3.intave.packet.PacketSender;
 import de.jpx3.intave.packet.PacketTypes;
 import de.jpx3.intave.packet.reader.BlockDigReader;
@@ -23,7 +24,6 @@ import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 import de.jpx3.intave.user.meta.ProtocolMetadata;
-import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -35,27 +35,17 @@ public final class RestartCheck extends MetaCheckPart<BreakSpeedLimiter, Restart
   private static final double EXPECTED_RESTART_DELAY_TICKS = 6.0D;
   private static final double MAX_STORED_RESTART_ADVANTAGE_TICKS = 20.0D;
 
-  public RestartCheck(BreakSpeedLimiter parentCheck) {
-    super(parentCheck, RestartCheck.BreakSpeedStartMeta.class);
-  }
+  public RestartCheck(BreakSpeedLimiter parentCheck) { super(parentCheck, RestartCheck.BreakSpeedStartMeta.class); }
 
-  @PacketSubscription(priority = ListenerPriority.LOWEST, packetsIn = {
-    POSITION, POSITION_LOOK, LOOK, FLYING, VEHICLE_MOVE, CLIENT_TICK_END
-  })
+  @PacketSubscription(priority = ListenerPriority.LOWEST, packetsIn = {POSITION, POSITION_LOOK, LOOK, FLYING, VEHICLE_MOVE, CLIENT_TICK_END})
   public void tickUpdate(ProtocolPacketEvent event) {
     Player player = (Player) event.getPlayer();
     User user = userOf(player);
     ProtocolMetadata clientData = user.meta().protocol();
     boolean clientTickEnd = PacketTypes.isClientEndTick(event.getPacketType());
-    if (clientData.sendsClientTickEnd()) {
-      if (!clientTickEnd) {
-        return;
-      }
-    } else if (!clientData.emptyFlyingPacketsAreExplicitlySent()) {
-      return;
-    }
-    BreakSpeedStartMeta meta = metaOf(user);
-    meta.ticks++;
+    if (clientData.sendsClientTickEnd()) { if (!clientTickEnd) return; }
+    else if (!clientData.emptyFlyingPacketsAreExplicitlySent()) return;
+    metaOf(user).ticks++;
   }
 
   @PacketSubscription(priority = ListenerPriority.LOWEST, packetsIn = BLOCK_DIG)
@@ -68,103 +58,61 @@ public final class RestartCheck extends MetaCheckPart<BreakSpeedLimiter, Restart
     try {
       DiggingAction digType = reader.action();
       BlockPosition blockPosition = reader.nativeBlockPosition();
-      if (digType == null || blockPosition == null) {
-        return;
-      }
-
+      if (digType == null || blockPosition == null) return;
       switch (digType) {
-        case START_DIGGING: {
-          if (isRepeatedActiveStart(meta.breakProcess, meta.targetBlockPosition, blockPosition)) {
-            return;
-          }
+        case START_DIGGING:
+          if (isRepeatedActiveStart(meta.breakProcess, meta.targetBlockPosition, blockPosition)) return;
           if (!clientData.emptyFlyingPacketsAreExplicitlySent() && !clientData.sendsClientTickEnd()) {
-            meta.breakProcess = true;
-            meta.targetBlockPosition = blockPosition;
-            break;
+            meta.breakProcess = true; meta.targetBlockPosition = blockPosition; break;
           }
           int ticksBetween = meta.ticks - meta.blockBreakTick;
           double restartDelay = resolveRestartDelayTicks(ticksBetween);
           double balance = clampBalance(meta.blockBreakStartVL, user.latency() / 50D);
-          if (restartDelay >= CLOSE_ENOUGH_RESTART_DELAY_TICKS) {
-            balance *= 0.9D;
-          } else {
-            balance += EXPECTED_RESTART_DELAY_TICKS - restartDelay;
-          }
+          if (restartDelay >= CLOSE_ENOUGH_RESTART_DELAY_TICKS) balance *= 0.9D;
+          else balance += EXPECTED_RESTART_DELAY_TICKS - restartDelay;
           meta.blockBreakStartVL = balance;
-
-          if (balance > MAX_STORED_RESTART_ADVANTAGE_TICKS
-            && meta.restartFlagBreakSequence != meta.blockBreakSequence) {
-            ViolationProcessor violationProcessor = Modules.violationProcessor();
-            Violation violation = Violation.builderFor(BreakSpeedLimiter.class)
-              .forPlayer(player).withMessage("started breaking too quickly")
-              .withDetails(((int) restartDelay) + " ticks between").withVL(5)
-              .build();
-            ViolationContext violationContext = violationProcessor.processViolation(violation);
-            if (violationContext.shouldCounterThreat()) {
-              event.setCancelled(true);
-              meta.cancelNextStop = true;
-            }
+          if (balance > MAX_STORED_RESTART_ADVANTAGE_TICKS && meta.restartFlagBreakSequence != meta.blockBreakSequence) {
+            ViolationProcessor processor = Modules.violationProcessor();
+            Violation violation = Violation.builderFor(BreakSpeedLimiter.class).forPlayer(player)
+              .withMessage("started breaking too quickly").withDetails(((int) restartDelay) + " ticks between").withVL(5).build();
+            ViolationContext context = processor.processViolation(violation);
+            if (context.shouldCounterThreat()) { event.setCancelled(true); meta.cancelNextStop = true; }
             meta.restartFlagBreakSequence = meta.blockBreakSequence;
           }
-          meta.breakProcess = true;
-          meta.targetBlockPosition = blockPosition;
+          meta.breakProcess = true; meta.targetBlockPosition = blockPosition;
           break;
-        }
-        case FINISHED_DIGGING: {
-          meta.blockBreakTick = meta.ticks;
-          meta.blockBreakSequence++;
-          meta.breakProcess = false;
-          meta.targetBlockPosition = null;
+        case FINISHED_DIGGING:
+          meta.blockBreakTick = meta.ticks; meta.blockBreakSequence++; meta.breakProcess = false; meta.targetBlockPosition = null;
           if (meta.cancelNextStop) {
-            meta.cancelNextStop = false;
-            event.setCancelled(true);
+            meta.cancelNextStop = false; event.setCancelled(true);
             refreshBlocksAround(player, blockPosition.toLocation(player.getWorld()));
           }
           break;
-        }
         case CANCELLED_DIGGING:
-          meta.breakProcess = false;
-          meta.targetBlockPosition = null;
-          meta.cancelNextStop = false;
+          meta.breakProcess = false; meta.targetBlockPosition = null; meta.cancelNextStop = false;
           break;
-        default:
-          break;
+        default: break;
       }
-    } finally {
-      reader.release();
-    }
+    } finally { reader.release(); }
   }
 
   static boolean isRepeatedActiveStart(boolean breakProcess, BlockPosition targetBlockPosition, BlockPosition blockPosition) {
     return breakProcess && targetBlockPosition != null && targetBlockPosition.equals(blockPosition);
   }
-
-  static double resolveRestartDelayTicks(int ticksBetween) {
-    return Math.max(0, ticksBetween);
-  }
-
+  static double resolveRestartDelayTicks(int ticksBetween) { return Math.max(0, ticksBetween); }
   private static double clampBalance(double balance, double balanceLimit) {
     double limit = Math.max(MAX_STORED_RESTART_ADVANTAGE_TICKS, balanceLimit);
     return MathHelper.minmax(-limit, balance, limit);
   }
 
   private void refreshBlocksAround(Player player, Location targetLocation) {
-    Synchronizer.synchronize(() -> {
-      player.updateInventory();
-      refreshBlock(player, targetLocation);
-    });
+    Synchronizer.synchronize(() -> { player.updateInventory(); refreshBlock(player, targetLocation); });
   }
-
   private void refreshBlock(Player player, Location location) {
-    if (!VolatileBlockAccess.isInLoadedChunk(location.getWorld(), location.getBlockX(), location.getBlockZ())) {
-      return;
-    }
+    if (!VolatileBlockAccess.isInLoadedChunk(location.getWorld(), location.getBlockX(), location.getBlockZ())) return;
     Block block = VolatileBlockAccess.blockAccess(location);
-    WrapperPlayServerBlockChange packet = new WrapperPlayServerBlockChange(
-      new Vector3i(location.getBlockX(), location.getBlockY(), location.getBlockZ()),
-      SpigotConversionUtil.fromBukkitBlockData(block.getBlockData())
-    );
-    PacketSender.sendServerPacket(player, packet);
+    PacketSender.sendServerPacket(player, new WrapperPlayServerBlockChange(
+      new Vector3i(location.getBlockX(), location.getBlockY(), location.getBlockZ()), PacketEventsBlockState.from(block)));
   }
 
   public static final class BreakSpeedStartMeta extends CheckCustomMetadata {
