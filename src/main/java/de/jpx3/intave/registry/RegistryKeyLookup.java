@@ -88,11 +88,11 @@ public class RegistryKeyLookup {
   }
 
   private static Object minecraftKeyFrom(String fullKey) {
-    return MinecraftKey.getConverter().getGeneric(new MinecraftKey(fullKey));
+    return new MinecraftKey(fullKey).toNativeResourceLocation();
   }
 
   private static String stringFromMinecraftKey(Object key) {
-    return MinecraftKey.fromHandle(key).getFullKey();
+    return String.valueOf(key);
   }
 
   private static Object registryRegistry;
