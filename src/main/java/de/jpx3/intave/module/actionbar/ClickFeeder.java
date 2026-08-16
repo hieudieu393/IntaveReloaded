@@ -1,12 +1,12 @@
 package de.jpx3.intave.module.actionbar;
 
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
-import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.comphenix.protocol.events.PacketContainer;
-import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import de.jpx3.intave.check.EventProcessor;
 import de.jpx3.intave.check.combat.clickpatterns.Kurtosis;
 import de.jpx3.intave.module.linker.packet.ListenerPriority;
@@ -41,10 +41,9 @@ public final class ClickFeeder implements EventProcessor {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     ClickBufferData bufferData = this.bufferData.get(user);
-    PacketContainer packet = event.getPacket();
-    PacketTypeCommon type = packet.getType();
-    if (type == PacketType.Play.Client.INTERACT_ENTITY) {
-      EntityUseReader reader = PacketReaders.readerOf(packet);
+    PacketTypeCommon type = event.getPacketType();
+    if (type == PacketType.Play.Client.INTERACT_ENTITY || type == PacketType.Play.Client.ATTACK) {
+      EntityUseReader reader = PacketReaders.readerOf(event);
       WrapperPlayClientInteractEntity.InteractAction entityUseAction = reader.useAction();
       if (entityUseAction == WrapperPlayClientInteractEntity.InteractAction.ATTACK) {
         bufferData.attacks++;
@@ -56,7 +55,10 @@ public final class ClickFeeder implements EventProcessor {
         bufferData.desynchronizedClick = true;
       }
     } else if (type == PacketType.Play.Client.PLAYER_DIGGING) {
-      if (packet.getPlayerDigTypes().read(0) == DROP_ITEM && user.meta().inventory().heldItemType() == Material.AIR) {
+      DiggingAction diggingAction = event instanceof PacketReceiveEvent
+        ? new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event).getAction()
+        : null;
+      if (diggingAction == DROP_ITEM && user.meta().inventory().heldItemType() == Material.AIR) {
         UUID actionTarget = user.actionTarget();
         if (actionTarget != null) {
           User actionTargetUser = UserRepository.userOf(actionTarget);
@@ -347,7 +349,6 @@ public final class ClickFeeder implements EventProcessor {
         for (int i = tickIntensity.size() - 1; i >= 0; i--) {
           TickAction tickAction = tickActions.get(i);
 
-          // just for the beginning streak
           if (tickAction == TickAction.NOTHING) {
             if (inClickStreak) {
               inClickStreak = false;
@@ -386,14 +387,6 @@ public final class ClickFeeder implements EventProcessor {
                 streakIndicator = streakColor;
                 continue;
               }
-            } else {
-//              if (suspiciousPauses[i] > 2) {
-//                clickBuilder.append(ChatColor.RED).append("-").append(ChatColor.GRAY);
-//                builder.append(clickBuilder);
-//                continue;
-//              }
-//              clickBuilder.append(ChatColor.GRAY).append(suspiciousPauses[i]).append(ChatColor.GRAY);
-//              continue;
             }
             currentStreak = -100000;
           } else {
