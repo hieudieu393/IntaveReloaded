@@ -1,9 +1,8 @@
 package de.jpx3.intave.module.tracker.player;
 
-import com.comphenix.protocol.events.PacketContainer;
+import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
-import com.comphenix.protocol.reflect.StructureModifier;
-import com.comphenix.protocol.wrappers.WrappedAttribute;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUpdateAttributes;
 import de.jpx3.intave.module.Module;
 import de.jpx3.intave.module.linker.packet.ListenerPriority;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
@@ -22,38 +21,29 @@ import java.util.Set;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.UPDATE_ATTRIBUTES;
 
 public final class AttributeTracker extends Module {
-  @PacketSubscription(
-    priority = ListenerPriority.HIGH,
-    packetsOut = {
-      UPDATE_ATTRIBUTES
-    }
-  )
+  @PacketSubscription(priority = ListenerPriority.HIGH, packetsOut = {UPDATE_ATTRIBUTES})
   public void sentAttributes(ProtocolPacketEvent event) {
+    if (!(event instanceof PacketSendEvent)) return;
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
-    if (packet.getIntegers().read(0) == player.getEntityId()) {
-      StructureModifier<List<WrappedAttribute>> mod = packet.getAttributeCollectionModifier();
-      List<WrappedAttribute> attributes = mod.read(0);
-      mod.write(0, attributes);
-      user.tickFeedback(() -> {
-        attributes.forEach(attribute -> receivedAttribute(user, attribute));
-      });
-    }
+    WrapperPlayServerUpdateAttributes wrapper = new WrapperPlayServerUpdateAttributes((PacketSendEvent) event);
+    if (wrapper.getEntityId() != player.getEntityId()) return;
+    List<WrapperPlayServerUpdateAttributes.Property> properties = wrapper.getProperties();
+    user.tickFeedback(() -> properties.forEach(property -> receivedAttribute(user, property)));
   }
 
-  private void receivedAttribute(User user, WrappedAttribute attribute) {
+  private void receivedAttribute(User user, WrapperPlayServerUpdateAttributes.Property property) {
     AbilityMetadata abilities = user.meta().abilities();
     MovementMetadata movement = user.meta().movement();
-    String attributeKey = attribute.getAttributeKey();
+    String attributeKey = property.getKey();
     if (abilities.findAttribute(attributeKey) != null) {
-      Attribute intaveAttribute = Attribute.fromProtocolLib(attribute);
+      Attribute intaveAttribute = Attribute.fromPacketEvents(property);
       List<AttributeModifier> intaveAttributes = abilities.modifiersOf(intaveAttribute);
       intaveAttributes.clear();
       Set<AttributeModifier> serverAttributes = intaveAttribute.modifiers();
       movement.hasSprintSpeed = serverAttributes.contains(MovementMetadata.SPRINTING_MODIFIER);
       intaveAttributes.addAll(new HashSet<>(serverAttributes));
-      abilities.modifyBaseValue(attributeKey, attribute.getBaseValue());
+      abilities.modifyBaseValue(attributeKey, property.getValue());
     }
   }
 }
