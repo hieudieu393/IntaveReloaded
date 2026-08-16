@@ -1,0 +1,48 @@
+name: Apply final native compile fixes
+on:
+  push:
+    branches: [ agent/audit-hardening ]
+    paths: [ '.github/workflows/apply-native-fix-3.yml' ]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/audit-hardening
+          fetch-depth: 0
+      - name: Fix final compile errors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          root=Path('src/main/java/de/jpx3/intave')
+          def edit(rel, pairs):
+            p=root/rel; s=p.read_text()
+            for a,b in pairs: s=s.replace(a,b)
+            p.write_text(s)
+
+          edit('command/stages/DiagnosticsStage.java', [
+            ('PacketType.Play.Server.WINDOW_CONFIRMATION','PacketType.Play.Server.TRANSACTION'),
+            ('public void onPacketSending(ProtocolPacketEvent event)', 'public void onPacketSending(PacketEvent event)'),
+            ('public void onPacketReceiving(ProtocolPacketEvent event)', 'public void onPacketReceiving(PacketEvent event)'),
+          ])
+
+          edit('check/world/InteractionRaytrace.java', [
+            ('de.jpx3.intave.packet.nativeapi.wrappers.BlockPosition legacyBlockPosition = NativePacket.fromEvent(event).getModifier()\n      .withType(Lookup.serverClass("BlockPosition"), BlockPositionConverter.threadConverter())\n      .read(0);\n    BlockPosition blockPosition = legacyBlockPosition == null ? null : new BlockPosition(legacyBlockPosition.toVector());',
+             'BlockPosition blockPosition = NativePacket.fromEvent(event).getModifier()\n      .withType(Lookup.serverClass("BlockPosition"), BlockPositionConverter.threadConverter())\n      .read(0);'),
+          ])
+
+          edit('module/dispatch/MovementDispatcher.java', [
+            ('packet.getType() == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION', 'packet.packetType() == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION'),
+          ])
+          PY
+          git add -A src/main/java
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Resolve final native compile errors'
+          git push origin HEAD:agent/audit-hardening
