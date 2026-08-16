@@ -57,11 +57,11 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
 
   @PacketSubscription(packetsOut = OPEN_WINDOW, ignoreCancelled = false)
   public void receiveOpenWindow(ProtocolPacketEvent event) {
-    if (!(event.delegate() instanceof PacketSendEvent)) {
+    if (!(event instanceof PacketSendEvent)) {
       return;
     }
     User user = userOf(event.getPlayer());
-    WrapperPlayServerOpenWindow wrapper = new WrapperPlayServerOpenWindow((PacketSendEvent) event.delegate());
+    WrapperPlayServerOpenWindow wrapper = new WrapperPlayServerOpenWindow((PacketSendEvent) event);
     Meta meta = metaOf(user);
     meta.lecternWindowId = wrapper.getType() == LECTERN_MENU_TYPE ? wrapper.getContainerId() : -1;
   }
@@ -109,7 +109,7 @@ public final class ExtendedProtocolGuards extends MetaCheckPart<ProtocolScanner,
     int entityId = wrapper.getEntityId();
 
     boolean invalid = Math.abs(boost) > 100
-      || entityId != event.getPlayer().getEntityId()
+      || entityId != ((org.bukkit.entity.Player) event.getPlayer()).getEntityId()
       || (action != WrapperPlayClientEntityAction.Action.START_JUMPING_WITH_HORSE && boost != 0);
     if (!invalid) {
       return;

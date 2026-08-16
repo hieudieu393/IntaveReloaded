@@ -24,6 +24,12 @@ public final class MinecraftKey {
     this.path = path;
   }
 
+  public MinecraftKey(String key) {
+    int separator = key.indexOf(':');
+    this.namespace = separator < 0 ? "minecraft" : key.substring(0, separator);
+    this.path = separator < 0 ? key : key.substring(separator + 1);
+  }
+
   public String namespace() {
     return namespace;
   }

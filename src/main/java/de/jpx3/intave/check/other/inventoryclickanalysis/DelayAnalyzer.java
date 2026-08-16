@@ -12,6 +12,7 @@ import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.packet.ListenerPriority;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
+import de.jpx3.intave.packet.reader.WindowClickReader;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 import de.jpx3.intave.user.meta.ProtocolMetadata;
@@ -45,15 +46,14 @@ public final class DelayAnalyzer extends MetaCheckPart<InventoryClickAnalysis, D
       WINDOW_CLICK
     }
   )
-  public void windowClickPacket(ProtocolPacketEvent event) {
-    Player player = event.getPlayer();
+  public void windowClickPacket(User user, WindowClickReader reader) {
+    Player player = user.player();
     if (player.getGameMode().equals(GameMode.CREATIVE)) {
       return;
     }
     if (ProtocolLibraryAdapter.serverVersion().isAtLeast(MinecraftVersions.VER1_13_0)) {
       return;
     }
-    User user = userOf(player);
     ClickDelayMeta meta = metaOf(user);
 
     if (user.protocolVersion() >= ProtocolMetadata.VER_1_12) {
@@ -61,15 +61,14 @@ public final class DelayAnalyzer extends MetaCheckPart<InventoryClickAnalysis, D
       return;
     }
 
-    int slot = event.getPacket().getIntegers().read(1);
-    ItemStack itemStack = event.getPacket().getItemModifier().read(0);
+    int slot = reader.slot();
+    ItemStack itemStack = reader.itemStack();
     Material clickedItemID = itemStack == null ? Material.AIR : itemStack.getType();
     boolean droppedAnItem;
     if (MODERN_WINDOW_CLICK) {
-      InventoryClickTypes clickTypes = event.getPacket().getEnumModifier(InventoryClickTypes.class, clickType).read(0);
-      droppedAnItem = clickTypes == InventoryClickTypes.THROW && slot != -999;
+      droppedAnItem = reader.isDrop();
     } else {
-      droppedAnItem = event.getPacket().getIntegers().read(3) == 4 && slot != -999;
+      droppedAnItem = reader.isDrop();
     }
 
     if (slot != -999 && meta.lastClickedSlot != -999) {

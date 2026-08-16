@@ -19,6 +19,7 @@ import de.jpx3.intave.codec.StreamCodec;
 import io.netty.buffer.ByteBuf;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
+import org.bukkit.util.Vector;
 
 import static de.jpx3.intave.codec.JsonStreamCodecs.integerField;
 import static de.jpx3.intave.codec.JsonStreamCodecs.object;
@@ -66,6 +67,14 @@ public final class BlockPosition extends RawVector3d {
 
   public BlockPosition(Vector3i blockPosition) {
     this(blockPosition.getX(), blockPosition.getY(), blockPosition.getZ());
+  }
+
+  public BlockPosition(Vector source) {
+    this(source.getX(), source.getY(), source.getZ());
+  }
+
+  public Vector toVector() {
+    return new Vector(x, y, z);
   }
 
   /**

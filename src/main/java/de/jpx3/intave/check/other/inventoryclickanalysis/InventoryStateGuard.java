@@ -47,18 +47,9 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   @PacketSubscription(priority = LOWEST, packetsOut = OPEN_WINDOW, ignoreCancelled = false)
   public void open(ProtocolPacketEvent event) {
     Meta meta = metaOf(userOf(event.getPlayer()));
-    if (event.delegate() instanceof PacketSendEvent) {
-      WrapperPlayServerOpenWindow wrapper = new WrapperPlayServerOpenWindow((PacketSendEvent) event.delegate());
+    if (event instanceof PacketSendEvent) {
+      WrapperPlayServerOpenWindow wrapper = new WrapperPlayServerOpenWindow((PacketSendEvent) event);
       meta.activeWindowId = wrapper.getContainerId();
-      meta.serverWindowKnown = true;
-      meta.closedThisTick = false;
-      meta.openGraceTicks = 2;
-      return;
-    }
-
-    Integer id = event.getPacket().getIntegers().readSafely(0);
-    if (id != null) {
-      meta.activeWindowId = id;
       meta.serverWindowKnown = true;
       meta.closedThisTick = false;
       meta.openGraceTicks = 2;
@@ -78,7 +69,10 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   public void clientClose(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    Integer id = event.getPacket().getIntegers().readSafely(0);
+    if (!(event instanceof PacketReceiveEvent)) return;
+    int id = new com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientCloseWindow(
+      (PacketReceiveEvent) event
+    ).getWindowId();
     if (id != null && meta.serverWindowKnown && meta.activeWindowId > 0 && id != meta.activeWindowId) {
       score(user, meta, "close-window-id",
         "client closed window=" + id + " while active=" + meta.activeWindowId, 0.75D, 2.0D);
@@ -301,7 +295,6 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   }
 
   private static void makeWritableAndCancel(ProtocolPacketEvent event) {
-    if (event.isReadOnly()) event.setReadOnly(false);
     event.setCancelled(true);
   }
 

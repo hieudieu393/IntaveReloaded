@@ -375,7 +375,7 @@ public final class ActionOrderGuard extends MetaCheckPart<ProtocolScanner, Actio
   }
 
   private static String packetName(PacketTypeCommon type) {
-    return type == null || type.name() == null ? "" : type.name().toUpperCase(Locale.ROOT);
+    return type == null || type.getName() == null ? "" : type.getName().toUpperCase(Locale.ROOT);
   }
 
   private static boolean isName(String actual, String... names) {

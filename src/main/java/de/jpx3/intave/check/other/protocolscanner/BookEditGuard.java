@@ -76,9 +76,6 @@ public final class BookEditGuard extends CheckPart<ProtocolScanner> {
       return;
     }
 
-    if (event.isReadOnly()) {
-      event.setReadOnly(false);
-    }
     event.setCancelled(true);
     Violation violation = Violation.builderFor(ProtocolScanner.class)
       .forPlayer(user.player())
