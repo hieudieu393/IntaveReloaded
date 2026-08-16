@@ -16,6 +16,6 @@ public final class PacketSynchronizations {
 
   public static Map<String, Long> output() {
     return resynchronized.entrySet().stream()
-      .collect(Collectors.toMap(entry -> entry.getKey().name(), entry -> entry.getValue().get()));
+      .collect(Collectors.toMap(entry -> entry.getKey().getName(), entry -> entry.getValue().get()));
   }
 }
