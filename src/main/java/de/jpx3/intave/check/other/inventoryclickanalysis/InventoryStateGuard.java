@@ -73,7 +73,7 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     int id = new com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientCloseWindow(
       (PacketReceiveEvent) event
     ).getWindowId();
-    if (id != null && meta.serverWindowKnown && meta.activeWindowId > 0 && id != meta.activeWindowId) {
+    if (meta.serverWindowKnown && meta.activeWindowId > 0 && id != meta.activeWindowId) {
       score(user, meta, "close-window-id",
         "client closed window=" + id + " while active=" + meta.activeWindowId, 0.75D, 2.0D);
     }
