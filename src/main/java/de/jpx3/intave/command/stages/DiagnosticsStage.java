@@ -19,6 +19,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import de.jpx3.intave.packet.nativeapi.PacketRuntime;
 import de.jpx3.intave.packet.nativeapi.PacketRuntimeManager;
 import de.jpx3.intave.packet.nativeapi.events.PacketAdapter;
+import de.jpx3.intave.packet.nativeapi.events.PacketEvent;
 import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.packet.nativeapi.injector.PacketFilterManager;
 import com.google.gson.JsonObject;
