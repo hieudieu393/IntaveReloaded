@@ -64,6 +64,7 @@ val legacyCompileJars = fileTree("libs") {
 dependencies {
   // PacketEvents is the authoritative packet API. Keep it ahead of legacy server fixtures.
   compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")
+  testRuntimeOnly("com.github.retrooper:packetevents-spigot:2.13.0")
 
   // Spigot / NMS compatibility fixtures still required by legacy version adapters. These are
   // narrowed further below as the remaining NMS compatibility code is retired.
