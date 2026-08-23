@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.combat.heuristics.modern;
 
-import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.comphenix.protocol.events.PacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.packet.reader.EntityUseReader;
@@ -34,8 +34,8 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
   }
 
   @PacketSubscription(priority = HIGH, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
-  public void receiveAttackPacket(ProtocolPacketEvent event) {
-    EntityUseReader reader = PacketReaders.readerOf(event);
+  public void receiveAttackPacket(PacketEvent event) {
+    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
     try {
       if (!reader.isAttackPacket()) {
         return;
@@ -58,7 +58,7 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
   }
 
   @PacketSubscription(priority = HIGH, packetsIn = {LOOK, POSITION_LOOK})
-  public void receiveRotationPacket(ProtocolPacketEvent event) {
+  public void receiveRotationPacket(PacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     MovementMetadata movement = user.meta().movement();
@@ -90,7 +90,7 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
     boolean recentCombat = user.meta().attack().recentlyAttacked(750) || meta.pendingAttackTicks >= 0;
 
     // Preserve the raw delta here. Wrapping before this comparison would make 320+ degree snaps impossible.
-    if (currentYaw < 360.0f && currentYaw > -360.0f && absRawYaw > 320.0f && meta.lastRawDeltaYaw < 30.0f) {
+    if (shouldFlagRotationModulo(currentYaw, absRawYaw, meta.lastRawDeltaYaw, recentCombat)) {
       flag(user, "rotation-modulo",
         "large yaw snap=" + format(absRawYaw) + " previous=" + format(meta.lastRawDeltaYaw), 4.0);
     }
@@ -241,6 +241,13 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
     meta.pendingAttackTicks = -1;
     meta.sawAttackSpike = false;
     meta.attackSpike = 0.0f;
+  }
+
+  static boolean shouldFlagRotationModulo(float currentYaw, float absRawYaw, float lastRawDeltaYaw,
+                                          boolean recentCombat) {
+    return recentCombat
+      && currentYaw < 360.0f && currentYaw > -360.0f
+      && absRawYaw > 320.0f && lastRawDeltaYaw < 30.0f;
   }
 
   private static float wrapDegrees(float value) {
