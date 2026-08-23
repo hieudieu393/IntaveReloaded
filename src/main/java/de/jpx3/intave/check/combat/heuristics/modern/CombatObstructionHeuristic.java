@@ -1,7 +1,7 @@
 package de.jpx3.intave.check.combat.heuristics.modern;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.tracker.entity.Entity;
@@ -41,8 +41,8 @@ public final class CombatObstructionHeuristic extends ModernCombatHeuristic<Comb
   }
 
   @PacketSubscription(priority = LOW, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
-  public void receiveAttackPacket(PacketEvent event) {
-    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
+  public void receiveAttackPacket(ProtocolPacketEvent event) {
+    EntityUseReader reader = PacketReaders.readerOf(event);
     try {
       if (!reader.isAttackPacket()) {
         return;
@@ -68,10 +68,10 @@ public final class CombatObstructionHeuristic extends ModernCombatHeuristic<Comb
   }
 
   @PacketSubscription(priority = NORMAL, packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END})
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     ProtocolMetadata protocol = user.meta().protocol();
-    PacketType packetType = event.getPacketType();
+    PacketTypeCommon packetType = event.getPacketType();
     boolean clientTickEnd = PacketTypes.isClientEndTick(packetType);
     if (protocol.sendsClientTickEnd() && !clientTickEnd) {
       return;
