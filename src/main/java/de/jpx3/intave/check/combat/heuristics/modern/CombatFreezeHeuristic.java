@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.combat.heuristics.modern;
 
-import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.comphenix.protocol.events.PacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.packet.reader.EntityUseReader;
@@ -27,7 +27,6 @@ import static de.jpx3.intave.module.linker.packet.PacketId.Client.USE_ENTITY;
 public final class CombatFreezeHeuristic extends ModernCombatHeuristic<CombatFreezeHeuristic.Meta> {
   private static final long GAP_THRESHOLD_MS = 1500L;
   private static final long STRONG_GAP_THRESHOLD_MS = 2000L;
-  private static final int SCORE_CANCEL = 3;
   private static final int SCORE_FLAG = 5;
 
   public CombatFreezeHeuristic(Heuristics parentCheck) {
@@ -35,8 +34,8 @@ public final class CombatFreezeHeuristic extends ModernCombatHeuristic<CombatFre
   }
 
   @PacketSubscription(priority = LOW, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
-  public void receiveAttackPacket(ProtocolPacketEvent event) {
-    EntityUseReader reader = PacketReaders.readerOf(event);
+  public void receiveAttackPacket(PacketEvent event) {
+    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
     try {
       if (!reader.isAttackPacket()) {
         return;
@@ -66,17 +65,13 @@ public final class CombatFreezeHeuristic extends ModernCombatHeuristic<CombatFre
       meta.lastGap = gap;
       meta.score = Math.min(10, meta.score + (gap >= STRONG_GAP_THRESHOLD_MS ? 2 : 1));
 
-      if (meta.score >= SCORE_CANCEL) {
-        event.setCancelled(true);
-      }
-
       if (meta.score >= SCORE_FLAG && meta.attacksDuringGap >= 2
         && System.currentTimeMillis() - meta.lastFlag > 500L) {
         flag(user, "freeze-attack",
           "gap=" + gap + "ms attacks=" + meta.attacksDuringGap + " score=" + meta.score,
           4.0);
         meta.lastFlag = System.currentTimeMillis();
-        meta.score = Math.max(SCORE_CANCEL, meta.score - 2);
+        meta.score = Math.max(0, meta.score - 2);
       }
     } finally {
       reader.release();
@@ -84,7 +79,7 @@ public final class CombatFreezeHeuristic extends ModernCombatHeuristic<CombatFre
   }
 
   @PacketSubscription(priority = NORMAL, packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK})
-  public void receiveMovementPacket(ProtocolPacketEvent event) {
+  public void receiveMovementPacket(PacketEvent event) {
     Meta meta = metaOf(userOf(event.getPlayer()));
     if (meta.score > 0) {
       meta.score--;
