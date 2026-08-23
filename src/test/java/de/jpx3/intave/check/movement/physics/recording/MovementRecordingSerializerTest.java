@@ -75,7 +75,6 @@ final class MovementRecordingSerializerTest {
 	@Test
 	public void serializeExample() {
 		MinecraftVersion.setCurrent(MinecraftVersions.VER1_21_4);
-		com.comphenix.protocol.utility.MinecraftVersion.setCurrentVersion(com.comphenix.protocol.utility.MinecraftVersion.v1_21_4);
 
 //		MovementRecording random = MovementRecording.loadFrom(
 //			Resources.resourceFromJarOrTestBuild("phy")
