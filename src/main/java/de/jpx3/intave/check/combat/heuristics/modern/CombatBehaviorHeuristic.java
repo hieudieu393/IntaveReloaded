@@ -1,7 +1,7 @@
 package de.jpx3.intave.check.combat.heuristics.modern;
 
-import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
-import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.events.PacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.tracker.entity.Entity;
@@ -32,14 +32,15 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
   private static final double ANGLE_THRESHOLD = 45.0D;
   private static final double CLOSE_TARGET_DISTANCE = 0.50D;
   private static final double MICRO_FALL_DISTANCE = 0.07D;
+  private static final double MAX_DEFERRED_TARGET_DELTA = 1.0D;
 
   public CombatBehaviorHeuristic(Heuristics parentCheck) {
     super(parentCheck, Meta.class);
   }
 
   @PacketSubscription(priority = HIGH, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
-  public void attack(ProtocolPacketEvent event) {
-    EntityUseReader reader = PacketReaders.readerOf(event);
+  public void attack(PacketEvent event) {
+    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
     try {
       if (!reader.isAttackPacket()) return;
 
@@ -59,8 +60,12 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
         return;
       }
 
-      if (meta.pendingTargets.size() < MAX_PENDING_ATTACKS) {
-        meta.pendingTargets.addLast(reader.entityId());
+      if (meta.pendingTargets.size() < MAX_PENDING_ATTACKS && target.position != null) {
+        meta.pendingTargets.addLast(new PendingTarget(
+          target, target.position.clone(), reader.entityId(),
+          movement.positionX, movement.positionY, movement.positionZ, movement.eyeHeight(),
+          movement.rotationYaw, movement.rotationPitch
+        ));
       }
 
       checkMicroCritical(user, movement, meta, reader.entityId());
@@ -74,9 +79,9 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void tick(ProtocolPacketEvent event) {
+  public void tick(PacketEvent event) {
     User user = userOf(event.getPlayer());
-    PacketTypeCommon type = event.getPacketType();
+    PacketType type = event.getPacketType();
     boolean endTick = PacketTypes.isClientEndTick(type);
     if (user.meta().protocol().sendsClientTickEnd()) {
       if (!endTick) return;
@@ -93,28 +98,31 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
       return;
     }
 
-    boolean hadAttack = !meta.pendingTargets.isEmpty();
+    PendingTarget firstTarget = meta.pendingTargets.peekFirst();
+    boolean hadAttack = firstTarget != null;
     while (!meta.pendingTargets.isEmpty()) {
-      int entityId = meta.pendingTargets.removeFirst();
-      Entity target = EntityTracker.entityByIdentifier(user, entityId);
-      if (target == null || !target.isPlayer || !target.isEntityAlive() || target.boundingBox() == null) {
+      PendingTarget pending = meta.pendingTargets.removeFirst();
+      Entity target = EntityTracker.entityByIdentifier(user, pending.entityId);
+      if (target != pending.entity || !target.isPlayer || !target.isEntityAlive()
+        || target.boundingBox() == null || !target.clientSynchronized
+        || movedTooFar(target, pending.targetPosition)) {
         continue;
       }
-      checkAttackAngle(user, movement, meta, target);
+      checkAttackAngle(user, pending, meta, target);
     }
 
-    if (hadAttack) {
-      checkZeroPitch(user, movement, meta);
+    if (firstTarget != null) {
+      checkZeroPitch(user, firstTarget, meta);
     } else {
       meta.zeroPitchBuffer = Math.max(0.0D, meta.zeroPitchBuffer - 0.10D);
     }
   }
 
-  private void checkAttackAngle(User user, MovementMetadata movement, Meta meta, Entity target) {
+  private void checkAttackAngle(User user, PendingTarget pending, Meta meta, Entity target) {
     BoundingBox box = target.boundingBox();
-    double eyeX = movement.positionX;
-    double eyeY = movement.positionY + movement.eyeHeight();
-    double eyeZ = movement.positionZ;
+    double eyeX = pending.x;
+    double eyeY = pending.y + pending.eyeHeight;
+    double eyeZ = pending.z;
 
     double nearestX = clamp(eyeX, box.minX, box.maxX);
     double nearestY = clamp(eyeY, box.minY, box.maxY);
@@ -125,8 +133,8 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
       return;
     }
 
-    double yaw = Math.toRadians(movement.rotationYaw);
-    double pitch = Math.toRadians(movement.rotationPitch);
+    double yaw = Math.toRadians(pending.yaw);
+    double pitch = Math.toRadians(pending.pitch);
     double lookX = -Math.sin(yaw) * Math.cos(pitch);
     double lookY = -Math.sin(pitch);
     double lookZ = Math.cos(yaw) * Math.cos(pitch);
@@ -161,12 +169,12 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
     }
   }
 
-  private void checkZeroPitch(User user, MovementMetadata movement, Meta meta) {
-    if (Float.floatToIntBits(movement.rotationPitch) == Float.floatToIntBits(0.0F) && tickingReliably(user)) {
+  private void checkZeroPitch(User user, PendingTarget pending, Meta meta) {
+    if (Float.floatToIntBits(pending.pitch) == Float.floatToIntBits(0.0F) && tickingReliably(user)) {
       meta.zeroPitchBuffer += 1.0D;
       if (meta.zeroPitchBuffer >= 4.0D) {
         flag(user, "aim-zero-pitch",
-          "pitch=0.0 yaw=" + format(movement.rotationYaw) + " repeated=" + format(meta.zeroPitchBuffer),
+          "pitch=0.0 yaw=" + format(pending.yaw) + " repeated=" + format(meta.zeroPitchBuffer),
           1.5D);
         meta.zeroPitchBuffer = 2.0D;
       }
@@ -227,6 +235,13 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
     }
   }
 
+  private static boolean movedTooFar(Entity target, Entity.EntityPositionContext snapshot) {
+    double dx = target.position.posX - snapshot.posX;
+    double dy = target.position.posY - snapshot.posY;
+    double dz = target.position.posZ - snapshot.posZ;
+    return dx * dx + dy * dy + dz * dz > MAX_DEFERRED_TARGET_DELTA * MAX_DEFERRED_TARGET_DELTA;
+  }
+
   private static boolean tickingReliably(User user) {
     double average = user.meta().connection().averageMovementPacketTimestamp();
     return average > 0.0D && average <= 90.0D;
@@ -263,9 +278,30 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
   }
 
   public static final class Meta extends CheckCustomMetadata {
-    private final Deque<Integer> pendingTargets = new ArrayDeque<>();
+    private final Deque<PendingTarget> pendingTargets = new ArrayDeque<>();
     private double angleBuffer;
     private double criticalBuffer;
     private double zeroPitchBuffer;
+  }
+
+  private static final class PendingTarget {
+    private final Entity entity;
+    private final Entity.EntityPositionContext targetPosition;
+    private final int entityId;
+    private final double x, y, z, eyeHeight;
+    private final float yaw, pitch;
+
+    private PendingTarget(Entity entity, Entity.EntityPositionContext targetPosition, int entityId,
+                          double x, double y, double z, double eyeHeight, float yaw, float pitch) {
+      this.entity = entity;
+      this.targetPosition = targetPosition;
+      this.entityId = entityId;
+      this.x = x;
+      this.y = y;
+      this.z = z;
+      this.eyeHeight = eyeHeight;
+      this.yaw = yaw;
+      this.pitch = pitch;
+    }
   }
 }
