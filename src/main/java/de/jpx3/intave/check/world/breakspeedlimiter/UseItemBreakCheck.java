@@ -3,7 +3,7 @@ package de.jpx3.intave.check.world.breakspeedlimiter;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
 import de.jpx3.intave.module.Modules;
@@ -25,12 +25,12 @@ public final class UseItemBreakCheck extends MetaCheckPart<BreakSpeedLimiter, Us
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
-  public void receive(PacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+  public void receive(ProtocolPacketEvent event) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
 
-    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event);
     DiggingAction action = dig.getAction();
     if (action != DiggingAction.START_DIGGING && action != DiggingAction.FINISHED_DIGGING) {
       return;

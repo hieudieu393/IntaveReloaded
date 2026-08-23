@@ -1,7 +1,7 @@
 package de.jpx3.intave.check.combat.heuristics.modern;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.tracker.entity.Entity;
@@ -40,51 +40,35 @@ public final class CombatObstructionHeuristic extends ModernCombatHeuristic<Comb
   }
 
   @PacketSubscription(priority = LOW, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
-  public void receiveAttackPacket(PacketEvent event) {
-    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
+  public void receiveAttackPacket(ProtocolPacketEvent event) {
+    EntityUseReader reader = PacketReaders.readerOf(event);
     try {
-      if (!reader.isAttackPacket()) {
-        return;
-      }
+      if (!reader.isAttackPacket()) return;
       Meta meta = metaOf(userOf(event.getPlayer()));
-      if (meta.pendingTargets.size() >= MAX_PENDING_TARGETS) {
-        return;
-      }
-      Integer entityId = event.getPacket().getIntegers().readSafely(0);
-      if (entityId != null) {
-        meta.pendingTargets.add(entityId);
-      }
+      if (meta.pendingTargets.size() >= MAX_PENDING_TARGETS) return;
+      meta.pendingTargets.add(reader.entityId());
     } finally {
       reader.release();
     }
   }
 
   @PacketSubscription(priority = NORMAL, packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END})
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     ProtocolMetadata protocol = user.meta().protocol();
-    PacketType packetType = event.getPacketType();
+    PacketTypeCommon packetType = event.getPacketType();
     boolean clientTickEnd = PacketTypes.isClientEndTick(packetType);
-    if (protocol.sendsClientTickEnd() && !clientTickEnd) {
-      return;
-    }
-
+    if (protocol.sendsClientTickEnd() && !clientTickEnd) return;
     Meta meta = metaOf(user);
-    if (meta.pendingTargets.isEmpty()) {
-      return;
-    }
-
+    if (meta.pendingTargets.isEmpty()) return;
     MovementMetadata movement = user.meta().movement();
     if (movement.ticksPast(TELEPORT) <= 1 || movement.awaitTeleport || movement.isInVehicle()) {
       meta.pendingTargets.clear();
       return;
     }
-
     Integer[] targets = meta.pendingTargets.toArray(new Integer[0]);
     meta.pendingTargets.clear();
-    for (Integer targetId : targets) {
-      evaluateTarget(user, targetId, meta);
-    }
+    for (Integer targetId : targets) evaluateTarget(user, targetId, meta);
   }
 
   private void evaluateTarget(User user, int targetId, Meta meta) {
@@ -94,87 +78,44 @@ public final class CombatObstructionHeuristic extends ModernCombatHeuristic<Comb
       decay(meta.pierceBuffers, targetId);
       return;
     }
-
     MovementMetadata movement = user.meta().movement();
     ProtocolMetadata protocol = user.meta().protocol();
-    double x = movement.lastPositionX;
-    double y = movement.lastPositionY;
-    double z = movement.lastPositionZ;
-    float yaw = movement.rotationYaw % 360.0F;
-    float lastYaw = movement.lastRotationYaw % 360.0F;
-    float pitch = movement.rotationPitch;
+    double x = movement.lastPositionX, y = movement.lastPositionY, z = movement.lastPositionZ;
+    float yaw = movement.rotationYaw % 360.0F, lastYaw = movement.lastRotationYaw % 360.0F, pitch = movement.rotationPitch;
     boolean alternativeY = protocol.emptyFlyingPacketsAreExplicitlySent();
     double maxReach = Raytracing.reachDistanceOf(user);
-
-    Raytrace constrained = Raytracing.doubleMDFBlockConstraintEntityRaytrace(
-      user.player(), target, alternativeY,
-      x, y, z, lastYaw, yaw, pitch,
-      SAFE_EXPANSION, false
-    );
-    Raytrace unobstructed = Raytracing.blockIgnoringEntityRaytrace(
-      user.player(), target, alternativeY,
-      x, y, z, yaw, pitch,
-      SAFE_EXPANSION
-    );
-
+    Raytrace constrained = Raytracing.doubleMDFBlockConstraintEntityRaytrace(user.player(), target, alternativeY, x, y, z, lastYaw, yaw, pitch, SAFE_EXPANSION, false);
+    Raytrace unobstructed = Raytracing.blockIgnoringEntityRaytrace(user.player(), target, alternativeY, x, y, z, yaw, pitch, SAFE_EXPANSION);
     boolean targetCanBeAimedAt = unobstructed.reach() <= maxReach;
     boolean blockedByWorld = targetCanBeAimedAt && constrained.reach() > maxReach;
     if (blockedByWorld) {
       int buffer = increment(meta.wallBuffers, targetId);
       if (buffer >= 2) {
-        flag(user, "wall-hit",
-          "target=" + target.entityName() + " reach=" + format(unobstructed.reach()),
-          4.0);
+        flag(user, "wall-hit", "target=" + target.entityName() + " reach=" + format(unobstructed.reach()), 4.0);
         meta.wallBuffers.put(targetId, 1);
       }
-    } else {
-      decay(meta.wallBuffers, targetId);
-    }
-
+    } else decay(meta.wallBuffers, targetId);
     if (!targetCanBeAimedAt || constrained.reach() > maxReach) {
       decay(meta.pierceBuffers, targetId);
       return;
     }
-
     Entity blocker = findCloserLivingEntity(user, target, x, y, z, yaw, pitch, maxReach, unobstructed.reach());
     if (blocker != null) {
       int buffer = increment(meta.pierceBuffers, targetId);
       if (buffer >= 2) {
-        flag(user, "entity-pierce",
-          "target=" + target.entityName() + " blocker=" + blocker.entityName()
-            + " targetReach=" + format(unobstructed.reach()),
-          5.0);
+        flag(user, "entity-pierce", "target=" + target.entityName() + " blocker=" + blocker.entityName() + " targetReach=" + format(unobstructed.reach()), 5.0);
         meta.pierceBuffers.put(targetId, 1);
       }
-    } else {
-      decay(meta.pierceBuffers, targetId);
-    }
+    } else decay(meta.pierceBuffers, targetId);
   }
 
-  private Entity findCloserLivingEntity(
-    User user, Entity target,
-    double x, double y, double z,
-    float yaw, float pitch,
-    double maxReach, double targetReach
-  ) {
+  private Entity findCloserLivingEntity(User user, Entity target, double x, double y, double z, float yaw, float pitch, double maxReach, double targetReach) {
     Entity best = null;
     double bestReach = targetReach;
     for (Entity candidate : user.meta().connection().entities()) {
-      if (candidate == null || candidate == target || candidate instanceof Entity.Destroyed
-        || candidate.entityId() == target.entityId() || !candidate.hasTypeData()
-        || !candidate.typeData().isLivingEntity() || !candidate.isEntityAlive()) {
-        continue;
-      }
-      // Avoid raytracing distant tracked entities; only entities near the normal combat ray can matter.
-      if (candidate.distance(x, y, z) > maxReach + 2.0D) {
-        continue;
-      }
-
-      Raytrace raytrace = Raytracing.blockIgnoringEntityRaytrace(
-        user.player(), candidate, false,
-        x, y, z, yaw, pitch,
-        SAFE_EXPANSION
-      );
+      if (candidate == null || candidate == target || candidate instanceof Entity.Destroyed || candidate.entityId() == target.entityId() || !candidate.hasTypeData() || !candidate.typeData().isLivingEntity() || !candidate.isEntityAlive()) continue;
+      if (candidate.distance(x, y, z) > maxReach + 2.0D) continue;
+      Raytrace raytrace = Raytracing.blockIgnoringEntityRaytrace(user.player(), candidate, false, x, y, z, yaw, pitch, SAFE_EXPANSION);
       double reach = raytrace.reach();
       if (reach <= maxReach && reach + 0.03D < bestReach) {
         bestReach = reach;
@@ -193,14 +134,9 @@ public final class CombatObstructionHeuristic extends ModernCombatHeuristic<Comb
 
   private static void decay(Map<Integer, Integer> buffers, int entityId) {
     Integer current = buffers.get(entityId);
-    if (current == null) {
-      return;
-    }
-    if (current <= 1) {
-      buffers.remove(entityId);
-    } else {
-      buffers.put(entityId, current - 1);
-    }
+    if (current == null) return;
+    if (current <= 1) buffers.remove(entityId);
+    else buffers.put(entityId, current - 1);
   }
 
   private static String format(double value) {

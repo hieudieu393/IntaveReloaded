@@ -1,8 +1,9 @@
 package de.jpx3.intave.packet.reader;
 
-import de.jpx3.intave.adapter.MinecraftVersions;
+import com.github.retrooper.packetevents.protocol.entity.EntityPositionData;
+import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
 import de.jpx3.intave.packet.Relative;
-import de.jpx3.intave.packet.converter.PosMoveRotConverter;
 import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.share.Position;
 import de.jpx3.intave.share.PositionMoveRotation;
@@ -10,225 +11,76 @@ import de.jpx3.intave.share.Rotation;
 
 import java.util.Set;
 
+/** Native PacketEvents view of the clientbound position synchronization packet. */
 public final class PlayerTeleportReader extends AbstractPacketReader {
-  private final static boolean DIRECT_PMR_USED = MinecraftVersions.VER1_21_3.atOrAbove();
-  private PositionMoveRotation positionMoveRotation;
-  private boolean mod;
+  private WrapperPlayServerPlayerPositionAndLook wrapper;
+  private PositionMoveRotation values;
+  private boolean modified;
 
-  public double positionX() {
-    if (DIRECT_PMR_USED) {
-      return internalPosMoveRotation().position().getX();
-    }
-    return packet().getDoubles().read(0);
+  @Override
+  protected void read() {
+    wrapper = new WrapperPlayServerPlayerPositionAndLook(sendEvent());
+    EntityPositionData nativeValues = wrapper.getValues();
+    Vector3d position = nativeValues.getPosition();
+    Vector3d delta = nativeValues.getDeltaMovement();
+    values = new PositionMoveRotation(
+      Position.mutableOf(position.getX(), position.getY(), position.getZ()),
+      new Motion(delta.getX(), delta.getY(), delta.getZ()),
+      new Rotation(nativeValues.getYaw(), nativeValues.getPitch())
+    );
+    modified = false;
   }
 
-  public void setPositionX(double x) {
-    if (DIRECT_PMR_USED) {
-      internalPosMoveRotation().position().setX(x);
-      mod = true;
-    } else {
-      packet().getDoubles().write(0, x);
-    }
-  }
+  public double positionX() { return values.position().getX(); }
+  public void setPositionX(double x) { values.position().setX(x); modified = true; }
+  public double positionY() { return values.position().getY(); }
+  public void setPositionY(double y) { values.position().setY(y); modified = true; }
+  public double positionZ() { return values.position().getZ(); }
+  public void setPositionZ(double z) { values.position().setZ(z); modified = true; }
+  public Position position() { modified = true; return values.position(); }
+  public float yaw() { return values.rotation().yaw(); }
+  public void setYaw(float yaw) { values.rotation().setYaw(yaw); modified = true; }
+  public float pitch() { return values.rotation().pitch(); }
+  public void setPitch(float pitch) { values.rotation().setPitch(pitch); modified = true; }
+  public Rotation rotation() { modified = true; return values.rotation(); }
+  public double motionX() { return values.motion().motionX(); }
+  public void setMotionX(double x) { values.motion().setMotionX(x); modified = true; }
+  public double motionY() { return values.motion().motionY(); }
+  public void setMotionY(double y) { values.motion().setMotionY(y); modified = true; }
+  public double motionZ() { return values.motion().motionZ(); }
+  public void setMotionZ(double z) { values.motion().setMotionZ(z); modified = true; }
+  public Motion motion() { modified = true; return values.motion(); }
+  public PositionMoveRotation positionMoveRotation() { modified = true; return values; }
 
-  public double positionY() {
-    if (DIRECT_PMR_USED) {
-      return internalPosMoveRotation().position().getY();
-    }
-    return packet().getDoubles().read(1);
-  }
-
-  public void setPositionY(double y) {
-    if (DIRECT_PMR_USED) {
-      internalPosMoveRotation().position().setY(y);
-      mod = true;
-    } else {
-      packet().getDoubles().write(1, y);
-    }
-  }
-
-  public double positionZ() {
-    if (DIRECT_PMR_USED) {
-      return internalPosMoveRotation().position().getZ();
-    }
-    return packet().getDoubles().read(2);
-  }
-
-  public void setPositionZ(double z) {
-    if (DIRECT_PMR_USED) {
-      internalPosMoveRotation().position().setZ(z);
-      mod = true;
-    } else {
-      packet().getDoubles().write(2, z);
-    }
-  }
-
-  public Position position() {
-    mod = true;
-    return internalPosMoveRotation().position();
-  }
-
-  public float yaw() {
-    if (DIRECT_PMR_USED) {
-      return internalPosMoveRotation().rotation().yaw();
-    }
-    return packet().getFloat().read(0);
-  }
-
-  public void setYaw(float yaw) {
-    if (DIRECT_PMR_USED) {
-      internalPosMoveRotation().rotation().setYaw(yaw);
-      mod = true;
-    } else {
-      packet().getFloat().write(0, yaw);
-    }
-  }
-
-  public float pitch() {
-    if (DIRECT_PMR_USED) {
-      return internalPosMoveRotation().rotation().pitch();
-    }
-    return packet().getFloat().read(1);
-  }
-
-  public void setPitch(float pitch) {
-    if (DIRECT_PMR_USED) {
-      internalPosMoveRotation().rotation().setPitch(pitch);
-      mod = true;
-    } else {
-      packet().getFloat().write(1, pitch);
-    }
-  }
-
-  public Rotation rotation() {
-    mod = true;
-    return internalPosMoveRotation().rotation();
-  }
-
-  public double motionX() {
-    if (DIRECT_PMR_USED) {
-      return internalPosMoveRotation().motion().motionX();
-    }
-    return 0;
-  }
-
-  public void setMotionX(double x) {
-    if (DIRECT_PMR_USED) {
-      internalPosMoveRotation().motion().setMotionX(x);
-      mod = true;
-    }
-  }
-
-  public double motionY() {
-    if (DIRECT_PMR_USED) {
-      return internalPosMoveRotation().motion().motionY();
-    }
-    return 0;
-  }
-
-  public void setMotionY(double y) {
-    if (DIRECT_PMR_USED) {
-      internalPosMoveRotation().motion().setMotionY(y);
-      mod = true;
-    }
-  }
-
-  public double motionZ() {
-    if (DIRECT_PMR_USED) {
-      return internalPosMoveRotation().motion().motionZ();
-    }
-    return 0;
-  }
-
-  public void setMotionZ(double z) {
-    if (DIRECT_PMR_USED) {
-      internalPosMoveRotation().motion().setMotionZ(z);
-      mod = true;
-    }
-  }
-
-  private final static Motion UNUSED_MOTION = new Motion(0, 0, 0);
-
-  public Motion motion() {
-    if (DIRECT_PMR_USED) {
-      mod = true;
-      return internalPosMoveRotation().motion();
-    }
-    return UNUSED_MOTION;
-  }
-
-  public PositionMoveRotation positionMoveRotation() {
-    mod = true;
-    return internalPosMoveRotation();
-  }
-
-  private PositionMoveRotation internalPosMoveRotation() {
-    if (positionMoveRotation == null) {
-      if (DIRECT_PMR_USED) {
-        positionMoveRotation = packet().getModifier().withType(
-          PosMoveRotConverter.nativePositionMoveRotClass,
-          PosMoveRotConverter.INSTANCE
-        ).read(0);
-      } else {
-        positionMoveRotation = new PositionMoveRotation(
-          Position.mutableOf(
-            packet().getDoubles().read(0),
-            packet().getDoubles().read(1),
-            packet().getDoubles().read(2)
-          ),
-          new Motion(0, 0, 0),
-          new Rotation(
-            packet().getFloat().read(0),
-            packet().getFloat().read(1)
-          )
-        );
-      }
-    }
-    return positionMoveRotation;
-  }
-
-  private void writePositionMoveRotation(PositionMoveRotation posMoveRot) {
-    if (DIRECT_PMR_USED) {
-      packet().getModifier().withType(
-        PosMoveRotConverter.nativePositionMoveRotClass,
-        PosMoveRotConverter.INSTANCE
-      ).write(0, posMoveRot);
-    } else {
-      packet().getDoubles().write(0, posMoveRot.position().getX());
-      packet().getDoubles().write(1, posMoveRot.position().getY());
-      packet().getDoubles().write(2, posMoveRot.position().getZ());
-      packet().getFloat().write(0, posMoveRot.rotation().yaw());
-      packet().getFloat().write(1, posMoveRot.rotation().pitch());
-    }
-  }
-
-  /*
-    Flushing is usually not required, but some very niece packet readers do
-    require flushing before the packet is accessed.
-    If you want to access a packet modified with a packet-reader, make sure
-    to add a call to this method before.
-   */
   @Override
   public void flush() {
-    if (mod) {
-      writePositionMoveRotation(positionMoveRotation);
+    if (modified) {
+      Position position = values.position();
+      Motion motion = values.motion();
+      Rotation rotation = values.rotation();
+      wrapper.setValues(new EntityPositionData(
+        new Vector3d(position.getX(), position.getY(), position.getZ()),
+        new Vector3d(motion.motionX(), motion.motionY(), motion.motionZ()),
+        rotation.yaw(), rotation.pitch()
+      ));
     }
-    mod = false;
+    modified = false;
     super.flush();
   }
 
   @Override
   public void release() {
     flush();
-    positionMoveRotation = null;
+    wrapper = null;
+    values = null;
     super.release();
   }
 
   public Set<Relative> flags() {
-    return Relative.flagsFrom(packet());
+    return Relative.fromPacketEvents(wrapper.getRelativeFlags());
   }
 
   public void setFlags(Set<Relative> flags) {
-    Relative.writeFlags(packet(), flags);
+    wrapper.setRelativeFlags(Relative.toPacketEvents(flags));
   }
 }

@@ -1,11 +1,11 @@
 package de.jpx3.intave.packet.reader;
 
-import com.comphenix.protocol.events.PacketContainer;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 
 public abstract class CompiledPacketReader extends AbstractPacketReader {
   @Override
-  public void enter(PacketContainer packet) {
-    super.enter(packet);
+  public void enter(ProtocolPacketEvent event) {
+    super.enter(event);
     compile();
   }
 

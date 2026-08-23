@@ -11,9 +11,11 @@
 
 package de.jpx3.intave.module.tracker.player;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.*;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+
+import de.jpx3.intave.packet.nativeapi.PacketType;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.events.*;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.cleanup.GarbageCollector;
 import de.jpx3.intave.cleanup.ShutdownTasks;
@@ -71,7 +73,7 @@ public class PacketLogging extends Module {
         sender.sendMessage(IntavePlugin.prefix() + ChatColor.GREEN + "Packetlogging stopped");
       }
       PacketAdapter remove1 = adapterMap.remove(userId);
-      ProtocolLibrary.getProtocolManager().removePacketListener(remove1);
+      PacketRuntime.getPacketRuntimeManager().removePacketListener(remove1);
       packetLoggers.remove(sender.getName());
       PrintStream remove = packetLogStreams.remove(userId);
       if (remove != null) {
@@ -127,7 +129,7 @@ public class PacketLogging extends Module {
         }
       };
       adapterMap.put(userId, adapter);
-      ProtocolLibrary.getProtocolManager().addPacketListener(adapter);
+      PacketRuntime.getPacketRuntimeManager().addPacketListener(adapter);
       packetLoggers.put(sender.getName(), userId);
       packetLogStreams.put(userId, printStream);
     } catch (FileNotFoundException exception) {
@@ -160,7 +162,7 @@ public class PacketLogging extends Module {
     }
   }
 
-  private static String packetContent(PacketContainer packet, User receiver) {
+  private static String packetContent(NativePacket packet, User receiver) {
     if (packet == null) {
       return "null";
     }
@@ -316,7 +318,7 @@ public class PacketLogging extends Module {
       //      WrappedDataWatcher.WrappedDataWatcherObject watcherObject = new WrappedDataWatcher.WrappedDataWatcherObject(object);
       //      return "WatchableObject{" + watcherObject.getIndex() + "=" + stringFromType(watcherObject.getHandle()) + "}";
       return "WatchableObject{...}";
-    } else if (object.toString().contains("MovingObjectPositionBlock@")) {
+    } else if (object.toString().contains("NativeBlockHit@")) {
       MovingObjectPosition position = MovingObjectPosition.fromNativeMovingObjectPosition(
         object
       );

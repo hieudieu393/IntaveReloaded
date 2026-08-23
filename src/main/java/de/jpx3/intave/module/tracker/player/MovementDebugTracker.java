@@ -1,6 +1,6 @@
 package de.jpx3.intave.module.tracker.player;
 
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import de.jpx3.intave.connect.sibyl.LabyModChannelHelper;
 import de.jpx3.intave.module.Module;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
@@ -14,7 +14,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
+import com.github.retrooper.packetevents.event.CancellableEvent;
 import org.bukkit.plugin.messaging.Messenger;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 
@@ -74,8 +74,8 @@ public final class MovementDebugTracker extends Module implements PluginMessageL
     packetsIn = {CUSTOM_PAYLOAD_IN}
   )
   public void onCustomPayloadIn(
-    User user, PacketContainer packet,
-    Cancellable cancellable
+    User user, NativePacket packet,
+    CancellableEvent cancellable
   ) {
     if (!ENABLE_MOVEMENT_DEBUGGER_COLLECTOR) {
       return;
@@ -117,8 +117,8 @@ public final class MovementDebugTracker extends Module implements PluginMessageL
     debug = true
   )
   public void onTabCompleteIn(
-    User user, PacketContainer packet,
-    Cancellable cancellable
+    User user, NativePacket packet,
+    CancellableEvent cancellable
   ) {
     if (!ENABLE_MOVEMENT_DEBUGGER_COLLECTOR) {
       return;

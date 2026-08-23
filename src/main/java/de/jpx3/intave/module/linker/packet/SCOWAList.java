@@ -5,8 +5,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
-// successfully copy-pasted from ProtocolLib
-
 // SortedCopyOnWriteArray-List
 final class SCOWAList<T extends Comparable<T>> implements Collection<T> {
   private volatile List<T> list;
@@ -26,129 +24,148 @@ final class SCOWAList<T extends Comparable<T>> implements Collection<T> {
     }
   }
 
+  @Override
   public synchronized boolean add(T value) {
     if (value == null) {
       throw new IllegalArgumentException("value cannot be NULL");
-    } else {
-      List<T> copy = new ArrayList<>();
-      T element;
-      for (Iterator<T> var3 = this.list.iterator(); var3.hasNext(); copy.add(element)) {
-        element = var3.next();
-        if (value != null && value.compareTo(element) < 0) {
-          copy.add(value);
-          value = null;
-        }
-      }
-
-      if (value != null) {
-        copy.add(value);
-      }
-
-      this.list = copy;
-      return true;
     }
+
+    List<T> copy = new ArrayList<>(list.size() + 1);
+    boolean inserted = false;
+    for (T element : list) {
+      if (!inserted && value.compareTo(element) < 0) {
+        copy.add(value);
+        inserted = true;
+      }
+      copy.add(element);
+    }
+    if (!inserted) {
+      copy.add(value);
+    }
+    list = copy;
+    return true;
   }
 
+  @Override
   public synchronized boolean addAll(Collection<? extends T> values) {
     if (values == null) {
       throw new IllegalArgumentException("values cannot be NULL");
-    } else if (values.size() == 0) {
-      return false;
-    } else {
-      List<T> copy = new ArrayList<>();
-      copy.addAll(this.list);
-      copy.addAll(values);
-      Collections.sort(copy);
-      this.list = copy;
-      return true;
     }
+    if (values.isEmpty()) {
+      return false;
+    }
+
+    List<T> copy = new ArrayList<>(list);
+    boolean changed = copy.addAll(values);
+    if (changed) {
+      Collections.sort(copy);
+      list = copy;
+    }
+    return changed;
   }
 
+  @Override
   public synchronized boolean remove(Object value) {
     List<T> copy = new ArrayList<>();
-    boolean result = false;
-
-    for (T element : this.list) {
+    boolean changed = false;
+    for (T element : list) {
       if (!Objects.equal(value, element)) {
         copy.add(element);
       } else {
-        result = true;
+        changed = true;
       }
     }
-
-    this.list = copy;
-    return result;
+    if (changed) {
+      list = copy;
+    }
+    return changed;
   }
 
-  public boolean removeAll(Collection<?> values) {
+  @Override
+  public synchronized boolean removeAll(Collection<?> values) {
     if (values == null) {
       throw new IllegalArgumentException("values cannot be NULL");
-    } else if (values.size() == 0) {
-      return false;
-    } else {
-      List<T> copy = new ArrayList<>(this.list);
-      copy.removeAll(values);
-      this.list = copy;
-      return true;
     }
+    if (values.isEmpty()) {
+      return false;
+    }
+
+    List<T> copy = new ArrayList<>(list);
+    boolean changed = copy.removeAll(values);
+    if (changed) {
+      list = copy;
+    }
+    return changed;
   }
 
-  public boolean retainAll(Collection<?> values) {
+  @Override
+  public synchronized boolean retainAll(Collection<?> values) {
     if (values == null) {
       throw new IllegalArgumentException("values cannot be NULL");
-    } else if (values.size() == 0) {
-      return false;
-    } else {
-      List<T> copy = new ArrayList<>(this.list);
-      copy.removeAll(values);
-      this.list = copy;
-      return true;
     }
+
+    List<T> copy = new ArrayList<>(list);
+    boolean changed = copy.retainAll(values);
+    if (changed) {
+      list = copy;
+    }
+    return changed;
   }
 
   public synchronized void remove(int index) {
-    List<T> copy = new ArrayList<>(this.list);
+    List<T> copy = new ArrayList<>(list);
     copy.remove(index);
-    this.list = copy;
+    list = copy;
   }
 
   public T get(int index) {
-    return this.list.get(index);
+    return list.get(index);
   }
 
+  @Override
   public int size() {
-    return this.list.size();
+    return list.size();
   }
 
+  @Override
   public @NotNull Iterator<T> iterator() {
-    return this.list.iterator();//Iterables.unmodifiableIterable(this.list).iterator();
+    return Collections.unmodifiableList(list).iterator();
   }
 
-  public void clear() {
-    this.list = new ArrayList<>();
+  @Override
+  public synchronized void clear() {
+    if (!list.isEmpty()) {
+      list = new ArrayList<>();
+    }
   }
 
+  @Override
   public boolean contains(Object value) {
-    return this.list.contains(value);
+    return list.contains(value);
   }
 
+  @Override
   public boolean containsAll(Collection<?> values) {
-    return this.list.containsAll(values);
+    return list.containsAll(values);
   }
 
+  @Override
   public boolean isEmpty() {
-    return this.list.isEmpty();
+    return list.isEmpty();
   }
 
+  @Override
   public Object[] toArray() {
-    return this.list.toArray();
+    return list.toArray();
   }
 
+  @Override
   public <X> X[] toArray(X[] a) {
-    return this.list.toArray(a);
+    return list.toArray(a);
   }
 
+  @Override
   public String toString() {
-    return this.list.toString();
+    return list.toString();
   }
 }

@@ -1,5 +1,7 @@
 package de.jpx3.intave.module.linker.packet;
 
+import com.github.retrooper.packetevents.event.PacketListenerPriority;
+
 public enum ListenerPriority {
   LOWEST(1),
   LOW(2),
@@ -8,7 +10,7 @@ public enum ListenerPriority {
   HIGHEST(5),
   MONITOR(6);
 
-  final int slot;
+  private final int slot;
 
   ListenerPriority(int slot) {
     this.slot = slot;
@@ -18,21 +20,7 @@ public enum ListenerPriority {
     return slot;
   }
 
-  public com.comphenix.protocol.events.ListenerPriority toProtocolLibPriority() {
-    switch (this) {
-      case LOWEST:
-        return com.comphenix.protocol.events.ListenerPriority.LOWEST;
-      case LOW:
-        return com.comphenix.protocol.events.ListenerPriority.LOW;
-      case NORMAL:
-        return com.comphenix.protocol.events.ListenerPriority.NORMAL;
-      case HIGH:
-        return com.comphenix.protocol.events.ListenerPriority.HIGH;
-      case HIGHEST:
-        return com.comphenix.protocol.events.ListenerPriority.HIGHEST;
-      case MONITOR:
-        return com.comphenix.protocol.events.ListenerPriority.MONITOR;
-    }
-    return null;
+  public PacketListenerPriority packetEventsPriority() {
+    return PacketListenerPriority.valueOf(name());
   }
 }

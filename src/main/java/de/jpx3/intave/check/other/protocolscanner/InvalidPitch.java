@@ -1,12 +1,14 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.CheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.math.MathHelper;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
+import de.jpx3.intave.packet.reader.PacketReaders;
+import de.jpx3.intave.packet.reader.PlayerMoveReader;
 import org.bukkit.entity.Player;
 
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.LOOK;
@@ -22,18 +24,23 @@ public final class InvalidPitch extends CheckPart<ProtocolScanner> {
       LOOK, POSITION_LOOK
     }
   )
-  public void receiveRotation(PacketEvent event) {
+  public void receiveRotation(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    float rotationPitch = event.getPacket().getFloat().read(1);
-    if (Math.abs(rotationPitch) > 90.000001f) {
-      event.getPacket().getFloat().writeSafely(1, 0f);
-      String message = "sent invalid rotation";
-      String details = "pitch at " + MathHelper.formatDouble(rotationPitch, 4);
-      Violation violation = Violation.builderFor(ProtocolScanner.class)
-        .forPlayer(player).withMessage(message).withDetails(details)
-        .withVL(100)
-        .build();
-      Modules.violationProcessor().processViolation(violation);
+    PlayerMoveReader reader = PacketReaders.readerOf(event);
+    try {
+      float rotationPitch = reader.pitch();
+      if (Math.abs(rotationPitch) > 90.000001f) {
+        reader.setPitch(0f);
+        String message = "sent invalid rotation";
+        String details = "pitch at " + MathHelper.formatDouble(rotationPitch, 4);
+        Violation violation = Violation.builderFor(ProtocolScanner.class)
+          .forPlayer(player).withMessage(message).withDetails(details)
+          .withVL(100)
+          .build();
+        Modules.violationProcessor().processViolation(violation);
+      }
+    } finally {
+      reader.release();
     }
   }
 }

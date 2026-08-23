@@ -1,34 +1,26 @@
-/*
- * Copyright 2026 Intave
- *
- * This software is licensed under the PolyForm Perimeter License 1.0.0.
- * You may use this software for any purpose, except for providing to
- * others any product that competes with the software.
- *
- * A copy of the license is available at:
- *   https://polyformproject.org/licenses/perimeter/1.0.0/
- */
-
 package de.jpx3.intave.packet.reader;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.ConnectionSide;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.injector.packet.PacketRegistry;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.module.linker.packet.PacketId;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import de.jpx3.intave.module.linker.packet.PacketTypeResolver;
 
-import java.util.*;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
-import static de.jpx3.intave.module.linker.packet.PacketId.Client;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
-import static de.jpx3.intave.module.linker.packet.PacketId.Server;
 import static de.jpx3.intave.module.linker.packet.PacketId.Server.*;
 
 public final class PacketReaders {
-  private static final Map<PacketType, ThreadLocal<? extends PacketReader>> readerLocals = new HashMap<>();
+  private static final Map<PacketTypeCommon, ThreadLocal<? extends PacketReader>> READER_LOCALS = new ConcurrentHashMap<>();
+
+  private PacketReaders() {}
 
   public static void setup() {
-    // Server packets
+    READER_LOCALS.clear();
+
     setup(ABILITIES_OUT, AbilityOutReader::new);
     setup(ANIMATION, AnimationReader::new);
     setup(ATTACH_ENTITY, AttachEntityReader::new);
@@ -63,7 +55,7 @@ public final class PacketReaders {
     setup(OPEN_WINDOW, WindowOpenReader::new);
     setup(OPEN_WINDOW_HORSE, WindowOpenReader::new);
     setup(OPEN_SIGN_EDITOR, BlockPositionReader::new);
-    setup(Server.POSITION, PlayerTeleportReader::new);
+    setup(PacketId.Server.POSITION, PlayerTeleportReader::new);
     setup(PLAYER_INFO, PlayerInfoReader::new);
     setup(PLAYER_INFO_REMOVE, PlayerInfoRemoveReader::new);
     setup(REMOVE_ENTITY_EFFECT, EntityReader::new);
@@ -86,91 +78,60 @@ public final class PacketReaders {
     setup(SET_BORDER_WARNING_DELAY, WorldBorderReader::new);
     setup(SET_BORDER_WARNING_DISTANCE, WorldBorderReader::new);
     setup(INITIALIZE_BORDER, WorldBorderReader::new);
-    setup(Server.TRANSACTION, TransactionReader::new);
+    setup(PacketId.Server.TRANSACTION, TransactionReader::new);
 
-    // Client packets
     setup(ABILITIES_IN, AbilityInReader::new);
     setup(ATTACK_ENTITY, EntityUseReader::new);
     setup(BLOCK_DIG, BlockDigReader::new);
     setup(BLOCK_PLACE, BlockInteractionReader::new);
-    setup(Client.CLOSE_WINDOW, WindowIdReader::new);
+    setup(PacketId.Client.CLOSE_WINDOW, WindowIdReader::new);
     setup(CUSTOM_PAYLOAD_IN, PayloadInReader::new);
     setup(ENCHANT_ITEM, WindowIdReader::new);
     setup(ENTITY_ACTION_IN, PlayerActionReader::new);
     setup(FLYING, PlayerMoveReader::new);
     setup(LOOK, PlayerMoveReader::new);
-    setup(Client.POSITION, PlayerMoveReader::new);
+    setup(PacketId.Client.POSITION, PlayerMoveReader::new);
     setup(POSITION_LOOK, PlayerMoveReader::new);
     setup(STEER_VEHICLE, SteerVehicleReader::new);
-    setup(Client.TRANSACTION, TransactionReader::new);
-    setup(Client.UPDATE_SIGN, BlockPositionReader::new);
+    setup(PacketId.Client.TRANSACTION, TransactionReader::new);
+    setup(PacketId.Client.UPDATE_SIGN, BlockPositionReader::new);
     setup(USE_ENTITY, EntityUseReader::new);
     setup(USE_ITEM, BlockInteractionReader::new);
     setup(USE_ITEM_ON, BlockInteractionReader::new);
-    setup(Client.VEHICLE_MOVE, PlayerMoveReader::new);
+    setup(PacketId.Client.VEHICLE_MOVE, PlayerMoveReader::new);
     setup(WINDOW_CLICK, WindowClickReader::new);
   }
 
-  private static void setup(Server serverPacket, Supplier<? extends PacketReader> supplier) {
-    PacketType packetType = searchByName(selectPacketTypesFor(ConnectionSide.SERVER_SIDE), serverPacket.lookupName());
-    if (packetType != null) {
-      readerLocals.put(packetType, ThreadLocal.withInitial(supplier));
+  private static void setup(PacketId.Server id, Supplier<? extends PacketReader> supplier) {
+    for (PacketTypeCommon type : PacketTypeResolver.server(new PacketId.Server[]{id})) {
+      READER_LOCALS.put(type, ThreadLocal.withInitial(supplier));
     }
   }
 
-  private static void setup(Client clientPacket, Supplier<? extends PacketReader> supplier) {
-    PacketType packetType = searchByName(selectPacketTypesFor(ConnectionSide.CLIENT_SIDE), clientPacket.lookupName());
-    if (packetType != null) {
-      readerLocals.put(packetType, ThreadLocal.withInitial(supplier));
+  private static void setup(PacketId.Client id, Supplier<? extends PacketReader> supplier) {
+    for (PacketTypeCommon type : PacketTypeResolver.client(new PacketId.Client[]{id})) {
+      READER_LOCALS.put(type, ThreadLocal.withInitial(supplier));
     }
   }
 
-  private static Collection<PacketType> selectPacketTypesFor(ConnectionSide connectionSide) {
-    Set<PacketType> availableTypes = new HashSet<>();
-    if (connectionSide.isForServer()) availableTypes.addAll(PacketRegistry.getServerPacketTypes());
-    if (connectionSide.isForClient()) availableTypes.addAll(PacketRegistry.getClientPacketTypes());
-    return availableTypes;
-  }
-
-  private static PacketType searchByName(Collection<? extends PacketType> packetPool, String name) {
-    Collection<PacketType> packetTypes = PacketType.fromName(name);
-    return packetTypes.stream().filter(packetPool::contains).findFirst().orElse(
-      packetPool.stream().filter(packetType -> matches(packetType, name)).findFirst().orElse(null)
-    );
-  }
-
-  private static boolean matches(PacketType packetType, String name) {
-    return packetType != null && packetType.name() != null && packetType.name().equalsIgnoreCase(name);
-  }
-
-  public static <T extends PacketReader> T readerOf(PacketContainer container) {
-    PacketType type = container.getType();
-    ThreadLocal<? extends PacketReader> readerThreadLocal = readerLocals.get(type);
-    if (readerThreadLocal == null) {
-      // perform a name-based lookup, enter if found
-      for (Map.Entry<PacketType, ThreadLocal<? extends PacketReader>> entry : readerLocals.entrySet()) {
-        if (matches(entry.getKey(), type.name())) {
-          // must be the same protocol
-//          if (!type.getProtocol().equals(entry.getKey().getProtocol())) {
-//            continue;
-//          }
-          readerThreadLocal = entry.getValue();
-          readerLocals.put(type, readerThreadLocal);
-          break;
-        }
-      }
-
-      if (readerThreadLocal == null) {
-        throw new IllegalStateException("No reader available for type " + type.name());
-      }
+  @SuppressWarnings("unchecked")
+  public static <T extends PacketReader> T readerOf(ProtocolPacketEvent event) {
+    ThreadLocal<? extends PacketReader> local = READER_LOCALS.get(event.getPacketType());
+    if (local == null) {
+      throw new IllegalStateException("No native PacketEvents reader for " + String.valueOf(event.getPacketType()));
     }
-    PacketReader interpreter = readerThreadLocal.get();
-    interpreter.enter(container);
-    //noinspection unchecked
-    return (T) interpreter;
+    PacketReader reader = local.get();
+    reader.enter(event);
+    return (T) reader;
   }
 
-  public static boolean hasReader(PacketType type) {
-    return readerLocals.containsKey(type);
+  public static <T extends PacketReader> T readerOf(NativePacket packet) {
+    ProtocolPacketEvent event = packet.protocolEvent();
+    if (event == null) throw new IllegalArgumentException("Native packet is not backed by a packet event");
+    return readerOf(event);
+  }
+
+  public static boolean hasReader(PacketTypeCommon type) {
+    return READER_LOCALS.containsKey(type);
   }
 }

@@ -1,7 +1,7 @@
 package de.jpx3.intave.check.movement.physics;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheck;
 import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.module.Modules;
@@ -52,13 +52,13 @@ public final class AirStuckGuard extends MetaCheck<AirStuckGuard.Meta> {
     ignoreCancelled = false,
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END}
   )
-  public void receive(PacketEvent event) {
+  public void receive(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
 
     if (!PacketTypes.isClientEndTick(type)) {
-      PlayerMoveReader reader = PacketReaders.readerOf(event.getPacket());
+      PlayerMoveReader reader = PacketReaders.readerOf(event);
       try {
         if (reader.hasMovement()) {
           double x = reader.positionX();

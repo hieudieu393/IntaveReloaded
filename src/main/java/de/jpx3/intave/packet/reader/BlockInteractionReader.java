@@ -11,76 +11,108 @@
 
 package de.jpx3.intave.packet.reader;
 
-import com.comphenix.protocol.reflect.StructureModifier;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import com.comphenix.protocol.wrappers.MovingObjectPositionBlock;
-import de.jpx3.intave.adapter.MinecraftVersions;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
+import com.github.retrooper.packetevents.protocol.world.BlockFace;
+import com.github.retrooper.packetevents.util.Vector3f;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientUseItem;
 import de.jpx3.intave.annotate.Nullable;
 import de.jpx3.intave.share.Direction;
 import de.jpx3.intave.user.User;
 import org.bukkit.util.Vector;
 
+/** Native PacketEvents reader for use-item / use-item-on interactions. */
 public final class BlockInteractionReader extends BlockPositionReader {
-  private final boolean MODERN_RESOLVE = MinecraftVersions.VER1_14_0.atOrAbove();
-  private final boolean HAS_SEQUENCE_NUMBER = MinecraftVersions.VER1_19_2.atOrAbove();
+  private WrapperPlayClientPlayerBlockPlacement placement;
+  private WrapperPlayClientUseItem useItem;
+  private int sequenceNumber;
+  private boolean hasProtocolSequenceNumber;
+  private boolean hasArtificialSequenceNumber;
+
+  @Override
+  protected void read() {
+    placement = null;
+    useItem = null;
+    sequenceNumber = 0;
+    hasProtocolSequenceNumber = false;
+    hasArtificialSequenceNumber = false;
+
+    if (packetType() == PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT) {
+      placement = new WrapperPlayClientPlayerBlockPlacement(receiveEvent());
+      blockPosition(placement.getBlockPosition());
+      sequenceNumber = placement.getSequence();
+      hasProtocolSequenceNumber = receiveEvent().getUser().getClientVersion().isNewerThanOrEquals(
+        com.github.retrooper.packetevents.protocol.player.ClientVersion.V_1_19
+      );
+      return;
+    }
+
+    if (packetType() == PacketType.Play.Client.USE_ITEM) {
+      useItem = new WrapperPlayClientUseItem(receiveEvent());
+      blockPosition(null);
+      sequenceNumber = useItem.getSequence();
+      hasProtocolSequenceNumber = receiveEvent().getUser().getClientVersion().isNewerThanOrEquals(
+        com.github.retrooper.packetevents.protocol.player.ClientVersion.V_1_19
+      );
+      return;
+    }
+
+    // No supported block interaction wrapper for this type. Keep the reader empty rather than
+    // guessing field offsets from a generic packet buffer.
+    blockPosition(null);
+  }
 
   @Nullable
   public Direction direction() {
-    int directionIndex = enumDirection();
-    Direction[] directions = Direction.values();
-    if (directionIndex < 0 || directionIndex >= directions.length) {
+    BlockFace face = placement == null ? null : placement.getFace();
+    if (face == null || face == BlockFace.OTHER) {
       return null;
     }
-    return directions[directionIndex];
+    return Direction.valueOf(face.name());
   }
 
   @Nullable
   public Vector facingVector() {
-    StructureModifier<Float> floatsInPacket = packet().getFloat();
-    if (floatsInPacket.size() >= 3) {
-      return new Vector(
-        floatsInPacket.read(0),
-        floatsInPacket.read(1),
-        floatsInPacket.read(2)
-      );
-    } else {
+    if (placement == null) {
       return null;
     }
+    Vector3f cursor = placement.getCursorPosition();
+    return cursor == null ? null : new Vector(cursor.getX(), cursor.getY(), cursor.getZ());
+  }
+
+  public InteractionHand hand() {
+    if (placement != null) return placement.getHand();
+    if (useItem != null) return useItem.getHand();
+    return InteractionHand.MAIN_HAND;
   }
 
   public int enumDirection() {
-    if (MODERN_RESOLVE) {
-      MovingObjectPositionBlock movingObjectPositionBlock = packet().getMovingBlockPositions().readSafely(0);
-      return movingObjectPositionBlock == null ? 255 : movingObjectPositionBlock.getDirection().ordinal();
-    } else {
-      Integer enumDirection = packet().getIntegers().readSafely(0);
-      if (enumDirection == null) {
-        EnumWrappers.Direction direction = packet()
-          .getDirections()
-          .readSafely(0);
-        return direction == null ? 255 : direction.ordinal();
-      }
-      return enumDirection;
-    }
+    BlockFace face = placement == null ? null : placement.getFace();
+    return face == null ? 255 : face.getFaceValue();
   }
 
-  private int sequenceNumber = 0;
-  private boolean hasArtificialSequenceNumber = false;
+  public boolean insideBlock() {
+    return placement != null && placement.getInsideBlock().orElse(false);
+  }
 
   public int sequenceNumber(User user) {
-    if (HAS_SEQUENCE_NUMBER) {
-      return packet().getIntegers().readSafely(0);
-    } else if (hasArtificialSequenceNumber) {
+    if (hasProtocolSequenceNumber) {
       return sequenceNumber;
-    } else {
-      hasArtificialSequenceNumber = true;
-      return sequenceNumber = user.meta().connection().simulatedBlockAckNum++;
     }
+    if (!hasArtificialSequenceNumber) {
+      hasArtificialSequenceNumber = true;
+      sequenceNumber = user.meta().connection().simulatedBlockAckNum++;
+    }
+    return sequenceNumber;
   }
 
   @Override
   public void release() {
+    placement = null;
+    useItem = null;
     sequenceNumber = 0;
+    hasProtocolSequenceNumber = false;
     hasArtificialSequenceNumber = false;
     super.release();
   }

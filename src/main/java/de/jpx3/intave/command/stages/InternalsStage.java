@@ -1,5 +1,7 @@
 package de.jpx3.intave.command.stages;
 
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.command.CommandStage;
 import de.jpx3.intave.command.SubCommand;
@@ -64,7 +66,7 @@ public final class InternalsStage extends CommandStage {
 //  }
 
 //  private void sendPacket(Player player) {
-//    PacketContainer newPacket = new PacketContainer(PacketType.Play.Server.SPAWN_ENTITY_LIVING);
+//    NativePacket newPacket = new NativePacket(PacketType.Play.Server.SPAWN_ENTITY_LIVING);
 //
 //    newPacket.getIntegers().
 //      write(0, ThreadLocalRandom.current().nextInt(100000000, 200000000)).

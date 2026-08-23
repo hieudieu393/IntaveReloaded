@@ -4,8 +4,8 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.util.Vector3d;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSteerVehicle;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientVehicleMove;
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheck;
 import de.jpx3.intave.check.movement.Physics;
 import de.jpx3.intave.module.Modules;
@@ -32,12 +32,12 @@ public final class VehicleSignalGuard extends MetaCheck<VehicleSignalGuard.Meta>
   public boolean performLinkage() { return true; }
 
   @PacketSubscription(priority = LOWEST, packetsIn = STEER_VEHICLE, ignoreCancelled = false)
-  public void steer(PacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+  public void steer(ProtocolPacketEvent event) {
+    if (!(event instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     MovementMetadata movement = user.meta().movement();
     Meta meta = metaOf(user);
-    WrapperPlayClientSteerVehicle steer = new WrapperPlayClientSteerVehicle((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientSteerVehicle steer = new WrapperPlayClientSteerVehicle((PacketReceiveEvent) event);
 
     float sideways = steer.getSideways();
     float forward = steer.getForward();
@@ -66,12 +66,12 @@ public final class VehicleSignalGuard extends MetaCheck<VehicleSignalGuard.Meta>
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = VEHICLE_MOVE, ignoreCancelled = false)
-  public void move(PacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+  public void move(ProtocolPacketEvent event) {
+    if (!(event instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     MovementMetadata movement = user.meta().movement();
     Meta meta = metaOf(user);
-    WrapperPlayClientVehicleMove move = new WrapperPlayClientVehicleMove((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientVehicleMove move = new WrapperPlayClientVehicleMove((PacketReceiveEvent) event);
     Vector3d position = move.getPosition();
 
     if (position == null || !Double.isFinite(position.x) || !Double.isFinite(position.y) || !Double.isFinite(position.z)
@@ -103,9 +103,9 @@ public final class VehicleSignalGuard extends MetaCheck<VehicleSignalGuard.Meta>
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void boundary(PacketEvent event) {
+  public void boundary(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
     boolean modern = user.meta().protocol().sendsClientTickEnd();
     boolean boundary = modern ? PacketTypes.isClientEndTick(type) : !PacketTypes.isClientEndTick(type);
     if (!boundary) return;

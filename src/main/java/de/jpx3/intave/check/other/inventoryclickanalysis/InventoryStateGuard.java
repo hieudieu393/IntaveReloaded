@@ -6,8 +6,8 @@ import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEntityAction;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerOpenWindow;
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.CheckSignalConfiguration;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
@@ -45,20 +45,11 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   }
 
   @PacketSubscription(priority = LOWEST, packetsOut = OPEN_WINDOW, ignoreCancelled = false)
-  public void open(PacketEvent event) {
+  public void open(ProtocolPacketEvent event) {
     Meta meta = metaOf(userOf(event.getPlayer()));
-    if (event.delegate() instanceof PacketSendEvent) {
-      WrapperPlayServerOpenWindow wrapper = new WrapperPlayServerOpenWindow((PacketSendEvent) event.delegate());
+    if (event instanceof PacketSendEvent) {
+      WrapperPlayServerOpenWindow wrapper = new WrapperPlayServerOpenWindow((PacketSendEvent) event);
       meta.activeWindowId = wrapper.getContainerId();
-      meta.serverWindowKnown = true;
-      meta.closedThisTick = false;
-      meta.openGraceTicks = 2;
-      return;
-    }
-
-    Integer id = event.getPacket().getIntegers().readSafely(0);
-    if (id != null) {
-      meta.activeWindowId = id;
       meta.serverWindowKnown = true;
       meta.closedThisTick = false;
       meta.openGraceTicks = 2;
@@ -66,7 +57,7 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   }
 
   @PacketSubscription(priority = LOWEST, packetsOut = PacketId.Server.CLOSE_WINDOW, ignoreCancelled = false)
-  public void serverClose(PacketEvent event) {
+  public void serverClose(ProtocolPacketEvent event) {
     Meta meta = metaOf(userOf(event.getPlayer()));
     meta.activeWindowId = 0;
     meta.serverWindowKnown = true;
@@ -75,11 +66,14 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = PacketId.Client.CLOSE_WINDOW, ignoreCancelled = false)
-  public void clientClose(PacketEvent event) {
+  public void clientClose(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    Integer id = event.getPacket().getIntegers().readSafely(0);
-    if (id != null && meta.serverWindowKnown && meta.activeWindowId > 0 && id != meta.activeWindowId) {
+    if (!(event instanceof PacketReceiveEvent)) return;
+    int id = new com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientCloseWindow(
+      (PacketReceiveEvent) event
+    ).getWindowId();
+    if (meta.serverWindowKnown && meta.activeWindowId > 0 && id != meta.activeWindowId) {
       score(user, meta, "close-window-id",
         "client closed window=" + id + " while active=" + meta.activeWindowId, 0.75D, 2.0D);
     }
@@ -90,7 +84,7 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = WINDOW_CLICK, ignoreCancelled = false)
-  public void click(User user, WindowClickReader reader, PacketEvent event) {
+  public void click(User user, WindowClickReader reader, ProtocolPacketEvent event) {
     Meta meta = metaOf(user);
     int container = reader.containerId();
     int slot = reader.slot();
@@ -143,7 +137,7 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
-  public void attack(User user, EntityUseReader reader, PacketEvent event) {
+  public void attack(User user, EntityUseReader reader, ProtocolPacketEvent event) {
     if (!reader.isAttackPacket()) return;
     Meta meta = metaOf(user);
     if (!inventoryOpen(user, meta)) return;
@@ -155,9 +149,9 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
-  public void dig(PacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
-    WrapperPlayClientPlayerDigging wrapper = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event.delegate());
+  public void dig(ProtocolPacketEvent event) {
+    if (!(event instanceof PacketReceiveEvent)) return;
+    WrapperPlayClientPlayerDigging wrapper = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event);
     if (wrapper.getAction() != DiggingAction.START_DIGGING) return;
 
     User user = userOf(event.getPlayer());
@@ -170,7 +164,7 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = {BLOCK_PLACE, USE_ITEM_ON}, ignoreCancelled = false)
-  public void place(PacketEvent event) {
+  public void place(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     if (!inventoryOpen(user, meta)) return;
@@ -181,15 +175,15 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = ENTITY_ACTION_IN, ignoreCancelled = false)
-  public void entityAction(PacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+  public void entityAction(ProtocolPacketEvent event) {
+    if (!(event instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     if (!inventoryOpen(user, meta) || user.meta().movement().awaitTeleport || user.meta().movement().expectTeleport) {
       return;
     }
 
-    WrapperPlayClientEntityAction wrapper = new WrapperPlayClientEntityAction((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientEntityAction wrapper = new WrapperPlayClientEntityAction((PacketReceiveEvent) event);
     WrapperPlayClientEntityAction.Action action = wrapper.getAction();
     if (action == WrapperPlayClientEntityAction.Action.STOP_SNEAKING
       || action == WrapperPlayClientEntityAction.Action.STOP_SPRINTING) {
@@ -205,9 +199,9 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void boundary(PacketEvent event) {
+  public void boundary(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
     boolean modern = user.meta().protocol().sendsClientTickEnd();
     boolean boundary = modern ? PacketTypes.isClientEndTick(type) : !PacketTypes.isClientEndTick(type);
     if (!boundary) return;
@@ -300,8 +294,7 @@ public final class InventoryStateGuard extends MetaCheckPart<InventoryClickAnaly
     Modules.violationProcessor().processViolation(violation);
   }
 
-  private static void makeWritableAndCancel(PacketEvent event) {
-    if (event.isReadOnly()) event.setReadOnly(false);
+  private static void makeWritableAndCancel(ProtocolPacketEvent event) {
     event.setCancelled(true);
   }
 

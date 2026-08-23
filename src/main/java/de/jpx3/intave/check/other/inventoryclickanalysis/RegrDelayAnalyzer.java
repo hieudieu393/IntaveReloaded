@@ -11,7 +11,7 @@
 
 package de.jpx3.intave.check.other.inventoryclickanalysis;
 
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
 import de.jpx3.intave.math.MathHelper;
@@ -51,7 +51,7 @@ public class RegrDelayAnalyzer extends MetaCheckPart<InventoryClickAnalysis, Reg
       PacketId.Server.OPEN_WINDOW
     }
   )
-  public void openWindowPacket(Player player, PacketContainer packet) {
+  public void openWindowPacket(Player player, NativePacket packet) {
     User user = userOf(player);
     ClickDelayMeta meta = metaOf(user);
     user.tickFeedback(() -> {

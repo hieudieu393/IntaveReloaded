@@ -1,11 +1,12 @@
 package de.jpx3.intave.player.fake;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.WrappedDataWatcher;
-import com.comphenix.protocol.wrappers.WrappedWatchableObject;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.PacketRuntimeManager;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedDataWatcher;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedWatchableObject;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.packet.PacketSender;
 import org.bukkit.entity.Player;
@@ -100,8 +101,8 @@ public final class MetadataAccess {
     FakePlayerIdentity identity,
     List<WrappedWatchableObject> watchableObjects
   ) {
-    ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
-    PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
+    PacketRuntimeManager protocolManager = PacketRuntime.getPacketRuntimeManager();
+    NativePacket packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
     packet.getIntegers().writeSafely(0, identity.identifier());
     packet.getWatchableCollectionModifier().writeSafely(0, watchableObjects);
     packet.getBooleans().writeSafely(0, true);

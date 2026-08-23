@@ -11,7 +11,7 @@
 
 package de.jpx3.intave.check.world.placementanalysis;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.check.PlayerCheckPart;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
@@ -45,7 +45,7 @@ public final class RoundedRotation extends PlayerCheckPart<PlacementAnalysis> {
 			LOOK, POSITION_LOOK
 		}
 	)
-	public void receiveMovement(PacketEvent event) {
+	public void receiveMovement(ProtocolPacketEvent event) {
 		Player player = event.getPlayer();
 		User user = UserRepository.userOf(player);
 

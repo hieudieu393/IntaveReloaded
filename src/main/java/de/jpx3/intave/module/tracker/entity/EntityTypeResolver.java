@@ -1,15 +1,15 @@
 package de.jpx3.intave.module.tracker.entity;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.reflect.FieldAccessException;
-import com.comphenix.protocol.wrappers.WrappedDataWatcher;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import de.jpx3.intave.packet.nativeapi.reflect.FieldAccessException;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedDataWatcher;
 import de.jpx3.intave.IntaveLogger;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.access.IntaveInternalException;
 import de.jpx3.intave.adapter.MinecraftVersion;
 import de.jpx3.intave.adapter.MinecraftVersions;
-import de.jpx3.intave.adapter.ProtocolLibraryAdapter;
+import de.jpx3.intave.adapter.PacketRuntimeAdapter;
 import de.jpx3.intave.entity.size.HitboxSize;
 import de.jpx3.intave.entity.size.HitboxSizeAccess;
 import de.jpx3.intave.entity.type.EntityTypeData;
@@ -46,7 +46,7 @@ public final class EntityTypeResolver {
   }
 
   private void registerDataWatcherEntityFieldName() {
-    MinecraftVersion serverVersion = ProtocolLibraryAdapter.serverVersion();
+    MinecraftVersion serverVersion = PacketRuntimeAdapter.serverVersion();
     if (serverVersion.isAtLeast(MinecraftVersions.VER1_14_0)) {
       dataWatcherEntityFieldName = "entity";
     } else if (serverVersion.isAtLeast(MinecraftVersions.VER1_10_0)) {
@@ -76,8 +76,8 @@ public final class EntityTypeResolver {
 
   private static final int ENTITY_DEAD_TYPE_FIELD = MinecraftVersions.VER1_9_0.atOrAbove() ? 6 : 9;
 
-  public EntityTypeData entityTypeDataOfDeadEntity(PacketEvent event) {
-    PacketContainer packet = event.getPacket();
+  public EntityTypeData entityTypeDataOfDeadEntity(ProtocolPacketEvent event) {
+    NativePacket packet = NativePacket.fromEvent(event);
     int entityId = packet.getIntegers().read(0);
 
     EntityReader entityReader = PacketReaders.readerOf(packet);
@@ -108,8 +108,8 @@ public final class EntityTypeResolver {
     }
   }
 
-  public EntityTypeData entityTypeDataOfLivingEntity(PacketEvent event) {
-    PacketContainer packet = event.getPacket();
+  public EntityTypeData entityTypeDataOfLivingEntity(ProtocolPacketEvent event) {
+    NativePacket packet = NativePacket.fromEvent(event);
     int entityId = packet.getIntegers().read(0);
     Entity entity = EntityTracker.serverEntityByIdentifier(event.getPlayer(), entityId);
     if (entity != null) {
@@ -131,8 +131,8 @@ public final class EntityTypeResolver {
     }
   }
 
-  public EntityTypeData entityTypeDataOfEntityMetadata(PacketEvent event, int entityTypeId, EntityMetadataReader reader) {
-    PacketContainer packet = event.getPacket();
+  public EntityTypeData entityTypeDataOfEntityMetadata(ProtocolPacketEvent event, int entityTypeId, EntityMetadataReader reader) {
+    NativePacket packet = NativePacket.fromEvent(event);
     int entityId = packet.getIntegers().read(0);
     Entity entity = EntityTracker.serverEntityByIdentifier(event.getPlayer(), entityId);
     if (entity != null) {

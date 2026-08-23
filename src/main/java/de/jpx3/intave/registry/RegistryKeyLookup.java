@@ -1,6 +1,6 @@
 package de.jpx3.intave.registry;
 
-import com.comphenix.protocol.wrappers.MinecraftKey;
+import de.jpx3.intave.share.MinecraftKey;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.klass.Lookup;
 import de.jpx3.intave.klass.locate.MethodSearchBySignature;
@@ -88,11 +88,11 @@ public class RegistryKeyLookup {
   }
 
   private static Object minecraftKeyFrom(String fullKey) {
-    return MinecraftKey.getConverter().getGeneric(new MinecraftKey(fullKey));
+    return new MinecraftKey(fullKey).toNativeResourceLocation();
   }
 
   private static String stringFromMinecraftKey(Object key) {
-    return MinecraftKey.fromHandle(key).getFullKey();
+    return String.valueOf(key);
   }
 
   private static Object registryRegistry;

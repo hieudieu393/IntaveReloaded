@@ -11,12 +11,26 @@
 
 package de.jpx3.intave.packet.reader;
 
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerUseBed;
 import de.jpx3.intave.share.BlockPosition;
 
 public final class BedUseReader extends EntityReader {
+	private BlockPosition bedPosition;
+
+	@Override
+	protected void read() {
+		WrapperPlayServerUseBed wrapper = new WrapperPlayServerUseBed(sendEvent());
+		entityId(wrapper.getEntityId());
+		bedPosition = BlockPosition.fromPacketEvents(wrapper.getPosition());
+	}
+
 	public BlockPosition bedPosition() {
-		return BlockPosition.fromProtocolLib(
-			packet().getBlockPositionModifier().read(0)
-		);
+		return bedPosition;
+	}
+
+	@Override
+	public void release() {
+		bedPosition = null;
+		super.release();
 	}
 }

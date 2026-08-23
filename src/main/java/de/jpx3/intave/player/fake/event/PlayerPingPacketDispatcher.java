@@ -1,11 +1,11 @@
 package de.jpx3.intave.player.fake.event;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import com.comphenix.protocol.wrappers.PlayerInfoData;
-import com.comphenix.protocol.wrappers.WrappedChatComponent;
-import com.comphenix.protocol.wrappers.WrappedGameProfile;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.wrappers.PlayerInfoData;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedChatComponent;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedGameProfile;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.module.Modules;
 import de.jpx3.intave.module.linker.packet.PacketEventSubscriber;
@@ -31,9 +31,9 @@ public final class PlayerPingPacketDispatcher implements PacketEventSubscriber {
       PLAYER_INFO
     }
   )
-  public void onPacketSending(PacketEvent event) {
+  public void onPacketSending(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     User user = UserRepository.userOf(player);
     FakePlayer fakePlayer = user.meta().attack().fakePlayer();
     if (fakePlayer == null) {
@@ -42,7 +42,7 @@ public final class PlayerPingPacketDispatcher implements PacketEventSubscriber {
     tryAppendFakePlayerToPing(fakePlayer, packet);
   }
 
-  private void tryAppendFakePlayerToPing(FakePlayer fakePlayer, PacketContainer packet) {
+  private void tryAppendFakePlayerToPing(FakePlayer fakePlayer, NativePacket packet) {
     EnumWrappers.PlayerInfoAction action = packet.getPlayerInfoAction().read(0);
     if (action != EnumWrappers.PlayerInfoAction.UPDATE_LATENCY) {
       return;
@@ -56,7 +56,7 @@ public final class PlayerPingPacketDispatcher implements PacketEventSubscriber {
   private void appendToPingPacket(
     FakePlayer fakePlayer,
     List<PlayerInfoData> playerInfoDataList,
-    PacketContainer packet
+    NativePacket packet
   ) {
     int latency = fakePlayer.nextLatency();
     WrappedGameProfile profile = fakePlayer.profile();

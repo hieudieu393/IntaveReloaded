@@ -1,8 +1,8 @@
 package de.jpx3.intave.check.combat.heuristics.other;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientHeldItemChange;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
 import de.jpx3.intave.check.combat.heuristics.HeuristicsClassicType;
@@ -10,6 +10,8 @@ import de.jpx3.intave.module.linker.packet.ListenerPriority;
 import de.jpx3.intave.module.linker.packet.PacketId;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
+import de.jpx3.intave.packet.reader.BlockDigReader;
+import de.jpx3.intave.packet.reader.PacketReaders;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 import org.bukkit.entity.Player;
@@ -27,7 +29,7 @@ public class ToolSwitchHeuristic extends ClassicHeuristic<ToolSwitchHeuristic.To
       POSITION, POSITION_LOOK, LOOK, FLYING, VEHICLE_MOVE
     }
   )
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     ToolSwitchHeuristicMeta meta = metaOf(player);
     meta.ticksSinceLastBreak++;
@@ -40,16 +42,15 @@ public class ToolSwitchHeuristic extends ClassicHeuristic<ToolSwitchHeuristic.To
       PacketId.Client.BLOCK_DIG
     }
   )
-  public void receiveBlockBreakAction(PacketEvent event) {
+  public void receiveBlockBreakAction(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    PacketContainer packet = event.getPacket();
-    EnumWrappers.PlayerDigType digType = packet.getPlayerDigTypes().read(0);
+    BlockDigReader reader = PacketReaders.readerOf(event);
+    DiggingAction digType = reader.action();
     ToolSwitchHeuristicMeta meta = metaOf(player);
 
-    // Update breaking state ticks
-    if (digType == EnumWrappers.PlayerDigType.START_DESTROY_BLOCK) {
+    if (digType == DiggingAction.START_DIGGING) {
       meta.ticksSinceLastBreak = 0;
-    } else if (digType == EnumWrappers.PlayerDigType.STOP_DESTROY_BLOCK) {
+    } else if (digType == DiggingAction.FINISHED_DIGGING) {
       meta.ticksSinceLastStop = 0;
     }
   }
@@ -60,15 +61,13 @@ public class ToolSwitchHeuristic extends ClassicHeuristic<ToolSwitchHeuristic.To
       PacketId.Client.HELD_ITEM_SLOT_IN
     }
   )
-  public void receiveHeldItemSlotChange(PacketEvent event) {
+  public void receiveHeldItemSlotChange(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
-    PacketContainer packet = event.getPacket();
     User user = userOf(player);
     int currentSlot = user.meta().inventory().handSlot();
-    Integer slot = packet.getIntegers().read(0);
+    int slot = new WrapperPlayClientHeldItemChange((com.github.retrooper.packetevents.event.PacketReceiveEvent) event).getSlot();
     ToolSwitchHeuristicMeta meta = metaOf(player);
 
-    // If a block break was recently started something is suspicious
     if (meta.ticksSinceLastBreak <= 1) {
       meta.suspiciousBreakStart = true;
       meta.lastSlot = currentSlot;
@@ -76,16 +75,11 @@ public class ToolSwitchHeuristic extends ClassicHeuristic<ToolSwitchHeuristic.To
 
     if (meta.suspiciousBreakStart && meta.ticksSinceLastStop <= 1 && meta.lastSlot == slot) {
       meta.suspiciousBreakStart = false;
-
-      // Violate if buffer is too high
       if (++meta.vl > 3) {
         flag(player, "sent suspicious slot packets while breaking blocks (" + meta.ticksSinceLastStop + " ticks)");
-
-        // Apply damage cancel if this happens too often
         if (++meta.cancelVl > 1) {
           user.nerf(AttackNerfStrategy.DMG_LIGHT, "205");
         }
-
         meta.vl = 0;
       }
     }

@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.combat.heuristics.modern;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.packet.reader.EntityUseReader;
@@ -35,8 +35,8 @@ public final class CombatFreezeHeuristic extends ModernCombatHeuristic<CombatFre
   }
 
   @PacketSubscription(priority = LOW, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
-  public void receiveAttackPacket(PacketEvent event) {
-    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
+  public void receiveAttackPacket(ProtocolPacketEvent event) {
+    EntityUseReader reader = PacketReaders.readerOf(event);
     try {
       if (!reader.isAttackPacket()) {
         return;
@@ -67,9 +67,6 @@ public final class CombatFreezeHeuristic extends ModernCombatHeuristic<CombatFre
       meta.score = Math.min(10, meta.score + (gap >= STRONG_GAP_THRESHOLD_MS ? 2 : 1));
 
       if (meta.score >= SCORE_CANCEL) {
-        if (event.isReadOnly()) {
-          event.setReadOnly(false);
-        }
         event.setCancelled(true);
       }
 
@@ -87,7 +84,7 @@ public final class CombatFreezeHeuristic extends ModernCombatHeuristic<CombatFre
   }
 
   @PacketSubscription(priority = NORMAL, packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK})
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     Meta meta = metaOf(userOf(event.getPlayer()));
     if (meta.score > 0) {
       meta.score--;

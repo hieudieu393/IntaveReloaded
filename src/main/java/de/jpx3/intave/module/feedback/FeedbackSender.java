@@ -11,11 +11,11 @@
 
 package de.jpx3.intave.module.feedback;
 
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.reflect.StructureModifier;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.PacketRuntimeManager;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import de.jpx3.intave.packet.nativeapi.reflect.NativeModifier;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntaveLogger;
 import de.jpx3.intave.adapter.MinecraftVersions;
@@ -37,7 +37,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
-import static com.comphenix.protocol.PacketType.Play.Server.*;
+import static de.jpx3.intave.packet.nativeapi.PacketType.Play.Server.*;
 import static de.jpx3.intave.module.feedback.FeedbackOptions.*;
 
 public final class FeedbackSender extends Module {
@@ -52,7 +52,7 @@ public final class FeedbackSender extends Module {
   private static final long bootTime = System.currentTimeMillis();
   public static IdGeneratorMode activeGenerator = IdGeneratorMode.highestCompatibility();
 
-  private final ProtocolManager protocol = ProtocolLibrary.getProtocolManager();
+  private final PacketRuntimeManager protocol = PacketRuntime.getPacketRuntimeManager();
   private boolean dumpFeedback;
 
   @Override
@@ -77,14 +77,14 @@ public final class FeedbackSender extends Module {
   }
 
   public <T> void doubleSynchronize(
-    Player player, PacketEvent event, T target,
+    Player player, ProtocolPacketEvent event, T target,
     FeedbackCallback<T> firstCallback, FeedbackCallback<T> secondCallback
   ) {
     tracedDoubleSynchronize(player, event, target, firstCallback, secondCallback, null, null);
   }
 
   public <T> void doubleSynchronize(
-    Player player, PacketEvent event, T target,
+    Player player, ProtocolPacketEvent event, T target,
     FeedbackCallback<T> firstCallback, FeedbackCallback<T> secondCallback,
     int options
   ) {
@@ -92,14 +92,14 @@ public final class FeedbackSender extends Module {
   }
 
   public <T> void doubleSynchronize(
-    Player player, PacketContainer encapsulate, T target,
+    Player player, NativePacket encapsulate, T target,
     FeedbackCallback<T> firstCallback, FeedbackCallback<T> secondCallback
   ) {
     tracedDoubleSynchronize(player, encapsulate, target, firstCallback, secondCallback, null, null, 0);
   }
 
   public <T> void tracedDoubleSynchronize(
-    Player player, PacketEvent event, T target,
+    Player player, ProtocolPacketEvent event, T target,
     FeedbackCallback<T> firstCallback, FeedbackCallback<T> secondCallback,
     FeedbackObserver firstTracker, FeedbackObserver secondTracker
   ) {
@@ -107,21 +107,18 @@ public final class FeedbackSender extends Module {
   }
 
   public <T> void tracedDoubleSynchronize(
-    Player player, PacketEvent event, T target,
+    Player player, ProtocolPacketEvent event, T target,
     FeedbackCallback<T> firstCallback, FeedbackCallback<T> secondCallback,
     FeedbackObserver firstTracker, FeedbackObserver secondTracker,
     int options
   ) {
-    tracedDoubleSynchronize(player, event.getPacket(), target, firstCallback, secondCallback, firstTracker, secondTracker, options);
-    if (event.isReadOnly()) {
-      event.setReadOnly(false);
-    }
+    tracedDoubleSynchronize(player, NativePacket.fromEvent(event), target, firstCallback, secondCallback, firstTracker, secondTracker, options);
     event.setCancelled(true);
   }
 
   public <T> void tracedDoubleSynchronize(
     Player player,
-    PacketContainer encapsulate, T target,
+    NativePacket encapsulate, T target,
     FeedbackCallback<? super T> firstCallback, FeedbackCallback<? super T> secondCallback,
     FeedbackObserver firstTracker, FeedbackObserver secondTracker,
     int options
@@ -169,7 +166,7 @@ public final class FeedbackSender extends Module {
     synchronize(player, callback, (player1, target) -> target.accept(null));
   }
 
-  public void synchronize(Player player, Consumer<Void> callback, PacketEvent toBundle) {
+  public void synchronize(Player player, Consumer<Void> callback, ProtocolPacketEvent toBundle) {
     synchronize(player, callback, (player1, target) -> target.accept(null), toBundle);
   }
 
@@ -177,7 +174,7 @@ public final class FeedbackSender extends Module {
     tracedSingleSynchronize(player, null, callback, null, 0);
   }
 
-  public void synchronize(Player player, FeedbackCallback<Object> callback, PacketEvent toBundle) {
+  public void synchronize(Player player, FeedbackCallback<Object> callback, ProtocolPacketEvent toBundle) {
     tracedSingleSynchronize(player, null, callback, null, 0, toBundle);
   }
 
@@ -185,7 +182,7 @@ public final class FeedbackSender extends Module {
     synchronize(player, target, callback, 0);
   }
 
-  public <T> void synchronize(Player player, T target, FeedbackCallback<T> callback, PacketEvent toBundle) {
+  public <T> void synchronize(Player player, T target, FeedbackCallback<T> callback, ProtocolPacketEvent toBundle) {
     synchronize(player, target, callback, 0, toBundle);
   }
 
@@ -193,7 +190,7 @@ public final class FeedbackSender extends Module {
     tracedSingleSynchronize(player, null, callback, null, options);
   }
 
-  public void synchronize(Player player, FeedbackCallback<Object> callback, int options, PacketEvent toBundle) {
+  public void synchronize(Player player, FeedbackCallback<Object> callback, int options, ProtocolPacketEvent toBundle) {
     tracedSingleSynchronize(player, null, callback, null, options, toBundle);
   }
 
@@ -201,7 +198,7 @@ public final class FeedbackSender extends Module {
     tracedSingleSynchronize(player, target, callback, null, options);
   }
 
-  public <T> void synchronize(Player player, T target, FeedbackCallback<T> callback, int options, PacketEvent toBundle) {
+  public <T> void synchronize(Player player, T target, FeedbackCallback<T> callback, int options, ProtocolPacketEvent toBundle) {
     tracedSingleSynchronize(player, target, callback, null, options, toBundle);
   }
 
@@ -217,7 +214,7 @@ public final class FeedbackSender extends Module {
 
   public <T> void tracedSingleSynchronize(
     Player player, T target, FeedbackCallback<T> callback, FeedbackObserver tracker, int options,
-    @Nullable PacketEvent toBundle
+    @Nullable ProtocolPacketEvent toBundle
   ) {
     if (!Bukkit.isPrimaryThread()) {
       if (matches(SELF_SYNCHRONIZATION, options)) {
@@ -344,12 +341,12 @@ public final class FeedbackSender extends Module {
   }
 
   // for the billions of transaction packets we send, caching is easy and makes sense
-  private final PacketContainer[] PACKET_CACHE = new PacketContainer[256];
-  private final PacketContainer[] PACKET_CACHE_NO_PING_MASK = new PacketContainer[256];
+  private final NativePacket[] PACKET_CACHE = new NativePacket[256];
+  private final NativePacket[] PACKET_CACHE_NO_PING_MASK = new NativePacket[256];
   private boolean bundlingDisabled;
 
   private void performRequest(
-    Player receiver, FeedbackRequest<?> request, @Nullable PacketEvent toBundle
+    Player receiver, FeedbackRequest<?> request, @Nullable ProtocolPacketEvent toBundle
   ) {
     if (request == null) {
       return;
@@ -358,8 +355,8 @@ public final class FeedbackSender extends Module {
     short id = request.userKey();
     int index = id - MIN_USER_KEY;
     boolean noPingMask = user.meta().protocol().noPingMask();
-    PacketContainer packet;
-    PacketContainer[] packetCache = noPingMask ? PACKET_CACHE_NO_PING_MASK : PACKET_CACHE;
+    NativePacket packet;
+    NativePacket[] packetCache = noPingMask ? PACKET_CACHE_NO_PING_MASK : PACKET_CACHE;
     packet = index >= packetCache.length || index < 0 ? null : packetCache[index];
     if (packet == null) {
       try {
@@ -394,12 +391,9 @@ public final class FeedbackSender extends Module {
       System.out.println("Sent " + id + "/"+request.num() + " to " + receiver.getName());
     }
     if (MinecraftVersions.VER1_19_4.atOrAbove() && !bundlingDisabled && toBundle != null) {
-      PacketContainer bundle = new PacketContainer(BUNDLE);
-      StructureModifier<Iterable<PacketContainer>> containingPackets = bundle.getPacketBundles();
-      containingPackets.write(0, Arrays.asList(packet, toBundle.getPacket()/*.shallowClone()*/));
-      if (toBundle.isReadOnly()) {
-        toBundle.setReadOnly(false);
-      }
+      NativePacket bundle = new NativePacket(BUNDLE);
+      NativeModifier<Iterable<NativePacket>> containingPackets = bundle.getPacketBundles();
+      containingPackets.write(0, Arrays.asList(packet, NativePacket.fromEvent(toBundle)/*.shallowClone()*/));
       toBundle.setCancelled(true);
       user.ignoreNextOutboundPacket();
       PacketSender.sendServerPacketWithoutEvent(receiver, bundle);
@@ -410,7 +404,7 @@ public final class FeedbackSender extends Module {
     }
     request.sent();
     if (IntaveControl.CLIENT_KEEP_ALIVE_NETTY_CHECK) {
-      PacketContainer keepAlivePacket = protocol.createPacket(KEEP_ALIVE);
+      NativePacket keepAlivePacket = protocol.createPacket(KEEP_ALIVE);
       if (MinecraftVersions.VER1_12_0.atOrAbove()) {
         keepAlivePacket.getLongs().write(0, (long) request.userKey());
       } else {

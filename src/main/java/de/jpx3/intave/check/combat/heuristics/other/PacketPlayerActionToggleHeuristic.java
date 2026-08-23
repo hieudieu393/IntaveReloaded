@@ -2,17 +2,10 @@
  * Copyright 2026 Intave
  *
  * This software is licensed under the PolyForm Perimeter License 1.0.0.
- * You may use this software for any purpose, except for providing to
- * others any product that competes with the software.
- *
- * A copy of the license is available at:
- *   https://polyformproject.org/licenses/perimeter/1.0.0/
  */
-
 package de.jpx3.intave.check.combat.heuristics.other;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
 import de.jpx3.intave.check.combat.heuristics.HeuristicsClassicType;
@@ -23,7 +16,8 @@ import de.jpx3.intave.math.Hypot;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
 import de.jpx3.intave.packet.converter.PlayerAction;
-import de.jpx3.intave.packet.converter.PlayerActionResolver;
+import de.jpx3.intave.packet.reader.PacketReaders;
+import de.jpx3.intave.packet.reader.PlayerActionReader;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.*;
 import org.bukkit.entity.Player;
@@ -38,23 +32,13 @@ public final class PacketPlayerActionToggleHeuristic extends ClassicHeuristic<Pa
     super(parentCheck, HeuristicsClassicType.SPRINT_TOGGLES, PacketSprintToggleHeuristicMeta.class);
   }
 
-  @PacketSubscription(
-    packetsIn = {
-      FLYING, POSITION, POSITION_LOOK, LOOK
-    }
-  )
-  public void receiveMovementPacket(PacketEvent event) {
-    Player player = event.getPlayer();
-    PacketSprintToggleHeuristicMeta heuristicMeta = metaOf(player);
-    heuristicMeta.reset();
+  @PacketSubscription(packetsIn = {FLYING, POSITION, POSITION_LOOK, LOOK})
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
+    metaOf((Player) event.getPlayer()).reset();
   }
 
-  @PacketSubscription(
-    packetsIn = {
-      ENTITY_ACTION_IN
-    }
-  )
-  public void receiveEntityAction(PacketEvent event) {
+  @PacketSubscription(packetsIn = ENTITY_ACTION_IN)
+  public void receiveEntityAction(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     MetadataBundle meta = user.meta();
@@ -64,28 +48,25 @@ public final class PacketPlayerActionToggleHeuristic extends ClassicHeuristic<Pa
     PunishmentMetadata punishmentData = user.meta().punishment();
     PacketSprintToggleHeuristicMeta heuristicMeta = metaOf(user);
 
-    PacketContainer packet = event.getPacket();
-    PlayerAction action = PlayerActionResolver.resolveActionFromPacket(packet);
+    PlayerActionReader reader = PacketReaders.readerOf(event);
+    PlayerAction action;
+    try {
+      action = reader.playerAction();
+    } finally {
+      reader.release();
+    }
+    if (action == null) return;
 
     boolean sprint = action == PlayerAction.START_SPRINTING || action == PlayerAction.STOP_SPRINTING;
     boolean sneak = action.isSneakRelated();
-    if (!sprint && !sneak) {
-      return;
-    }
-
+    if (!sprint && !sneak) return;
     if (abilityData.ignoringMovementPackets()) {
       heuristicMeta.reset();
       return;
     }
+    if (movementData.ticksPast(TELEPORT) < 10) return;
 
-    if (movementData.ticksPast(TELEPORT) < 10) {
-      return;
-    }
-
-    boolean flag = sprint
-      ? heuristicMeta.sprintTogglesInTick++ >= 1
-      : heuristicMeta.sneakTogglesInTick++ >= 1;
-
+    boolean flag = sprint ? heuristicMeta.sprintTogglesInTick++ >= 1 : heuristicMeta.sneakTogglesInTick++ >= 1;
     if (flag) {
       boolean flyingPacketStream = clientData.emptyFlyingPacketsAreExplicitlySent();
       boolean checkable = flyingPacketStream || !movementData.receivedFlyingPacketIn(20);
@@ -93,15 +74,11 @@ public final class PacketPlayerActionToggleHeuristic extends ClassicHeuristic<Pa
         String description = sprint
           ? "sent too many sprint toggles per tick (" + heuristicMeta.sprintTogglesInTick + ")"
           : "sent too many sneak toggles per tick (" + heuristicMeta.sneakTogglesInTick + ")";
-        if (!flyingPacketStream) {
-          description += " (last flying: " + movementData.ticksPast(FLYING_PACKET_ACCURATE) + ")";
-        }
+        if (!flyingPacketStream) description += " (last flying: " + movementData.ticksPast(FLYING_PACKET_ACCURATE) + ")";
         this.flag(player, description);
-
         boolean cancel = (flyingPacketStream || Hypot.fast(movementData.offsetMotionX(), movementData.offsetMotionZ()) > 0.2) && heuristicMeta.threshold++ > 3;
         if (cancel) {
           if (sprint) {
-            //dmc12
             user.nerf(AttackNerfStrategy.CANCEL, "sprint:toggles");
           } else {
             punishmentData.timeLastSneakToggleCancel = System.currentTimeMillis();
@@ -118,7 +95,6 @@ public final class PacketPlayerActionToggleHeuristic extends ClassicHeuristic<Pa
     public int sprintTogglesInTick;
     public int sneakTogglesInTick;
     public double threshold;
-
     public void reset() {
       sprintTogglesInTick = 0;
       sneakTogglesInTick = 0;

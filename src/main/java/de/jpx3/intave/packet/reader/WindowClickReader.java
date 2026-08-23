@@ -1,19 +1,7 @@
-/*
- * Copyright 2026 Intave
- *
- * This software is licensed under the PolyForm Perimeter License 1.0.0.
- * You may use this software for any purpose, except for providing to
- * others any product that competes with the software.
- *
- * A copy of the license is available at:
- *   https://polyformproject.org/licenses/perimeter/1.0.0/
- */
-
+/* Copyright 2026 Intave */
 package de.jpx3.intave.packet.reader;
 
-import com.comphenix.protocol.reflect.StructureModifier;
-import de.jpx3.intave.adapter.MinecraftVersions;
-import de.jpx3.intave.klass.Lookup;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientClickWindow;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
 import org.bukkit.entity.Player;
@@ -22,21 +10,23 @@ import org.bukkit.inventory.ItemStack;
 import java.util.List;
 
 public final class WindowClickReader extends AbstractPacketReader {
-  private static final Class<?> NATIVE_INVENTORY_CLICK_TYPE_CLASS = MinecraftVersions.VER1_9_0.atOrAbove() ? Lookup.serverClass("InventoryClickType") : Object.class;
-  private static final boolean MODERN_WINDOW_CLICK = MinecraftVersions.VER1_9_0.atOrAbove();
+  private WrapperPlayClientClickWindow wrapper;
+
+  @Override
+  protected void read() {
+    wrapper = new WrapperPlayClientClickWindow(receiveEvent());
+  }
 
   public InventoryClickType clickType() {
-    if (MinecraftVersions.VER1_9_0.atOrAbove()) {
-      return packet().getEnumModifier(InventoryClickType.class, NATIVE_INVENTORY_CLICK_TYPE_CLASS).read(0);
-    } else {
-      Integer manualSlot = packet().getIntegers().readSafely(3);
-      return InventoryClickType.values()[manualSlot];
+    WrapperPlayClientClickWindow.WindowClickType type = wrapper.getWindowClickType();
+    try {
+      return InventoryClickType.valueOf(type.name());
+    } catch (IllegalArgumentException ignored) {
+      return InventoryClickType.UNKNOWN;
     }
   }
 
-  public int containerId() {
-    return packet().getIntegers().readSafely(0);
-  }
+  public int containerId() { return wrapper.getWindowId(); }
 
   public String clickedItemTypeIfPossible(Player player) {
     if (containerId() == 0 && slot() >= 0) {
@@ -44,70 +34,30 @@ public final class WindowClickReader extends AbstractPacketReader {
       List<String> items = user.meta().inventory().items();
       int slot = slot();
       return items == null || slot >= items.size() ? null : items.get(slot);
-    } else {
-      return null;
     }
+    return null;
   }
 
-  private static final int SLOT_ID = MinecraftVersions.VER1_17_1.atOrAbove() ? 2 : 1;
+  public int slot() { return wrapper.getSlot(); }
+  public int button() { return wrapper.getButton(); }
+  public int actionNumber() { return wrapper.getActionNumber().orElse(-1); }
 
-  public int slot() {
-    Integer integer = packet().getIntegers().readSafely(SLOT_ID);
-    if (integer == null) {
-      return packet().getShorts().readSafely(0);
-    }
-    return integer;
-  }
+  /** Bukkit item conversion is intentionally not guessed for 1.21.5+ hashed stacks. */
+  public ItemStack itemStack() { return null; }
 
-  private static final int BUTTON_ID = MinecraftVersions.VER1_17_1.atOrAbove() ? 3 : 2;
-
-  public int button() {
-    Integer integer = packet().getIntegers().readSafely(BUTTON_ID);
-    if (integer == null) {
-      return packet().getBytes().readSafely(0);
-    }
-    return integer;
-  }
-
-  public int actionNumber() {
-    StructureModifier<Integer> integers = packet().getIntegers();
-    if (integers.size() == 4) {
-      return integers.readSafely(3);
-    } else {
-      return packet().getShorts().readSafely(0);
-    }
-  }
-
-  public ItemStack itemStack() {
-    return packet().getItemModifier().readSafely(0);
-  }
-
-  public boolean isDrop() {
-    if (MODERN_WINDOW_CLICK) {
-      return clickType() == InventoryClickType.THROW && slot() != -999;
-    } else {
-      return packet().getIntegers().read(3) == 4 && slot() != -999;
-    }
-  }
+  public boolean isDrop() { return clickType() == InventoryClickType.THROW && slot() != -999; }
 
   public boolean missingItemStack() {
-    switch (clickType()) {
-      case QUICK_MOVE:
-      case SWAP:
-//      case PICKUP_ALL:
-        return true;
-      default:
-        return false;
-    }
+    return clickType() == InventoryClickType.QUICK_MOVE || clickType() == InventoryClickType.SWAP;
+  }
+
+  @Override
+  public void release() {
+    wrapper = null;
+    super.release();
   }
 
   public enum InventoryClickType {
-    PICKUP,
-    QUICK_MOVE,
-    SWAP,
-    CLONE,
-    THROW,
-    QUICK_CRAFT,
-    PICKUP_ALL
+    PICKUP, QUICK_MOVE, SWAP, CLONE, THROW, QUICK_CRAFT, PICKUP_ALL, UNKNOWN
   }
 }

@@ -1,25 +1,37 @@
 package de.jpx3.intave.packet.reader;
 
-import com.comphenix.protocol.wrappers.BlockPosition;
-import com.comphenix.protocol.wrappers.WrappedBlockData;
-import de.jpx3.intave.klass.Lookup;
-import de.jpx3.intave.packet.converter.BlockPositionConverter;
+import com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange;
+import de.jpx3.intave.share.BlockPosition;
 
 import java.util.Collections;
 import java.util.List;
 
 public final class SingleBlockChangeReader extends AbstractPacketReader implements BlockChanges {
+  private BlockPosition blockPosition;
+  private WrappedBlockState blockState;
+
   @Override
-  public List<BlockPosition> blockPositions() {
-    BlockPosition blockPosition = packet().getModifier()
-      .withType(Lookup.serverClass("BlockPosition"), BlockPositionConverter.threadConverter())
-      .read(0);
-    return Collections.singletonList(blockPosition);
-//    return Lists.newArrayList(packet.getBlockPositionModifier().readSafely(0));
+  protected void read() {
+    WrapperPlayServerBlockChange wrapper = new WrapperPlayServerBlockChange(sendEvent());
+    blockPosition = BlockPosition.fromPacketEvents(wrapper.getBlockPosition());
+    blockState = wrapper.getBlockState();
   }
 
   @Override
-  public List<WrappedBlockData> blockDataList() {
-    return Collections.singletonList(packet().getBlockData().read(0));
+  public List<BlockPosition> blockPositions() {
+    return Collections.singletonList(blockPosition);
+  }
+
+  @Override
+  public List<WrappedBlockState> blockDataList() {
+    return Collections.singletonList(blockState);
+  }
+
+  @Override
+  public void release() {
+    blockPosition = null;
+    blockState = null;
+    super.release();
   }
 }

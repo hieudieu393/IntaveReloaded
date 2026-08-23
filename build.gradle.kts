@@ -54,21 +54,32 @@ repositories {
   maven("https://repo.codemc.io/repository/maven-releases/")
 }
 
+val legacyCompileJars = fileTree("libs") {
+  include("*.jar")
+  // Packet APIs must come from their declared Maven dependencies. Committed copies can silently
+  // shadow the selected version depending on filesystem/classpath order.
+  exclude("*PacketEvents*.jar", "*packetevents*.jar", "*ProtocolLib*.jar", "*protocollib*.jar")
+}
+
 dependencies {
-  // Spigot
+  // PacketEvents is the authoritative packet API. Keep it ahead of legacy server fixtures.
+  compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")
+  testRuntimeOnly("com.github.retrooper:packetevents-spigot:2.13.0")
+
+  // Spigot / NMS compatibility fixtures still required by legacy version adapters. These are
+  // narrowed further below as the remaining NMS compatibility code is retired.
   compileOnly("org.spigotmc:spigot-api:1.12.2-R0.1-SNAPSHOT")
-  // It is important to explicitly define the .jar dependency order, since the order of fileTree
-  // is  file system dependent and may lead to compilation errors. If issues occur in the future,
-  // it may be needed to create the list explicitly instead of just sorting.
-  compileOnly(
-    files(fileTree(mapOf("dir" to "libs/", "include" to listOf("*.jar"))).files.sorted())
-  )
+  compileOnly(files(legacyCompileJars.files.sorted()))
+
+  if (providers.environmentVariable("CI").isPresent) {
+    logger.lifecycle("Legacy compile fixtures: " + legacyCompileJars.files.sorted().joinToString { it.name })
+  }
 
   testRuntimeOnly("it.unimi.dsi:fastutil:8.5.12")
   testImplementation("org.spigotmc:spigot-api:26.1.2-R0.1-SNAPSHOT")
   testImplementation("io.netty:netty-all:4.2.15.Final")
 
-  // random shit
+  // core utilities
   compileOnly("org.jetbrains:annotations:23.1.0")
   compileOnly("it.unimi.dsi:fastutil:8.5.12")
 
@@ -90,9 +101,6 @@ dependencies {
 
   // floodgate
   compileOnly("org.geysermc.floodgate:api:2.0-SNAPSHOT")
-
-  // packetevents
-  compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")
 
   testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
   testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.2")
@@ -741,8 +749,9 @@ tasks {
   build { dependsOn(shadowJar) }
 
   jar {
+    enabled = false
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
-    archiveFileName.set("$simpleName.jar")
+    archiveFileName.set("$simpleName-plain.jar")
     manifest {
       attributes("Implementation-Title" to simpleName)
       attributes("Implementation-Version" to project.version)
@@ -759,9 +768,8 @@ tasks {
   }
 
   shadowJar {
-    val classifier = "file"
     archiveFileName.set("$simpleName.jar")
-    archiveClassifier.set(classifier)
+    archiveClassifier.set("")
   }
 
   test {

@@ -7,7 +7,7 @@ import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.violation.Violation;
 import de.jpx3.intave.packet.reader.WindowClickReader;
 import de.jpx3.intave.user.User;
-import org.bukkit.event.Cancellable;
+import com.github.retrooper.packetevents.event.CancellableEvent;
 
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.WINDOW_CLICK;
 
@@ -18,7 +18,7 @@ public final class InvalidWindowClick extends CheckPart<ProtocolScanner> {
   }
 
   @PacketSubscription(packetsIn = WINDOW_CLICK, ignoreCancelled = false)
-  public void receive(User user, WindowClickReader reader, Cancellable cancellable) {
+  public void receive(User user, WindowClickReader reader, CancellableEvent cancellable) {
     WindowClickReader.InventoryClickType type = reader.clickType();
     int button = reader.button();
     if (type == null) {

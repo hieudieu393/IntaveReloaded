@@ -1,6 +1,6 @@
 package de.jpx3.intave.test;
 
-import com.comphenix.protocol.utility.ByteBuddyGenerated;
+import de.jpx3.intave.packet.nativeapi.utility.ByteBuddyGenerated;
 import com.google.common.collect.ImmutableList;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.adapter.MinecraftVersions;

@@ -101,7 +101,7 @@ public class MovingObjectPosition {
     try {
 //      Class<?> movingObjectPositionBase = Lookup.serverClass("MovingObjectPosition");
       Class<?> movingObjectPositionEntity = Lookup.serverClass("MovingObjectPositionEntity");
-      Class<?> movingObjectPositionBlock = Lookup.serverClass("MovingObjectPositionBlock");
+      Class<?> movingObjectPositionBlock = Lookup.serverClass("NativeBlockHit");
 
       Class<?> movingObjectPositionType = Lookup.serverClass("MovingObjectPosition$EnumMovingObjectType");
       Method typeResolveMethod = Lookup.serverMethod("MovingObjectPosition", "getType", movingObjectPositionType);

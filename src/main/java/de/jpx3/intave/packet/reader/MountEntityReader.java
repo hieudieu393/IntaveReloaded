@@ -1,14 +1,23 @@
 package de.jpx3.intave.packet.reader;
 
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetPassengers;
 import org.jetbrains.annotations.NotNull;
 
 public final class MountEntityReader extends EntityReader implements EntityIterable {
+  private WrapperPlayServerSetPassengers wrapper;
+
+  @Override
+  protected void read() {
+    wrapper = new WrapperPlayServerSetPassengers(sendEvent());
+    entityId(wrapper.getEntityId());
+  }
+
   public int entityId() {
-    return packet().getIntegers().read(0);
+    return wrapper.getEntityId();
   }
 
   public int[] mounts() {
-    return packet().getIntegerArrays().read(0);
+    return wrapper.getPassengers();
   }
 
   @Override
@@ -25,7 +34,7 @@ public final class MountEntityReader extends EntityReader implements EntityItera
       public Integer next() {
         if (slot == 0) {
           slot++;
-          return packet().getIntegers().read(0);
+          return entityId();
         } else {
           return mounts()[slot++ - 1];
         }
@@ -34,11 +43,19 @@ public final class MountEntityReader extends EntityReader implements EntityItera
       @Override
       public void set(Integer integer) {
         if (slot == 1) {
-          packet().getIntegers().write(0, integer);
+          wrapper.setEntityId(integer);
         } else {
-          mounts()[slot] = integer;
+          int[] passengers = mounts();
+          passengers[slot - 2] = integer;
+          wrapper.setPassengers(passengers);
         }
       }
     };
+  }
+
+  @Override
+  public void release() {
+    wrapper = null;
+    super.release();
   }
 }

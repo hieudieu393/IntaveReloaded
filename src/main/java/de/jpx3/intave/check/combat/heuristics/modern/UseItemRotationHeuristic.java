@@ -2,7 +2,7 @@ package de.jpx3.intave.check.combat.heuristics.modern;
 
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientUseItem;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.user.User;
@@ -24,14 +24,14 @@ public final class UseItemRotationHeuristic extends ModernCombatHeuristic<UseIte
   }
 
   @PacketSubscription(priority = LOW, packetsIn = USE_ITEM, ignoreCancelled = false)
-  public void receiveUseItem(PacketEvent event) {
+  public void receiveUseItem(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    if (!applicable(user) || !(event.delegate() instanceof PacketReceiveEvent)) {
+    if (!applicable(user) || !(event instanceof PacketReceiveEvent)) {
       reset(metaOf(user));
       return;
     }
 
-    WrapperPlayClientUseItem wrapper = new WrapperPlayClientUseItem((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientUseItem wrapper = new WrapperPlayClientUseItem((PacketReceiveEvent) event);
     float yaw = wrapper.getYaw();
     float pitch = wrapper.getPitch();
     Meta meta = metaOf(user);
@@ -54,7 +54,7 @@ public final class UseItemRotationHeuristic extends ModernCombatHeuristic<UseIte
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void receiveTick(PacketEvent event) {
+  public void receiveTick(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     if (meta.pending <= 0) {

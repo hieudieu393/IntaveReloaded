@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.other.inventoryclickanalysis;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.InventoryClickAnalysis;
 import de.jpx3.intave.module.Modules;
@@ -31,10 +31,10 @@ public final class AutoSwap extends MetaCheckPart<InventoryClickAnalysis, AutoSw
     ignoreCancelled = false,
     packetsIn = WINDOW_CLICK
   )
-  public void receiveClick(PacketEvent event) {
+  public void receiveClick(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
-    WindowClickReader reader = PacketReaders.readerOf(event.getPacket());
+    WindowClickReader reader = PacketReaders.readerOf(event);
     try {
       meta.clickCount++;
       if (reader.containerId() == 0
@@ -55,7 +55,7 @@ public final class AutoSwap extends MetaCheckPart<InventoryClickAnalysis, AutoSw
     ignoreCancelled = false,
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END}
   )
-  public void receiveTick(PacketEvent event) {
+  public void receiveTick(ProtocolPacketEvent event) {
     Meta meta = metaOf(userOf(event.getPlayer()));
     meta.lastTickAt = System.currentTimeMillis();
     if (meta.clickCount > 0) {
@@ -70,7 +70,7 @@ public final class AutoSwap extends MetaCheckPart<InventoryClickAnalysis, AutoSw
     ignoreCancelled = false,
     packetsIn = CLOSE_WINDOW
   )
-  public void receiveClose(PacketEvent event) {
+  public void receiveClose(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
 

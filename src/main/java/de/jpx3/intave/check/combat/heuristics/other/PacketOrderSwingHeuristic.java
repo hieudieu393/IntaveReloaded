@@ -1,7 +1,8 @@
 package de.jpx3.intave.check.combat.heuristics.other;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
@@ -29,10 +30,10 @@ public final class PacketOrderSwingHeuristic extends ClassicHeuristic<PacketOrde
       FLYING, POSITION, POSITION_LOOK, LOOK, ARM_ANIMATION
     }
   )
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     PacketOrderSwingHeuristicMeta heuristicMeta = metaOf(player);
-    heuristicMeta.swingTick = event.getPacketType() == PacketType.Play.Client.ARM_ANIMATION;
+    heuristicMeta.swingTick = event.getPacketType() == PacketType.Play.Client.ANIMATION;
   }
 
   @PacketSubscription(

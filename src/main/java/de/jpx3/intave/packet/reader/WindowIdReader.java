@@ -11,9 +11,25 @@
 
 package de.jpx3.intave.packet.reader;
 
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientCloseWindow;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientClickWindowButton;
+
 /** Reads the window/container ID shared by simple inventory actions. */
 public final class WindowIdReader extends AbstractPacketReader {
+  private int containerId;
+
+  @Override
+  protected void read() {
+    if (!(event() instanceof PacketReceiveEvent)) {
+      throw new IllegalStateException("WindowIdReader only supports inbound window packets");
+    }
+    containerId = packetType() == com.github.retrooper.packetevents.protocol.packettype.PacketType.Play.Client.CLOSE_WINDOW
+      ? new WrapperPlayClientCloseWindow(receiveEvent()).getWindowId()
+      : new WrapperPlayClientClickWindowButton(receiveEvent()).getWindowId();
+  }
+
   public int containerId() {
-    return packet().getIntegers().read(0);
+    return containerId;
   }
 }

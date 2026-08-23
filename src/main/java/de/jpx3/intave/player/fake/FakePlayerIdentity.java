@@ -1,7 +1,7 @@
 package de.jpx3.intave.player.fake;
 
-import com.comphenix.protocol.wrappers.WrappedDataWatcher;
-import com.comphenix.protocol.wrappers.WrappedGameProfile;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedDataWatcher;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedGameProfile;
 
 public abstract class FakePlayerIdentity {
   private final int identifier;

@@ -11,7 +11,7 @@
 
 package de.jpx3.intave.check.combat.heuristics.combatpatterns.rotation;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.check.combat.heuristics.ClassicHeuristic;
 import de.jpx3.intave.check.combat.heuristics.HeuristicsClassicType;
@@ -52,7 +52,7 @@ public final class RotationSnapHeuristic extends ClassicHeuristic<RotationSnapHe
       ARM_ANIMATION
     }
   )
-  public void receiveSwingPacket(PacketEvent event) {
+  public void receiveSwingPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     RotationSnapHeuristicMeta meta = metaOf(user);
@@ -88,7 +88,7 @@ public final class RotationSnapHeuristic extends ClassicHeuristic<RotationSnapHe
       POSITION_LOOK, LOOK
     }
   )
-  public void receiveRotationPacket(PacketEvent event) {
+  public void receiveRotationPacket(ProtocolPacketEvent event) {
     metaOf(userOf(event.getPlayer())).rotationPacketCounter++;
   }
 
@@ -118,7 +118,7 @@ public final class RotationSnapHeuristic extends ClassicHeuristic<RotationSnapHe
       FLYING, LOOK, POSITION, POSITION_LOOK
     }
   )
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     MovementMetadata movementData = user.meta().movement();

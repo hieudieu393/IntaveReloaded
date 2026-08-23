@@ -1,36 +1,35 @@
 package de.jpx3.intave.player;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import com.comphenix.protocol.wrappers.WrappedChatComponent;
+import com.github.retrooper.packetevents.protocol.chat.ChatTypes;
+import com.github.retrooper.packetevents.protocol.chat.message.ChatMessageLegacy;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerActionBar;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChatMessage;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.packet.PacketSender;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import static com.comphenix.protocol.PacketType.Play.Server.CHAT;
-import static com.comphenix.protocol.PacketType.Play.Server.SET_ACTION_BAR_TEXT;
-
 public final class ActionBar {
-	private static final boolean TYPE_AS_GAME_INFO = MinecraftVersions.VER1_12_0.atOrAbove();
-	private static final boolean DEDICATED_ACTION_BAR_PACKET = MinecraftVersions.VER1_17_0.atOrAbove();
-	private static final boolean SERVER_EXISTS = Bukkit.getServer() != null;
+  private static final boolean DEDICATED_ACTION_BAR_PACKET = MinecraftVersions.VER1_17_0.atOrAbove();
+  private static final boolean SERVER_EXISTS = Bukkit.getServer() != null;
 
-	public static void sendActionBar(Player player, String message) {
-		if (!SERVER_EXISTS) {
-			return;
-		}
-		PacketContainer packet = new PacketContainer(DEDICATED_ACTION_BAR_PACKET ? SET_ACTION_BAR_TEXT : CHAT);
-		packet.getChatComponents().write(0, WrappedChatComponent.fromText(message));
+  private ActionBar() {
+  }
 
-		if (!DEDICATED_ACTION_BAR_PACKET) {
-			if (TYPE_AS_GAME_INFO) {
-				packet.getChatTypes().write(0, EnumWrappers.ChatType.GAME_INFO);
-			} else {
-				packet.getBytes().write(0, (byte) 2);
-			}
-		}
+  public static void sendActionBar(Player player, String message) {
+    if (!SERVER_EXISTS) {
+      return;
+    }
 
-		PacketSender.sendServerPacketWithoutEvent(player, packet);
-	}
+    Component component = Component.text(message);
+    if (DEDICATED_ACTION_BAR_PACKET) {
+      PacketSender.sendServerPacketWithoutEvent(player, new WrapperPlayServerActionBar(component));
+    } else {
+      PacketSender.sendServerPacketWithoutEvent(
+        player,
+        new WrapperPlayServerChatMessage(new ChatMessageLegacy(component, ChatTypes.GAME_INFO))
+      );
+    }
+  }
 }

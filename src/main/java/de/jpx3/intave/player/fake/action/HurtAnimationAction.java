@@ -1,7 +1,8 @@
 package de.jpx3.intave.player.fake.action;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketContainer;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.player.fake.FakePlayer;
 import de.jpx3.intave.player.fake.MetadataAccess;
@@ -42,7 +43,7 @@ public final class HurtAnimationAction extends Action {
   private static final byte DAMAGE_ANIMATION = 1;
 
   private void sendHurtAnimation() {
-    PacketContainer packet = create(PacketType.Play.Server.ANIMATION);
+    NativePacket packet = create(PacketType.Play.Server.ENTITY_ANIMATION);
     packet.getIntegers().writeSafely(0, this.fakePlayer.identifier());
     packet.getModifier().writeSafely(1, DAMAGE_ANIMATION);
     send(packet);
@@ -52,7 +53,7 @@ public final class HurtAnimationAction extends Action {
   private static final double VELOCITY_CONVERT_FACTOR = 8000.0D;
 
   private void sendEntityVelocity() {
-    PacketContainer packet = create(PacketType.Play.Server.ENTITY_VELOCITY);
+    NativePacket packet = create(PacketType.Play.Server.ENTITY_VELOCITY);
     packet.getIntegers().writeSafely(0, this.fakePlayer.identifier());
     double motionX = randomHorizontalVelocity();
     double motionY = randomVerticalVelocity();

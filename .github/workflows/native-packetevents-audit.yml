@@ -1,0 +1,103 @@
+name: Native PacketEvents audit
+
+on:
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Capture fixture inventory and resolved classpath
+        shell: bash
+        run: |
+          set -euo pipefail
+          find libs -maxdepth 1 -type f -name '*.jar' -printf '%f\n' | sort > legacy-fixtures.txt
+          cat > /tmp/classpath.init.gradle <<'GRADLE'
+          allprojects {
+            afterEvaluate { p ->
+              if (p == rootProject) {
+                tasks.register('printNativeCompileClasspath') {
+                  doLast {
+                    configurations.compileClasspath.files.sort().each { println it.absolutePath }
+                  }
+                }
+              }
+            }
+          }
+          GRADLE
+          ./gradlew --no-daemon -q -I /tmp/classpath.init.gradle printNativeCompileClasspath > compile-classpath.txt
+          : > packet-api-contents.txt
+          while IFS= read -r jar; do
+            base="$(basename "$jar")"
+            if [[ "$base" == *packetevents* || "$base" == *PacketEvents* || "$base" == *ProtocolLib* || "$base" == *protocollib* ]]; then
+              printf '=== %s ===\n' "$jar" >> packet-api-contents.txt
+              sha256sum "$jar" >> packet-api-contents.txt
+              jar tf "$jar" | grep -E 'DiggingAction|WrapperPlayClientPlayerDigging|PacketContainer|StructureModifier' >> packet-api-contents.txt || true
+            fi
+          done < compile-classpath.txt
+      - name: Compile with full log
+        shell: bash
+        run: |
+          set +e
+          ./gradlew --no-daemon compileJava --stacktrace > compile.log 2>&1
+          status=$?
+          echo "$status" > compile-status.txt
+          exit 0
+      - name: Upload compile diagnostics
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-compile-diagnostics
+          path: |
+            compile.log
+            compile-status.txt
+            compile-classpath.txt
+            packet-api-contents.txt
+            legacy-fixtures.txt
+          if-no-files-found: error
+          retention-days: 2
+
+  no-protocollib-bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Inventory ProtocolLib compatibility usage
+        shell: bash
+        run: |
+          set -euo pipefail
+          pattern='(^|[^A-Za-z0-9_])(com\.comphenix\.protocol|ProtocolLibrary|ProtocolManager|PacketContainer|StructureModifier|MovingObjectPositionBlock)([^A-Za-z0-9_]|$)'
+          mapfile -t files < <(grep -RIl --include='*.java' --include='*.kt' -E "$pattern" src/main/java/de/jpx3/intave | sort || true)
+          echo "ProtocolLib compatibility files: ${#files[@]}"
+          printf '%s\n' "${files[@]}"
+          if (( ${#files[@]} > 0 )); then
+            echo 'ProtocolLib compatibility references remain; native PacketEvents migration is incomplete.' >&2
+            exit 1
+          fi
+          echo 'No ProtocolLib compatibility references remain in Intave runtime source.'
+
+      - name: Reject embedded ProtocolLib compatibility namespace
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -d src/main/java/com/comphenix ]]; then
+            mapfile -t files < <(find src/main/java/com/comphenix -type f | sort)
+            echo "Embedded compatibility files: ${#files[@]}"
+            printf '%s\n' "${files[@]}"
+            echo 'Embedded ProtocolLib compatibility namespace still exists.' >&2
+            exit 1
+          fi
+          echo 'No embedded ProtocolLib compatibility namespace.'

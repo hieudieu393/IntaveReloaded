@@ -1,21 +1,17 @@
 package de.jpx3.intave.adapter;
 
-import com.comphenix.protocol.ProtocolLibrary;
+import com.github.retrooper.packetevents.PacketEvents;
 import com.google.common.collect.Lists;
 import de.jpx3.intave.IntaveLogger;
 import de.jpx3.intave.adapter.viaversion.*;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 
 import java.util.List;
 
-/**
- * Created by Jpx3 on 27.07.2018.
- */
-
+/** Created by Jpx3 on 27.07.2018. */
 public final class ViaVersionAdapter {
   private static final List<ViaVersionAccess> available = Lists.newArrayList();
 
@@ -31,9 +27,7 @@ public final class ViaVersionAdapter {
   public static void setup() {
     PluginManager pluginManager = Bukkit.getServer().getPluginManager();
     Plugin viaVersion = pluginManager.getPlugin("ViaVersion");
-    if (viaVersion == null) {
-      return;
-    }
+    if (viaVersion == null) return;
     String version = viaVersion.getDescription().getVersion();
     ViaVersionAccess found = null;
     for (ViaVersionAccess viaVersionAccess : available) {
@@ -54,9 +48,7 @@ public final class ViaVersionAdapter {
   }
 
   public static void patchConfiguration() {
-    if (foundLinkage()) {
-      access.patchConfiguration();
-    }
+    if (foundLinkage()) access.patchConfiguration();
   }
 
   public static boolean ignoreBlocking(Player player) {
@@ -64,21 +56,15 @@ public final class ViaVersionAdapter {
   }
 
   public static int protocolVersionOf(Player player) {
-    if (foundLinkage()) {
-      return access.protocolVersionOf(player);
-    } else {
-      if (player.hasMetadata("intave.testplayer.protocolversion")) {
-        return player.getMetadata("intave.testplayer.protocolversion").get(0).asInt();
-      } else {
-        return ProtocolLibrary.getProtocolManager().getProtocolVersion(player);
-      }
+    if (foundLinkage()) return access.protocolVersionOf(player);
+    if (player.hasMetadata("intave.testplayer.protocolversion")) {
+      return player.getMetadata("intave.testplayer.protocolversion").get(0).asInt();
     }
+    return PacketEvents.getAPI().getPlayerManager().getClientVersion(player).getProtocolVersion();
   }
 
   public static void decrementReceivedPackets(Player player, int amount) {
-    if (foundLinkage()) {
-      access.decrementReceivedPackets(player, amount);
-    }
+    if (foundLinkage()) access.decrementReceivedPackets(player, amount);
   }
 
   public static boolean foundLinkage() {

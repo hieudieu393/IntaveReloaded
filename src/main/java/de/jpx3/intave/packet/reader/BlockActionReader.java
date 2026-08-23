@@ -11,25 +11,39 @@
 
 package de.jpx3.intave.packet.reader;
 
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockAction;
 import de.jpx3.intave.share.BlockPosition;
 import org.bukkit.Material;
 
-import static de.jpx3.intave.share.BlockPosition.*;
-
 public final class BlockActionReader extends AbstractPacketReader {
+  private WrapperPlayServerBlockAction wrapper;
+
+  @Override
+  protected void read() {
+    wrapper = new WrapperPlayServerBlockAction(sendEvent());
+  }
+
   public BlockPosition blockPosition() {
-    return fromProtocolLib(packet().getBlockPositionModifier().read(0));
+    return BlockPosition.fromPacketEvents(wrapper.getBlockPosition());
   }
 
   public Material blockType() {
-    return packet().getBlocks().read(0);
+    String name = wrapper.getBlockType().getType().getName();
+    int separator = name.indexOf(':');
+    return Material.matchMaterial((separator < 0 ? name : name.substring(separator + 1)).toUpperCase(java.util.Locale.ROOT));
   }
 
   public int action() {
-    return packet().getIntegers().read(0);
+    return wrapper.getActionId();
   }
 
   public int data() {
-    return packet().getIntegers().read(1);
+    return wrapper.getActionData();
+  }
+
+  @Override
+  public void release() {
+    wrapper = null;
+    super.release();
   }
 }

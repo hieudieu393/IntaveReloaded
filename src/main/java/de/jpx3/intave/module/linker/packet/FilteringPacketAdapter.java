@@ -1,152 +1,116 @@
 package de.jpx3.intave.module.linker.packet;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import de.jpx3.intave.IntaveLogger;
-import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.access.UnsupportedFallbackOperationException;
 import de.jpx3.intave.diagnostic.timings.Timing;
 import de.jpx3.intave.diagnostic.timings.Timings;
 import de.jpx3.intave.module.linker.SubscriptionInstanceProvider;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.UserRepository;
+import org.bukkit.entity.Player;
 
-import java.util.Arrays;
-import java.util.Locale;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class FilteringPacketAdapter extends WeakReferencePacketAdapter implements Comparable<FilteringPacketAdapter> {
-  private static final boolean TEMP_PLAYER_CHECK;
-
-  static {
-    TEMP_PLAYER_CHECK = Arrays.stream(PacketEvent.class.getMethods())
-      .anyMatch(method -> method.getName().equalsIgnoreCase("isPlayerTemporary"));
-  }
-
+/** Native PacketEvents subscription handler used by the forwarding listeners. */
+final class FilteringPacketAdapter implements Comparable<FilteringPacketAdapter> {
   private final String methodName;
   private final ListenerPriority priority;
   private final SubscriptionInstanceProvider<User, ?, PacketEventSubscriber> subscriber;
   private final PacketSubscriptionMethodExecutor executor;
-  private final Map<PacketType, Timing> localTimings = new ConcurrentHashMap<>();
+  private final Set<PacketTypeCommon> packetTypes;
+  private final Map<PacketTypeCommon, Timing> localTimings = new ConcurrentHashMap<>();
   private final boolean ignoreCancelled;
 
-  public FilteringPacketAdapter(
-    IntavePlugin plugin,
+  FilteringPacketAdapter(
     SubscriptionInstanceProvider<User, ?, PacketEventSubscriber> subscriber,
-    ListenerPriority priority, PacketType[] packetTypes,
-    String methodName, PacketSubscriptionMethodExecutor executor,
+    ListenerPriority priority,
+    PacketTypeCommon[] packetTypes,
+    String methodName,
+    PacketSubscriptionMethodExecutor executor,
     boolean ignoreCancelled
   ) {
-    super(plugin, priority.toProtocolLibPriority(), packetTypes, ALLOW_ASYNC_SENDING);
     this.subscriber = subscriber;
-    this.methodName = methodName;
     this.priority = priority;
+    this.methodName = methodName;
     this.executor = executor;
     this.ignoreCancelled = ignoreCancelled;
+    Set<PacketTypeCommon> identityTypes = Collections.newSetFromMap(new IdentityHashMap<>());
+    Collections.addAll(identityTypes, packetTypes);
+    this.packetTypes = Collections.unmodifiableSet(identityTypes);
   }
 
-  @Override
-  public void onPacketReceiving(PacketEvent event) {
-    if (!validateEvent(event)) {
+  boolean accepts(PacketTypeCommon packetType) {
+    return packetTypes.contains(packetType);
+  }
+
+  void invoke(ProtocolPacketEvent event) {
+    if (!accepts(event.getPacketType()) || !validateEvent(event)) {
       return;
     }
-    Timing timing = localTimings.computeIfAbsent(event.getPacketType(), Timings::packetTimingOf);
+
+    PacketTypeCommon packetType = event.getPacketType();
+    Timing timing = localTimings.computeIfAbsent(packetType, Timings::packetTimingOf);
     try {
       Timings.EXE_NETTY.start();
       timing.start();
-      User user = UserRepository.userOf(event.getPlayer());
-      if (user.shouldIgnoreNextInboundPacket()) {
+      Player player = event.getPlayer();
+      User user = UserRepository.userOf(player);
+      boolean outbound = packetType.getSide() == com.github.retrooper.packetevents.protocol.PacketSide.SERVER;
+      if (outbound ? user.shouldIgnoreNextOutboundPacket() : user.shouldIgnoreNextInboundPacket()) {
         return;
       }
-      try {
-        subscriber.apply(user, usr -> executor.invoke(usr, event));
-      } catch (Throwable t) {
-        t.printStackTrace();
-      }
+      subscriber.apply(user, usr -> executor.invoke(usr, event));
     } catch (UnsupportedFallbackOperationException ignored) {
-      // ignored
+      // Some subscriptions intentionally have no fallback for temporary connection states.
     } catch (RuntimeException exception) {
-      processException(event.getPacketType(), exception);
+      processFailure(event, exception);
     } catch (Error error) {
-      processError(event.getPacketType(), error);
+      processFailure(event, error);
+      throw error;
     } finally {
       timing.stop();
       Timings.EXE_NETTY.stop();
     }
   }
 
-  @Override
-  public void onPacketSending(PacketEvent event) {
-    if (!validateEvent(event)) {
-      return;
+  private boolean validateEvent(ProtocolPacketEvent event) {
+    Player player = event.getPlayer();
+    if (player == null) {
+      return false;
     }
-    try {
-      User user = UserRepository.userOf(event.getPlayer());
-      if (user.shouldIgnoreNextOutboundPacket()) {
-        return;
-      }
-      subscriber.apply(user, usr -> executor.invoke(usr, event));
-    } catch (UnsupportedFallbackOperationException ignored) {
-      // ignored
-    } catch (RuntimeException exception) {
-      exception.getStackTrace();
-      processException(event.getPacketType(), exception);
-    } catch (Error error) {
-      processError(event.getPacketType(), error);
+    if (!ignoreCancelled && event.isCancelled()) {
+      return false;
     }
+    return UserRepository.hasUser(player) || event.getPacketType() == PacketType.Play.Server.JOIN_GAME;
   }
 
-  private boolean validateEvent(PacketEvent event) {
-    if (TEMP_PLAYER_CHECK) {
-      // perform temporary check
-      if (event.isPlayerTemporary()) {
-        return false;
-      }
-    }
-    return event.getPlayer() != null && (ignoreCancelled || !event.isCancelled())
-        && (UserRepository.hasUser(event.getPlayer()) || event.getPacketType() == PacketType.Play.Server.LOGIN);
-  }
-
-  public PacketEventSubscriber subscriber() {
+  PacketEventSubscriber subscriber() {
     return subscriber.fallback();
   }
 
-  public ListenerPriority priority() {
+  ListenerPriority priority() {
     return priority;
   }
 
   @Override
   public int compareTo(FilteringPacketAdapter other) {
-    return Integer.compare(priority().slot(), other.priority().slot());
+    return Integer.compare(priority.slot(), other.priority.slot());
   }
 
-  private void processException(PacketType packetType, RuntimeException exception) {
-    String simpleName = exception.getClass().getSimpleName();
-    IntaveLogger.logger().printLine("[Intave] " + resolveIndefArticle(simpleName) + " " + simpleName + " occurred while processing a " + packetType.name() + " packet (" + subscriber.getClass().getSimpleName() + "." + methodName + ")");
-    exception.printStackTrace();
-  }
-
-  private void processError(PacketType packetType, Error error) {
-    String simpleName = error.getClass().getSimpleName();
-    IntaveLogger.logger().printLine("[Intave] " + resolveIndefArticle(simpleName) + " " + simpleName + " occurred while processing a " + packetType.name() + " packet (" + subscriber.getClass().getSimpleName() + "." + methodName + ")");
-    error.printStackTrace();
-  }
-
-  private static final char[] vocals = "AEIOU".toCharArray();
-
-  private String resolveIndefArticle(String exceptionName) {
-    if (exceptionName.isEmpty()) {
-      return "";
-    }
-    char c = exceptionName.toUpperCase(Locale.ROOT).toCharArray()[0];
-    boolean isVocal = false;
-    for (char vocal : vocals) {
-      if (vocal == c) {
-        isVocal = true;
-        break;
-      }
-    }
-    return isVocal ? "An" : "A";
+  private void processFailure(ProtocolPacketEvent event, Throwable throwable) {
+    PacketTypeCommon packetType = event.getPacketType();
+    String packetName = packetType == null ? "unknown" : String.valueOf(packetType);
+    IntaveLogger.logger().error(
+      "PacketEvents callback failed for " + packetName + " in "
+        + subscriber.getClass().getSimpleName() + "." + methodName + ": "
+        + throwable.getClass().getSimpleName() + ": " + String.valueOf(throwable.getMessage())
+    );
   }
 }

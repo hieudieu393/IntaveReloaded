@@ -1,7 +1,7 @@
 package de.jpx3.intave.check.combat.heuristics.modern;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.module.tracker.entity.Entity;
@@ -38,8 +38,8 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
   }
 
   @PacketSubscription(priority = HIGH, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
-  public void attack(PacketEvent event) {
-    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
+  public void attack(ProtocolPacketEvent event) {
+    EntityUseReader reader = PacketReaders.readerOf(event);
     try {
       if (!reader.isAttackPacket()) return;
 
@@ -74,9 +74,9 @@ public final class CombatBehaviorHeuristic extends ModernCombatHeuristic<CombatB
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void tick(PacketEvent event) {
+  public void tick(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
     boolean endTick = PacketTypes.isClientEndTick(type);
     if (user.meta().protocol().sendsClientTickEnd()) {
       if (!endTick) return;

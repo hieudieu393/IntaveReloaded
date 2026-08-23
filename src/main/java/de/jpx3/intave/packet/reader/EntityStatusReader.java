@@ -11,17 +11,32 @@
 
 package de.jpx3.intave.packet.reader;
 
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityStatus;
 import de.jpx3.intave.annotate.Nullable;
 
 public final class EntityStatusReader extends EntityReader {
   private static final byte ITEM_USE_FINISHED = 9;
+  private Byte status;
+
+  @Override
+  protected void read() {
+    WrapperPlayServerEntityStatus wrapper = new WrapperPlayServerEntityStatus(sendEvent());
+    entityId(wrapper.getEntityId());
+    status = (byte) wrapper.getStatus();
+  }
 
   public @Nullable Byte status() {
-    return packet().getBytes().readSafely(0);
+    return status;
   }
 
   public boolean indicatesItemUseFinished() {
     Byte status = status();
     return status != null && status == ITEM_USE_FINISHED;
+  }
+
+  @Override
+  public void release() {
+    status = null;
+    super.release();
   }
 }

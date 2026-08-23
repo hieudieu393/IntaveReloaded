@@ -1,8 +1,8 @@
 package de.jpx3.intave.check.world.breakspeedlimiter;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
 import de.jpx3.intave.module.Modules;
@@ -24,17 +24,17 @@ public final class NoSwingBreakCheck extends MetaCheckPart<BreakSpeedLimiter, No
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = ARM_ANIMATION, ignoreCancelled = false)
-  public void animation(PacketEvent event) {
+  public void animation(ProtocolPacketEvent event) {
     metaOf(userOf(event.getPlayer())).sentAnimation = true;
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
-  public void dig(PacketEvent event) {
-    BlockDigReader reader = PacketReaders.readerOf(event.getPacket());
+  public void dig(ProtocolPacketEvent event) {
+    BlockDigReader reader = PacketReaders.readerOf(event);
     try {
-      EnumWrappers.PlayerDigType action = reader.action();
-      if (action == EnumWrappers.PlayerDigType.START_DESTROY_BLOCK
-        || action == EnumWrappers.PlayerDigType.STOP_DESTROY_BLOCK) {
+      DiggingAction action = reader.action();
+      if (action == DiggingAction.START_DIGGING
+        || action == DiggingAction.FINISHED_DIGGING) {
         metaOf(userOf(event.getPlayer())).sentBreak = true;
       }
     } finally {
@@ -47,9 +47,9 @@ public final class NoSwingBreakCheck extends MetaCheckPart<BreakSpeedLimiter, No
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void tick(PacketEvent event) {
+  public void tick(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
     boolean modernBoundary = user.meta().protocol().sendsClientTickEnd();
     boolean boundary = modernBoundary ? PacketTypes.isClientEndTick(type) : !PacketTypes.isClientEndTick(type);
     if (!boundary) {

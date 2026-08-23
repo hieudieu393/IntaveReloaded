@@ -1,6 +1,6 @@
 package de.jpx3.intave.player.fake.equipment;
 
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
 
 public enum ArmorSlot {
   HELMET(EnumWrappers.ItemSlot.HEAD, 4),

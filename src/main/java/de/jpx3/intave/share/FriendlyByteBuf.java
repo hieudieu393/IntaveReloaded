@@ -20,7 +20,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 
-import static com.comphenix.protocol.utility.MinecraftReflection.getPacketDataSerializerClass;
+import static de.jpx3.intave.packet.nativeapi.utility.MinecraftReflection.getPacketDataSerializerClass;
 
 public final class FriendlyByteBuf {
   public static ByteBuf from256Unpooled() {

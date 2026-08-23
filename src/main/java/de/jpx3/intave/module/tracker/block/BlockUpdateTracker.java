@@ -11,12 +11,14 @@
 
 package de.jpx3.intave.module.tracker.block;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.BlockPosition;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import com.comphenix.protocol.wrappers.WrappedBlockData;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import de.jpx3.intave.share.BlockPosition;
+import de.jpx3.intave.packet.nativeapi.wrappers.EnumWrappers;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedBlockData;
 import de.jpx3.intave.block.cache.BlockCache;
 import de.jpx3.intave.block.variant.BlockVariantNativeAccess;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
@@ -34,14 +36,14 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
+import com.github.retrooper.packetevents.event.CancellableEvent;
 import org.bukkit.util.NumberConversions;
 import org.bukkit.util.Vector;
 
 import java.util.Collection;
 import java.util.List;
 
-import static com.comphenix.protocol.wrappers.EnumWrappers.PlayerDigType.*;
+import static com.github.retrooper.packetevents.protocol.player.DiggingAction.*;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.NEARBY_COLLISION_INACCURACY;
 import static de.jpx3.intave.module.feedback.FeedbackOptions.*;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.*;
@@ -101,16 +103,16 @@ public final class BlockUpdateTracker extends Module {
     }
   )
   public void checkInteractionTarget(
-    User user, PacketContainer packet,
-    BlockPositionReader reader, Cancellable cancellable
+    User user, NativePacket packet,
+    BlockPositionReader reader, CancellableEvent cancellable
   ) {
-    PacketType packetType = packet.getType();
+    PacketTypeCommon packetType = packet.packetType();
     boolean check = true;
 
-    if (packetType == PacketType.Play.Client.BLOCK_DIG) {
-      EnumWrappers.PlayerDigType playerDigType = packet.getPlayerDigTypes().read(0);
-      check = playerDigType == START_DESTROY_BLOCK || playerDigType == STOP_DESTROY_BLOCK || playerDigType == ABORT_DESTROY_BLOCK;
-    } else if (packetType == PacketType.Play.Client.BLOCK_PLACE) {
+    if (packetType == PacketType.Play.Client.PLAYER_DIGGING) {
+      DiggingAction playerDigType = packet.getPlayerDigTypes().read(0);
+      check = playerDigType == START_DIGGING || playerDigType == FINISHED_DIGGING || playerDigType == CANCELLED_DIGGING;
+    } else if (packetType == PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT) {
       BlockPosition blockPosition = reader.blockPosition();
       if (blockPosition == null) {
         return;
@@ -140,17 +142,17 @@ public final class BlockUpdateTracker extends Module {
       BLOCK_BREAK, BLOCK_CHANGE, MULTI_BLOCK_CHANGE
     }
   )
-  public void sentBlockUpdate(PacketEvent event) {
+  public void sentBlockUpdate(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     boolean speculativeBlocks = user.meta().protocol().clientSpeculativeBlocks();
     PendingCountingFeedbackObserver pendingBlockUpdates = user.meta().connection().pendingBlockUpdates;
 
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
 
     BlockChanges changes = PacketReaders.readerOf(packet);
     List<BlockPosition> blockPositions = changes.blockPositions();
-    List<WrappedBlockData> blockDataList = changes.blockDataList();
+    List<com.github.retrooper.packetevents.protocol.world.states.WrappedBlockState> blockDataList = changes.blockDataList();
     changes.release();
 
     World world = player.getWorld();
@@ -159,7 +161,7 @@ public final class BlockUpdateTracker extends Module {
       Location verifiedLocation = user.meta().movement().verifiedLocation();
       for (int i = 0; i < blockPositions.size(); i++) {
         BlockPosition blockPosition = blockPositions.get(i);
-        WrappedBlockData blockData = blockDataList.get(i);
+        WrappedBlockData blockData = WrappedBlockData.fromHandle(blockDataList.get(i));
         if (distance(verifiedLocation, blockPosition) < 2) {
           user.meta().movement().activeTick(NEARBY_COLLISION_INACCURACY);
         }
@@ -192,10 +194,10 @@ public final class BlockUpdateTracker extends Module {
       BLOCK_CHANGED_ACK
     }
   )
-  public void blockChangedAck(PacketEvent event) {
+  public void blockChangedAck(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    int sequenceNumber = event.getPacket().getIntegers().read(0);
+    int sequenceNumber = NativePacket.fromEvent(event).getIntegers().read(0);
     user.packetTickFeedback(event, () ->
       user.blockCache().moveClientSpeculationsToOverride(player.getWorld(), sequenceNumber)
     );

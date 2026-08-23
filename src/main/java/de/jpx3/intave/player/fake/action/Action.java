@@ -1,8 +1,8 @@
 package de.jpx3.intave.player.fake.action;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketContainer;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import de.jpx3.intave.executor.Synchronizer;
 import de.jpx3.intave.packet.PacketSender;
 import de.jpx3.intave.player.fake.FakePlayer;
@@ -37,11 +37,11 @@ public abstract class Action {
   public void performMissed() {
   }
 
-  protected PacketContainer create(PacketType packetType) {
-    return ProtocolLibrary.getProtocolManager().createPacket(packetType);
+  protected NativePacket create(PacketTypeCommon packetType) {
+    return PacketRuntime.getPacketRuntimeManager().createPacket(packetType);
   }
 
-  protected void send(PacketContainer packet) {
+  protected void send(NativePacket packet) {
     PacketSender.sendServerPacket(observer, packet);
   }
 }

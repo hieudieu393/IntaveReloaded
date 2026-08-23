@@ -1,12 +1,13 @@
 package de.jpx3.intave.packet;
 
-import com.comphenix.protocol.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 
 public class PacketTypes {
-  private final static PacketType cteType;
+  private final static PacketTypeCommon cteType;
 
   static {
-    PacketType clientTickEndType;
+    PacketTypeCommon clientTickEndType;
     try {
       clientTickEndType = PacketType.Play.Client.CLIENT_TICK_END;
     } catch (NoSuchFieldError error) {
@@ -15,7 +16,7 @@ public class PacketTypes {
     cteType = clientTickEndType;
   }
 
-  public static boolean isClientEndTick(PacketType type) {
+  public static boolean isClientEndTick(PacketTypeCommon type) {
     return type != null && type.equals(cteType);
   }
 }

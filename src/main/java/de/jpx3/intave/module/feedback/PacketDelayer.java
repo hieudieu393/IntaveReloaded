@@ -1,9 +1,10 @@
 package de.jpx3.intave.module.feedback;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.movement.Timer;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.diagnostic.LatencyStudy;
@@ -46,14 +47,14 @@ public final class PacketDelayer extends Module {
 //      USE_ENTITY
 //    }
 //  )
-//  public void microLagDelayAttack(PacketEvent event) {
+//  public void microLagDelayAttack(ProtocolPacketEvent event) {
 //    Player player = event.getPlayer();
 //    User user = UserRepository.userOf(player);
 //    ConnectionMetadata connection = user.meta().connection();
 //    MovementMetadata movement = user.meta().movement();
 //
-//    PacketContainer packetContainer = event.getPacket();
-//    PacketType packetType = event.getPacketType();
+//    NativePacket packetContainer = NativePacket.fromEvent(event);
+//    PacketTypeCommon packetType = event.getPacketType();
 //
 //    if (user.justJoined() || !(microLag) || user.trustFactor().atLeast(TrustFactor.YELLOW)) {
 //      return;
@@ -103,7 +104,7 @@ public final class PacketDelayer extends Module {
       PLAYER_INFO_REMOVE
     }
   )
-  public void enqueueOutgoingPackets(PacketEvent event) {
+  public void enqueueOutgoingPackets(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
     MetadataBundle meta = user.meta();
@@ -111,21 +112,21 @@ public final class PacketDelayer extends Module {
     ProtocolMetadata protocol = meta.protocol();
     SimulationEnvironment movement = meta.movement();
 
-    PacketContainer packetContainer = event.getPacket();
-    PacketType packetType = event.getPacketType();
+    NativePacket packetContainer = NativePacket.fromEvent(event);
+    PacketTypeCommon packetType = event.getPacketType();
 
-//    if (event.getPacketType() == PacketType.Play.Server.PLAYER_INFO) {
+//    if (event.getPacketType() == PacketType.Play.Server.PLAYER_INFO_UPDATE) {
 ////      connection.lastRespawn = System.currentTimeMillis();
-//      System.out.println("Player info packet for " + event.getPacket().getPlayerInfoDataLists().read(0));
+//      System.out.println("Player info packet for " + NativePacket.fromEvent(event).getPlayerInfoDataLists().read(0));
 //      Thread.dumpStack();
 //    }
 
-//    if (event.getPacketType() == PacketType.Play.Server.PLAYER_INFO_REMOVE) {
-//      System.out.println("Player info remove packet for " + event.getPacket().getEntityModifier(player.getWorld()).read(0).getUniqueId());
+//    if (event.getPacketType() == PacketType.Play.Server.PLAYER_INFO_UPDATE_REMOVE) {
+//      System.out.println("Player info remove packet for " + NativePacket.fromEvent(event).getEntityModifier(player.getWorld()).read(0).getUniqueId());
 //    }
 
     // spawn player
-//    if (packetType == PacketType.Play.Server.NAMED_ENTITY_SPAWN) {
+//    if (packetType == PacketType.Play.Server.SPAWN_PLAYER) {
 //      System.out.println("Named entity spawn packet for " + packetContainer.getUUIDs().read(0));
 //      Thread.dumpStack();
 //    }
@@ -155,7 +156,7 @@ public final class PacketDelayer extends Module {
     long positionBlockTolerance = connection.transactionPingAverage() + LatencyStudy.pingAverage() / 2 + lagTolerance + positionTimeoutTolerance;
     boolean positionTimeout = !activeExclude && lastMovementPacket > positionBlockTolerance;
 
-    boolean idAddressed = packetType == PacketType.Play.Server.ANIMATION ||
+    boolean idAddressed = packetType == PacketType.Play.Server.ENTITY_ANIMATION ||
       packetType == PacketType.Play.Server.ENTITY_STATUS ||
       packetType == PacketType.Play.Server.ENTITY_METADATA ||
       packetType == PacketType.Play.Server.ENTITY_TELEPORT ||
@@ -274,7 +275,7 @@ public final class PacketDelayer extends Module {
     if (packet == null) {
       return;
     }
-    ProtocolLibrary.getProtocolManager().sendServerPacket(player, PacketContainer.fromPacket(packet), true);
+    PacketRuntime.getPacketRuntimeManager().sendServerPacket(player, NativePacket.fromPacket(packet), true);
   }
 
   private long oldestPendingTransaction(User user) {

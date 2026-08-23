@@ -11,10 +11,11 @@
 
 package de.jpx3.intave.check.world.placementanalysis;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.BlockPosition;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import de.jpx3.intave.share.BlockPosition;
 import de.jpx3.intave.block.access.BlockInteractionAccess;
 import de.jpx3.intave.block.access.VolatileBlockAccess;
 import de.jpx3.intave.check.PlayerCheckPart;
@@ -36,7 +37,7 @@ import de.jpx3.intave.user.meta.MovementMetadata;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
+import com.github.retrooper.packetevents.event.CancellableEvent;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -68,7 +69,7 @@ public class RotationFlick extends PlayerCheckPart<PlacementAnalysis> {
 		}
 	)
 	public void receivePlacementPacket(
-		Player player, PacketContainer packet, BlockInteractionReader reader, Cancellable cancellable
+		Player player, NativePacket packet, BlockInteractionReader reader, CancellableEvent cancellable
 	) {
 		User user = userOf(player);
 		MovementMetadata movement = user.meta().movement();
@@ -211,7 +212,7 @@ public class RotationFlick extends PlayerCheckPart<PlacementAnalysis> {
 			POSITION_LOOK, LOOK, POSITION, FLYING
 		}
 	)
-	public void on(PacketEvent event) {
+	public void on(ProtocolPacketEvent event) {
 		Player player = event.getPlayer();
 		User user = userOf(player);
 		MovementMetadata movementData = user.meta().movement();
@@ -228,7 +229,7 @@ public class RotationFlick extends PlayerCheckPart<PlacementAnalysis> {
 			return;
 		}
 //    player.sendMessage(ChatColor.GRAY + "" + movementData.rotationYaw + " " + (movementData.rotationYaw % 45));
-		if (event.getPacketType() == PacketType.Play.Client.POSITION || event.getPacketType() == PacketType.Play.Client.FLYING) {
+		if (event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION || event.getPacketType() == PacketType.Play.Client.PLAYER_FLYING) {
 			return;
 		}
 //    player.sendMessage(ChatColor.GRAY + "Rotation to " + movementData.rotationPitch + " " + MathHelper.formatDouble(rotationHistogram.mean(), 2) +  " " + MathHelper.formatDouble(rotationHistogram.variance(), 2));

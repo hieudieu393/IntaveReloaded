@@ -1,7 +1,6 @@
 package de.jpx3.intave.module.patcher;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.diagnostic.PacketSynchronizations;
 import de.jpx3.intave.executor.Synchronizer;
 import de.jpx3.intave.module.Module;
@@ -25,12 +24,12 @@ public final class PacketResynchronizer extends Module {
       REMOVE_ENTITY_EFFECT, RESPAWN, SPAWN_ENTITY, SPAWN_ENTITY_LIVING, /*WINDOW_ITEMS,*/ WORLD_BORDER
     }
   )
-  public void catchDesynchronized(PacketEvent event) {
+  public void catchDesynchronized(ProtocolPacketEvent event) {
     if (isInInvalidThread()) {
       event.setCancelled(true);
       Player player = event.getPlayer();
-      PacketContainer packet = event.getPacket();
-      Synchronizer.synchronize(() -> sendPacket(player, packet));
+      Object packetBuffer = event.getFullBufferClone();
+      Synchronizer.synchronize(() -> sendPacket(player, packetBuffer));
       PacketSynchronizations.enterResynchronization(event.getPacketType());
     }
   }
@@ -41,7 +40,7 @@ public final class PacketResynchronizer extends Module {
     return cache.computeIfAbsent(Thread.currentThread().getName(), s -> s.startsWith("Netty "));
   }
 
-  private void sendPacket(Player player, PacketContainer packet) {
-    PacketSender.sendServerPacket(player, packet);
+  private void sendPacket(Player player, Object packetBuffer) {
+    PacketSender.sendServerPacket(player, packetBuffer);
   }
 }

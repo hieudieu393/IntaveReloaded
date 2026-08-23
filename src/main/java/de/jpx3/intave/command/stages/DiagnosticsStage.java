@@ -11,12 +11,17 @@
 
 package de.jpx3.intave.command.stages;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketAdapter;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.injector.PacketFilterManager;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
+import de.jpx3.intave.packet.nativeapi.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.PacketRuntimeManager;
+import de.jpx3.intave.packet.nativeapi.events.PacketAdapter;
+import de.jpx3.intave.packet.nativeapi.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import de.jpx3.intave.packet.nativeapi.injector.PacketFilterManager;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import de.jpx3.intave.IntavePlugin;
@@ -132,9 +137,9 @@ public final class DiagnosticsStage extends CommandStage {
     }
     String intaveVersion = IntavePlugin.fullVersion();
     String serverVersion = Bukkit.getName() + "@" + Bukkit.getVersion();
-    String packetEventsVersion = ProtocolLibrary.getPlugin().getDescription().getVersion();
+    String packetEventsVersion = PacketRuntime.getPlugin().getDescription().getVersion();
     sender.sendMessage(ChatColor.GRAY + "Spigot is " + ChatColor.WHITE + serverVersion);
-    sender.sendMessage(ChatColor.GRAY + "PacketEvents is " + ChatColor.WHITE + packetEventsVersion);
+    sender.sendMessage(ChatColor.GRAY + "ProtocolPacketEvents is " + ChatColor.WHITE + packetEventsVersion);
     sender.sendMessage(ChatColor.GRAY + "Intave is " + ChatColor.WHITE + intaveVersion);
 
     TextComponent message = new TextComponent("[Copy report message to chat]");
@@ -358,7 +363,7 @@ public final class DiagnosticsStage extends CommandStage {
   public void attackTraceCommand(User user) {
     try {
       Player player = user.player();
-      ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
+      PacketRuntimeManager protocolManager = PacketRuntime.getPacketRuntimeManager();
       PacketFilterManager packetFilterManager = (PacketFilterManager) protocolManager;
       Field inboundListeners = null;
       try {
@@ -374,12 +379,12 @@ public final class DiagnosticsStage extends CommandStage {
 //        throw new RuntimeException(e);
 //      }
 //
-//      PacketContainer packet = new PacketContainer(PacketType.Play.Client.USE_ENTITY);
+//      NativePacket packet = new NativePacket(PacketType.Play.Client.INTERACT_ENTITY);
 //      packet.getIntegers().write(0, 0);
-//      packet.getEntityUseActions().write(0, EnumWrappers.EntityUseAction.ATTACK);
+//      packet.getEntityUseActions().write(0, WrapperPlayClientInteractEntity.InteractAction.ATTACK);
 //
-//      PacketEvent event = PacketEvent.fromClient(packet.getHandle(), packet, player);
-//      Collection<PrioritizedListener<PacketListener>> listeners = sortedPacketListenerList.getListener(PacketType.Play.Client.USE_ENTITY);
+//      ProtocolPacketEvent event = ProtocolPacketEvent.fromClient(packet.getHandle(), packet, player);
+//      Collection<PrioritizedListener<PacketListener>> listeners = sortedPacketListenerList.getListener(PacketType.Play.Client.INTERACT_ENTITY);
 //      if (listeners != null) {
 //        for (PrioritizedListener<PacketListener> listener : listeners) {
 //          listener.getListener().onPacketReceiving(event);
@@ -695,7 +700,7 @@ public final class DiagnosticsStage extends CommandStage {
       @Override
       public void onPacketSending(PacketEvent event) {
         if (System.currentTimeMillis() > timeout) {
-          ProtocolLibrary.getProtocolManager().removePacketListener(this);
+          PacketRuntime.getPacketRuntimeManager().removePacketListener(this);
           adapterMap.remove(userId);
 
           Player blayer = Bukkit.getPlayer(userId);
@@ -712,7 +717,7 @@ public final class DiagnosticsStage extends CommandStage {
       }
     };
     adapterMap.put(userId, adapter);
-    ProtocolLibrary.getProtocolManager().addPacketListener(adapter);
+    PacketRuntime.getPacketRuntimeManager().addPacketListener(adapter);
   }
 
   @SubCommand(
@@ -804,7 +809,7 @@ public final class DiagnosticsStage extends CommandStage {
       printStream.println("Static environment");
       printStream.println(" Time: " + LocalDateTime.now().format(MESSAGE_DATE_FORMATTER));
       printStream.println(" Intave: " + IntavePlugin.fullVersion());
-      printStream.println(" PacketEvents: " + Bukkit.getPluginManager().getPlugin("packetevents").getDescription().getVersion());
+      printStream.println(" ProtocolPacketEvents: " + Bukkit.getPluginManager().getPlugin("packetevents").getDescription().getVersion());
       if (Bukkit.getPluginManager().getPlugin("ViaVersion") != null) {
         printStream.println(" ViaVersion: " + Bukkit.getPluginManager().getPlugin("ViaVersion").getDescription().getVersion());
       } else {

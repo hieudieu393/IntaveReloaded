@@ -15,7 +15,7 @@ import de.jpx3.intave.access.IntaveAccess;
 import de.jpx3.intave.access.IntaveInternalException;
 import de.jpx3.intave.accessbackend.IntaveAccessService;
 import de.jpx3.intave.adapter.ComponentLoader;
-import de.jpx3.intave.adapter.ProtocolLibraryAdapter;
+import de.jpx3.intave.adapter.PacketRuntimeAdapter;
 import de.jpx3.intave.adapter.ViaVersionAdapter;
 import de.jpx3.intave.agent.AgentAccessor;
 import de.jpx3.intave.analytics.Analytics;
@@ -201,7 +201,7 @@ public final class IntavePlugin extends JavaPlugin {
       componentLoader.prepareComponents();
       componentLoader.loadComponents();
 
-      ProtocolLibraryAdapter.checkIfOutdated();
+      PacketRuntimeAdapter.checkIfOutdated();
 
       // check again, after ProtocolLibs availability is guaranteed
       logger.checkColorAvailability();

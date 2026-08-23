@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.world.placementanalysis;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.PlacementAnalysis;
 import de.jpx3.intave.module.Modules;
@@ -22,9 +22,9 @@ public final class DuplicateRotationPlace extends MetaCheckPart<PlacementAnalysi
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK}, ignoreCancelled = false)
-  public void movement(PacketEvent event) {
+  public void movement(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    PlayerMoveReader reader = PacketReaders.readerOf(event.getPacket());
+    PlayerMoveReader reader = PacketReaders.readerOf(event);
     try {
       if (!reader.hasRotation()) return;
       Meta meta = metaOf(user);
@@ -44,7 +44,7 @@ public final class DuplicateRotationPlace extends MetaCheckPart<PlacementAnalysi
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = {BLOCK_PLACE, USE_ITEM_ON}, ignoreCancelled = false)
-  public void place(PacketEvent event) {
+  public void place(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     Meta meta = metaOf(user);
     if (!meta.rotated || user.meta().movement().isInVehicle()) {

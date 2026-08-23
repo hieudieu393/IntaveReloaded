@@ -11,7 +11,7 @@
 
 package de.jpx3.intave.share;
 
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import de.jpx3.intave.codec.StreamCodec;
 import de.jpx3.intave.packet.Relative;
 import de.jpx3.intave.packet.converter.PosMoveRotConverter;
@@ -51,7 +51,7 @@ public final class PositionMoveRotation {
   }
 
   public static PositionMoveRotation firstFrom(
-    PacketContainer packet
+    NativePacket packet
   ) {
     return packet.getModifier()
       .withType(

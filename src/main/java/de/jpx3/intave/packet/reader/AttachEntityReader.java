@@ -1,14 +1,22 @@
 package de.jpx3.intave.packet.reader;
 
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerAttachEntity;
 import org.jetbrains.annotations.NotNull;
 
 public final class AttachEntityReader extends AbstractPacketReader implements EntityIterable {
+  private WrapperPlayServerAttachEntity wrapper;
+
+  @Override
+  protected void read() {
+    wrapper = new WrapperPlayServerAttachEntity(sendEvent());
+  }
+
   public int entityId() {
-    return packet().getIntegers().read(0);
+    return wrapper.getAttachedId();
   }
 
   public int vehicleId() {
-    return packet().getIntegers().read(1);
+    return wrapper.getHoldingId();
   }
 
   private int slot = 0;
@@ -16,9 +24,9 @@ public final class AttachEntityReader extends AbstractPacketReader implements En
     @Override
     public void set(Integer integer) {
       if (slot == 1) {
-        packet().getIntegers().write(0, integer);
+        wrapper.setAttachedId(integer);
       } else if (slot == 2) {
-        packet().getIntegers().write(1, integer);
+        wrapper.setHoldingId(integer);
       }
     }
 
@@ -29,7 +37,7 @@ public final class AttachEntityReader extends AbstractPacketReader implements En
 
     @Override
     public Integer next() {
-      return packet().getIntegers().read(slot++);
+      return slot++ == 0 ? entityId() : vehicleId();
     }
   };
 
@@ -37,5 +45,11 @@ public final class AttachEntityReader extends AbstractPacketReader implements En
   public @NotNull SubstitutionIterator<Integer> iterator() {
     slot = 0;
     return STATIC_ITERATOR;
+  }
+
+  @Override
+  public void release() {
+    wrapper = null;
+    super.release();
   }
 }

@@ -11,7 +11,8 @@
 
 package de.jpx3.intave.check.movement.timer;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.annotate.DispatchTarget;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.movement.Timer;
@@ -27,13 +28,13 @@ import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.CheckCustomMetadata;
 import de.jpx3.intave.user.meta.ConnectionMetadata;
 import de.jpx3.intave.user.meta.MovementMetadata;
-import org.bukkit.event.Cancellable;
+import com.github.retrooper.packetevents.event.CancellableEvent;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.comphenix.protocol.wrappers.EnumWrappers.EntityUseAction.ATTACK;
+import static com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity.InteractAction.ATTACK;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.TELEPORT;
 import static de.jpx3.intave.math.MathHelper.formatDouble;
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.ATTACK_ENTITY;
@@ -50,7 +51,7 @@ public class MicroBlink extends MetaCheckPart<Timer, MicroBlink.MicroBlinkMeta> 
     packetsIn = {ATTACK_ENTITY, USE_ENTITY}
   )
   public void receiveUseEntity(
-    User user, EntityUseReader reader, Cancellable cancellable
+    User user, EntityUseReader reader, CancellableEvent cancellable
   ) {
     if (reader.useAction() == ATTACK) {
       MicroBlinkMeta meta = metaOf(user);
@@ -73,7 +74,7 @@ public class MicroBlink extends MetaCheckPart<Timer, MicroBlink.MicroBlinkMeta> 
   }
 
   @DispatchTarget
-  public void receiveMovement(PacketEvent event) {
+  public void receiveMovement(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     MicroBlinkMeta meta = metaOf(user);
     MovementMetadata movement = user.meta().movement();

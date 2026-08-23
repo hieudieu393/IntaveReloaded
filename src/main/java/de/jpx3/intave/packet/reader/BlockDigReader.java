@@ -1,21 +1,34 @@
-/*
- * Copyright 2026 Intave
- *
- * This software is licensed under the PolyForm Perimeter License 1.0.0.
- * You may use this software for any purpose, except for providing to
- * others any product that competes with the software.
- *
- * A copy of the license is available at:
- *   https://polyformproject.org/licenses/perimeter/1.0.0/
- */
-
+/* Copyright 2026 Intave */
 package de.jpx3.intave.packet.reader;
 
-import com.comphenix.protocol.wrappers.EnumWrappers;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
 import de.jpx3.intave.annotate.Nullable;
 
 public final class BlockDigReader extends BlockPositionReader {
-  public @Nullable EnumWrappers.PlayerDigType action() {
-    return packet().getPlayerDigTypes().readSafely(0);
+  private WrapperPlayClientPlayerDigging wrapper;
+
+  @Override
+  protected void read() {
+    wrapper = new WrapperPlayClientPlayerDigging(receiveEvent());
+    blockPosition(wrapper.getBlockPosition());
+  }
+
+  public @Nullable DiggingAction action() {
+    return wrapper == null ? null : wrapper.getAction();
+  }
+
+  public int faceId() {
+    return wrapper == null ? 255 : wrapper.getBlockFaceId();
+  }
+
+  public int sequenceNumber() {
+    return wrapper == null ? 0 : wrapper.getSequence();
+  }
+
+  @Override
+  public void release() {
+    wrapper = null;
+    super.release();
   }
 }

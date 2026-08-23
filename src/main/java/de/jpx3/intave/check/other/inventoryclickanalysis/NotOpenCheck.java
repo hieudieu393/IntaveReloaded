@@ -23,7 +23,7 @@ import de.jpx3.intave.packet.reader.WindowClickReader.InventoryClickType;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.InventoryMetadata;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
+import com.github.retrooper.packetevents.event.CancellableEvent;
 
 import static de.jpx3.intave.module.linker.packet.PacketId.Client.WINDOW_CLICK;
 
@@ -42,7 +42,7 @@ public final class NotOpenCheck extends CheckPart<InventoryClickAnalysis> {
   )
   public void receiveWindowClick(
     User user, WindowClickReader reader,
-    Cancellable cancellable
+    CancellableEvent cancellable
   ) {
     Player player = user.player();
     InventoryMetadata inventory = user.meta().inventory();

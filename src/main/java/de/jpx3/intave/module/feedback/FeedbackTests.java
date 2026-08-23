@@ -1,14 +1,14 @@
 package de.jpx3.intave.module.feedback;
 
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.PacketContainer;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.PacketRuntimeManager;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.test.IntegrationTests;
 import de.jpx3.intave.test.Test;
 
-import static com.comphenix.protocol.PacketType.Play.Server.PING;
-import static com.comphenix.protocol.PacketType.Play.Server.TRANSACTION;
+import static de.jpx3.intave.packet.nativeapi.PacketType.Play.Server.PING;
+import static de.jpx3.intave.packet.nativeapi.PacketType.Play.Server.TRANSACTION;
 
 public final class FeedbackTests extends IntegrationTests {
   private static final boolean USE_PING_PONG_PACKETS = MinecraftVersions.VER1_17_0.atOrAbove();
@@ -19,8 +19,8 @@ public final class FeedbackTests extends IntegrationTests {
 
   @Test
   public void createFeedbackPacket() {
-    ProtocolManager protocol = ProtocolLibrary.getProtocolManager();
-    PacketContainer packet;
+    PacketRuntimeManager protocol = PacketRuntime.getPacketRuntimeManager();
+    NativePacket packet;
     if (USE_PING_PONG_PACKETS) {
       packet = protocol.createPacket(PING);
       packet.getIntegers().write(0, 0);

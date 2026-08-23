@@ -5,8 +5,8 @@ import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerBlockPlacement;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.PlacementAnalysis;
 import de.jpx3.intave.module.Modules;
@@ -40,9 +40,9 @@ public final class PlaceProtocolGuard extends MetaCheckPart<PlacementAnalysis, P
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
-  public void dig(PacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
-    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event.delegate());
+  public void dig(ProtocolPacketEvent event) {
+    if (!(event instanceof PacketReceiveEvent)) return;
+    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event);
     if (dig.getAction() != DiggingAction.START_DIGGING || dig.getBlockPosition() == null) {
       return;
     }
@@ -63,10 +63,10 @@ public final class PlaceProtocolGuard extends MetaCheckPart<PlacementAnalysis, P
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = {BLOCK_PLACE, USE_ITEM_ON}, ignoreCancelled = false)
-  public void place(PacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) return;
+  public void place(ProtocolPacketEvent event) {
+    if (!(event instanceof PacketReceiveEvent)) return;
     User user = userOf(event.getPlayer());
-    WrapperPlayClientPlayerBlockPlacement place = new WrapperPlayClientPlayerBlockPlacement((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientPlayerBlockPlacement place = new WrapperPlayClientPlayerBlockPlacement((PacketReceiveEvent) event);
     Vector3i pos = place.getBlockPosition();
     if (pos == null) return;
 
@@ -115,9 +115,9 @@ public final class PlaceProtocolGuard extends MetaCheckPart<PlacementAnalysis, P
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END},
     ignoreCancelled = false
   )
-  public void tick(PacketEvent event) {
+  public void tick(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
-    PacketType type = event.getPacketType();
+    PacketTypeCommon type = event.getPacketType();
     boolean modernBoundary = user.meta().protocol().sendsClientTickEnd();
     boolean boundary = modernBoundary ? PacketTypes.isClientEndTick(type) : !PacketTypes.isClientEndTick(type);
     if (!boundary) return;

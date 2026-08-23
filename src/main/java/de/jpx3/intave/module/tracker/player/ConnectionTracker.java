@@ -1,7 +1,7 @@
 package de.jpx3.intave.module.tracker.player;
 
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.IntaveControl;
 import de.jpx3.intave.IntaveLogger;
 import de.jpx3.intave.diagnostic.ConsoleOutput;
@@ -76,10 +76,10 @@ public final class ConnectionTracker extends Module {
       PacketId.Server.KEEP_ALIVE
     }
   )
-  public void processOutgoingPingPackets(PacketEvent event) {
+  public void processOutgoingPingPackets(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     long id;
     if (packet.getLongs().size() > 0) {
       id = packet.getLongs().read(0);
@@ -94,10 +94,10 @@ public final class ConnectionTracker extends Module {
       PacketId.Client.KEEP_ALIVE
     }
   )
-  public void processIncomingPingPackets(PacketEvent event) {
+  public void processIncomingPingPackets(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = UserRepository.userOf(player);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     ConnectionMetadata synchronizeData = user.meta().connection();
     Map<Long, Long> remainingPingPackets = synchronizeData.pingPackets();
     long id;

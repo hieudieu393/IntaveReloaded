@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.combat.heuristics.modern;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.combat.Heuristics;
 import de.jpx3.intave.module.linker.packet.PacketSubscription;
 import de.jpx3.intave.packet.reader.EntityUseReader;
@@ -34,8 +34,8 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
   }
 
   @PacketSubscription(priority = HIGH, packetsIn = {ATTACK_ENTITY, USE_ENTITY}, ignoreCancelled = false)
-  public void receiveAttackPacket(PacketEvent event) {
-    EntityUseReader reader = PacketReaders.readerOf(event.getPacket());
+  public void receiveAttackPacket(ProtocolPacketEvent event) {
+    EntityUseReader reader = PacketReaders.readerOf(event);
     try {
       if (!reader.isAttackPacket()) {
         return;
@@ -58,7 +58,7 @@ public final class CombatRotationHeuristic extends ModernCombatHeuristic<CombatR
   }
 
   @PacketSubscription(priority = HIGH, packetsIn = {LOOK, POSITION_LOOK})
-  public void receiveRotationPacket(PacketEvent event) {
+  public void receiveRotationPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     MovementMetadata movement = user.meta().movement();

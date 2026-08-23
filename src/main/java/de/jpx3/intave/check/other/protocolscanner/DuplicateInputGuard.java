@@ -1,6 +1,6 @@
 package de.jpx3.intave.check.other.protocolscanner;
 
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.other.ProtocolScanner;
 import de.jpx3.intave.module.Modules;
@@ -20,14 +20,14 @@ public final class DuplicateInputGuard extends MetaCheckPart<ProtocolScanner, Du
   }
 
   @PacketSubscription(packetsIn = CLIENT_TICK_END, ignoreCancelled = false)
-  public void tickEnd(PacketEvent event) {
+  public void tickEnd(ProtocolPacketEvent event) {
     Meta meta = metaOf(userOf(event.getPlayer()));
     meta.sentInput = false;
     meta.buffer = Math.max(0.0, meta.buffer - 0.05);
   }
 
   @PacketSubscription(packetsIn = PLAYER_INPUT, ignoreCancelled = false)
-  public void input(PacketEvent event) {
+  public void input(ProtocolPacketEvent event) {
     User user = userOf(event.getPlayer());
     if (user.protocolVersion() < ProtocolMetadata.VER_1_21_3) {
       return;

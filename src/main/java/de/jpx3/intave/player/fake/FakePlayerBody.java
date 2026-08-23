@@ -1,9 +1,10 @@
 package de.jpx3.intave.player.fake;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.wrappers.*;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.packet.nativeapi.PacketRuntime;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import de.jpx3.intave.packet.nativeapi.wrappers.*;
 import com.google.common.base.Preconditions;
 import de.jpx3.intave.adapter.MinecraftVersions;
 import de.jpx3.intave.block.access.VolatileBlockAccess;
@@ -71,7 +72,7 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
 
   protected void spawn(Location spawn) {
     boolean includeMetadata = !MinecraftVersions.VER1_5_0.atOrAbove();
-    PacketContainer spawnPacket = create(PacketType.Play.Server.NAMED_ENTITY_SPAWN);
+    NativePacket spawnPacket = create(PacketType.Play.Server.SPAWN_PLAYER);
     WrappedGameProfile profile = profile();
     WrappedDataWatcher dataWatcher = dataWatcher();
     spawnPacket.getModifier()
@@ -91,7 +92,7 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
     addToTabList(observer, profile, tabListName);
     send(spawnPacket);
     if (!includeMetadata) {
-      PacketContainer metadata = create(PacketType.Play.Server.ENTITY_METADATA);
+      NativePacket metadata = create(PacketType.Play.Server.ENTITY_METADATA);
       metadata.getIntegers().write(0, identifier());
       metadata.getWatchableCollectionModifier().write(0, dataWatcher.getWatchableObjects());
       send(metadata);
@@ -108,7 +109,7 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
     if (hasAttribute(attributes, IN_TABLIST)) {
       TablistMutator.removeFromTabList(observer(), profile());
     }
-    PacketContainer packet = create(PacketType.Play.Server.ENTITY_DESTROY);
+    NativePacket packet = create(PacketType.Play.Server.DESTROY_ENTITIES);
     packet.getIntegerArrays().write(0, new int[]{identifier()});
     send(packet);
   }
@@ -137,9 +138,9 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
     boolean move = safeDistance(to, from) != 0;
     boolean look = rotationChange(to, from);
 
-    PacketContainer packet = null;
+    NativePacket packet = null;
     if (move && look) {
-      packet = create(PacketType.Play.Server.REL_ENTITY_MOVE_LOOK);
+      packet = create(PacketType.Play.Server.ENTITY_RELATIVE_MOVE_AND_ROTATION);
       packet.getIntegers().write(0, identifier());
       if (POSITION_PROCESSING_1_14) {
         packet.getShorts()
@@ -166,7 +167,7 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
           .write(4, compressRotation(to.getPitch()));
       }
     } else if (move) {
-      packet = create(PacketType.Play.Server.REL_ENTITY_MOVE);
+      packet = create(PacketType.Play.Server.ENTITY_RELATIVE_MOVE);
       packet.getIntegers().write(0, identifier());
       if (POSITION_PROCESSING_1_14) {
         packet.getShorts()
@@ -185,7 +186,7 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
           .write(2, compressAxisUpdate(to.getZ(), from.getZ()));
       }
     } else if (look) {
-      packet = create(PacketType.Play.Server.ENTITY_LOOK);
+      packet = create(PacketType.Play.Server.ENTITY_ROTATION);
       packet.getIntegers().write(0, identifier());
       packet.getBytes()
         .write(0, compressRotation(to.getYaw()))
@@ -208,7 +209,7 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
   }
 
   private void rotationUpdate(float yaw) {
-    PacketContainer packet = create(PacketType.Play.Server.ENTITY_HEAD_ROTATION);
+    NativePacket packet = create(PacketType.Play.Server.ENTITY_HEAD_LOOK);
     packet.getIntegers().write(0, identifier());
     packet.getBytes().write(0, compressRotation(yaw));
     send(packet);
@@ -232,7 +233,7 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
     Preconditions.checkNotNull(to);
     float rotationYaw = to.getYaw();
     float rotationPitch = to.getPitch();
-    PacketContainer packet = create(PacketType.Play.Server.ENTITY_TELEPORT);
+    NativePacket packet = create(PacketType.Play.Server.ENTITY_TELEPORT);
     packet.getIntegers().write(0, identifier());
     pushLocationToPacket(packet, to, 0);
     packet.getBytes()
@@ -242,7 +243,7 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
     send(packet);
   }
 
-  private void pushLocationToPacket(PacketContainer packet, Location location, int offset) {
+  private void pushLocationToPacket(NativePacket packet, Location location, int offset) {
     if (POSITION_PROCESSING_1_9) {
       packet.getDoubles()
         .write(offset + 0, location.getX())
@@ -269,7 +270,7 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
   private static final int SOUND_CONVERT_FACTOR = 8;
 
   public void makeWalkingSound(Location location) {
-    PacketContainer packet = create(PacketType.Play.Server.NAMED_SOUND_EFFECT);
+    NativePacket packet = create(PacketType.Play.Server.NAMED_SOUND_EFFECT);
 
     // Set SoundCategory and SoundEffect when on 1.9 or higher
     if (MinecraftVersions.VER1_9_0.atOrAbove()) {
@@ -309,7 +310,7 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
   }
 
   public void applyDisplayName() {
-    PacketContainer scoreboardCreatePacket = create(PacketType.Play.Server.SCOREBOARD_TEAM);
+    NativePacket scoreboardCreatePacket = create(PacketType.Play.Server.TEAMS);
     String teamName = randomString();
     scoreboardCreatePacket.getStrings()
       .write(0, teamName)
@@ -319,7 +320,7 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
   }
 
   public void latencyInitialize() {
-    PacketContainer packet = create(PacketType.Play.Server.PLAYER_INFO);
+    NativePacket packet = create(PacketType.Play.Server.PLAYER_INFO_UPDATE);
     WrappedChatComponent wrappedChatComponent = WrappedChatComponent.fromText(prefix);
     PlayerInfoData playerInfoData = new PlayerInfoData(
       profile(),
@@ -335,11 +336,11 @@ public abstract class FakePlayerBody extends FakePlayerIdentity {
     send(packet);
   }
 
-  private PacketContainer create(PacketType packetType) {
-    return ProtocolLibrary.getProtocolManager().createPacket(packetType);
+  private NativePacket create(PacketTypeCommon packetType) {
+    return PacketRuntime.getPacketRuntimeManager().createPacket(packetType);
   }
 
-  private void send(PacketContainer packet) {
+  private void send(NativePacket packet) {
     if (threadEscape(() -> send(packet))) {
       return;
     }

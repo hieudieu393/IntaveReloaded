@@ -4,7 +4,7 @@ import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerDigging;
-import com.comphenix.protocol.events.PacketEvent;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
 import de.jpx3.intave.check.MetaCheckPart;
 import de.jpx3.intave.check.world.BreakSpeedLimiter;
 import de.jpx3.intave.module.Modules;
@@ -28,12 +28,12 @@ public final class AirLiquidBreakCheck extends MetaCheckPart<BreakSpeedLimiter, 
   }
 
   @PacketSubscription(priority = LOWEST, packetsIn = BLOCK_DIG, ignoreCancelled = false)
-  public void receive(PacketEvent event) {
-    if (!(event.delegate() instanceof PacketReceiveEvent)) {
+  public void receive(ProtocolPacketEvent event) {
+    if (!(event instanceof PacketReceiveEvent)) {
       return;
     }
     User user = userOf(event.getPlayer());
-    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event.delegate());
+    WrapperPlayClientPlayerDigging dig = new WrapperPlayClientPlayerDigging((PacketReceiveEvent) event);
     DiggingAction action = dig.getAction();
     if (action != DiggingAction.START_DIGGING && action != DiggingAction.FINISHED_DIGGING) {
       return;

@@ -1,6 +1,6 @@
 package de.jpx3.intave.player.fake;
 
-import com.comphenix.protocol.wrappers.WrappedGameProfile;
+import de.jpx3.intave.packet.nativeapi.wrappers.WrappedGameProfile;
 import com.google.common.collect.ImmutableList;
 import de.jpx3.intave.klass.rewrite.PatchyAutoTranslation;
 import net.minecraft.server.v1_8_R3.*;

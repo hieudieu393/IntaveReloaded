@@ -2,7 +2,7 @@ package de.jpx3.intave.reflect.access;
 
 import de.jpx3.intave.access.IntaveInternalException;
 import de.jpx3.intave.adapter.MinecraftVersions;
-import de.jpx3.intave.adapter.ProtocolLibraryAdapter;
+import de.jpx3.intave.adapter.PacketRuntimeAdapter;
 import de.jpx3.intave.klass.Lookup;
 import de.jpx3.intave.klass.rewrite.PatchyAutoTranslation;
 import net.minecraft.server.v1_8_R3.Entity;
@@ -16,7 +16,7 @@ import java.lang.reflect.Field;
 @PatchyAutoTranslation
 @Deprecated
 public final class ReflectiveEntityAccess {
-  public static final boolean REFLECTIVE_ACCESS = ProtocolLibraryAdapter.serverVersion().isAtLeast(MinecraftVersions.VER1_16_0);
+  public static final boolean REFLECTIVE_ACCESS = PacketRuntimeAdapter.serverVersion().isAtLeast(MinecraftVersions.VER1_16_0);
   private static final Field ENTITY_GROUND_FIELD = Lookup.serverField("Entity", "onGround");
 
   static {

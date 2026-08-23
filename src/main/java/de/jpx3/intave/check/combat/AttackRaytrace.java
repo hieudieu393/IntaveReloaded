@@ -11,10 +11,11 @@
 
 package de.jpx3.intave.check.combat;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.events.PacketContainer;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers.EntityUseAction;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
+import de.jpx3.intave.packet.nativeapi.events.NativePacket;
+import com.github.retrooper.packetevents.event.ProtocolPacketEvent;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity.InteractAction;
 import de.jpx3.intave.IntaveLogger;
 import de.jpx3.intave.IntavePlugin;
 import de.jpx3.intave.access.player.trust.TrustFactor;
@@ -63,7 +64,7 @@ import java.util.function.Function;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
-import static com.comphenix.protocol.wrappers.EnumWrappers.EntityUseAction.ATTACK;
+import static com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity.InteractAction.ATTACK;
 import static de.jpx3.intave.check.movement.physics.environment.MoveMetric.TELEPORT;
 import static de.jpx3.intave.math.MathHelper.formatDouble;
 import static de.jpx3.intave.module.linker.packet.ListenerPriority.LOW;
@@ -95,7 +96,7 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
     priority = LOW,
     packetsIn = {ATTACK_ENTITY, USE_ENTITY}
   )
-  public void receiveUseEntityPacket(PacketEvent event) {
+  public void receiveUseEntityPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     AttackRaytraceMeta meta = metaOf(user);
@@ -103,9 +104,9 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
     MovementMetadata movement = user.meta().movement();
     ViolationMetadata violationMeta = user.meta().violationLevel();
 
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     EntityUseReader reader = PacketReaders.readerOf(packet);
-    EntityUseAction action = reader.useAction();
+    InteractAction action = reader.useAction();
 
     // Only process attacks, interactions should not be checked
     if (action == ATTACK) {
@@ -177,9 +178,6 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
       boolean resendLater = !firstRaytraceSuccessful || !pendingPushable;
       if (resendLater) {
         // Cancel attack and redirect it
-        if (event.isReadOnly()) {
-          event.setReadOnly(false);
-        }
         event.setCancelled(true);
       }
       if (user.receives(MessageChannel.DEBUG_PACKET_HOLD)) {
@@ -195,7 +193,7 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
       }
       // Only add attack to queue if queue size is small enough
       if (pendingPushable) {
-        PacketContainer clone = packet.shallowClone();
+        NativePacket clone = packet.shallowClone();
         Attack attack = new Attack(
           clone, entityId, resendLater, entity.pendingFeedbackPackets(),
           user.meta().movement().pose()
@@ -238,11 +236,11 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
     priority = LOW,
     packetsIn = ARM_ANIMATION
   )
-  public void receiveArmAnimationPacket(PacketEvent event) {
+  public void receiveArmAnimationPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
     AttackRaytraceMeta meta = metaOf(user);
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     List<Action> pendingActions = meta.queuedActions;
 
     Action lastAction = pendingActions.isEmpty() ? null : pendingActions.get(pendingActions.size() - 1);
@@ -261,10 +259,10 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
     priority = NORMAL,
     packetsIn = {FLYING, LOOK, POSITION, POSITION_LOOK, CLIENT_TICK_END}
   )
-  public void receiveMovementPacket(PacketEvent event) {
+  public void receiveMovementPacket(ProtocolPacketEvent event) {
     Player player = event.getPlayer();
     User user = userOf(player);
-    PacketType packetType = event.getPacketType();
+    PacketTypeCommon packetType = event.getPacketType();
 
     boolean isClientTickEnd = PacketTypes.isClientEndTick(packetType);
     if (user.meta().protocol().sendsClientTickEnd() && !isClientTickEnd) {
@@ -276,7 +274,7 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
     MovementMetadata movement = user.meta().movement();
     ProtocolMetadata protocol = user.meta().protocol();
     List<Action> pendingAttacks = meta.queuedActions;
-    PacketContainer packet = event.getPacket();
+    NativePacket packet = NativePacket.fromEvent(event);
     // Clear attacks if recently teleported
     if (movement.ticksPast(TELEPORT) <= 1 || movement.awaitTeleport) {
       pendingAttacks.clear();
@@ -765,7 +763,7 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
    * @param packet The packet to redirect
    * @since 14.6.0
    */
-  private void redirectValidPacket(Player player, PacketContainer packet) {
+  private void redirectValidPacket(Player player, NativePacket packet) {
     userOf(player).ignoreNextInboundPacket();
     PacketSender.receiveClientPacketFrom(player, packet);
     userOf(player).receiveNextInboundPacketAgain();
@@ -910,14 +908,14 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
    */
   public static class Attack implements Action {
     private final boolean shouldResend;
-    private final PacketContainer packet;
+    private final NativePacket packet;
     private final int entityId;
     private final long pendingFeedbackPackets;
     private final Pose playerPose;
     private final long timestamp = System.currentTimeMillis();
 
     public Attack(
-      PacketContainer packet, int entityId,
+      NativePacket packet, int entityId,
       boolean shouldResend, long pendingFeedbackPackets,
       Pose playerPose
     ) {
@@ -928,7 +926,7 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
       this.playerPose = playerPose;
     }
 
-    public PacketContainer packet() {
+    public NativePacket packet() {
       return packet;
     }
 
@@ -955,13 +953,13 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
   }
 
   public static class ArmAnimation implements Action {
-    private final PacketContainer packet;
+    private final NativePacket packet;
 
-    public ArmAnimation(PacketContainer packet) {
+    public ArmAnimation(NativePacket packet) {
       this.packet = packet;
     }
 
-    public PacketContainer packet() {
+    public NativePacket packet() {
       return packet;
     }
 
@@ -972,7 +970,7 @@ public final class AttackRaytrace extends MetaCheck<AttackRaytrace.AttackRaytrac
   }
 
   public interface Action {
-    PacketContainer packet();
+    NativePacket packet();
     @Nullable Pose pose();
   }
 
