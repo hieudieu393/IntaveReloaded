@@ -958,6 +958,9 @@ public final class MovementDispatcher extends Module {
     Cancellable cancellable,
     PacketEvent event
   ) {
+    if (!event.isFiltered()) {
+      return;
+    }
     if (reader.entityId() == player.getEntityId()) {
       Motion motion = reader.motion();
       if (IntaveControl.DEBUG_VELOCITY_RECEIVE) {

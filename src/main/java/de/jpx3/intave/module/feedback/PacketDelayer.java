@@ -207,8 +207,11 @@ public final class PacketDelayer extends Module {
           Object packet = enqueuedPackets.pollFirst();
           if (packet == null) break;
           connection.ignorePacketEnqueue = true;
-          sendPacket(player, packet);
-          connection.ignorePacketEnqueue = false;
+          try {
+            sendPacket(player, packet);
+          } finally {
+            connection.ignorePacketEnqueue = false;
+          }
         }
         enqueuedPackets.offerLast(packetContainer.getHandle());
         event.setCancelled(true);
@@ -221,8 +224,11 @@ public final class PacketDelayer extends Module {
             break;
           }
           connection.ignorePacketEnqueue = true;
-          sendPacket(player, packet);
-          connection.ignorePacketEnqueue = false;
+          try {
+            sendPacket(player, packet);
+          } finally {
+            connection.ignorePacketEnqueue = false;
+          }
         }
       }
       if (connection.lastBufferNotification + 30000 < System.currentTimeMillis()) {
@@ -245,8 +251,11 @@ public final class PacketDelayer extends Module {
       while ((obj = delayedPackets.poll()) != null) {
         Object packet = obj.packet();
         connection.ignorePacketEnqueue = true;
-        sendPacket(player, packet);
-        connection.ignorePacketEnqueue = false;
+        try {
+          sendPacket(player, packet);
+        } finally {
+          connection.ignorePacketEnqueue = false;
+        }
       }
     }
     if (delayPackets && reverseLag) {
