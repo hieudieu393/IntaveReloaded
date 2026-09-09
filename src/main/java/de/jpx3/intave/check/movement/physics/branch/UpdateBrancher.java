@@ -17,7 +17,6 @@ import de.jpx3.intave.check.movement.physics.update.TickAmbiguousUpdate;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
@@ -26,14 +25,11 @@ public final class UpdateBrancher extends MovementSearchBrancher {
 	public void branch(MovementSearchInput input, MovementSearchBranch inputBranch, Collection<MovementSearchBranch> outputBranches) {
 		SimulationEnvironment environment = input.environment();
 
-		List<TickAmbiguousUpdate> updates = environment.possibleTickAmbiguousUpdates();
+		List<TickAmbiguousUpdate> updates = input.sortedPossibleTickAmbiguousUpdates();
 		if (updates.isEmpty()) {
 			outputBranches.add(inputBranch);
 			return;
 		}
-		// sort by sequenceKey
-		Collections.sort(updates);
-
 		// Some updates MUST happen in this tick, so we enforce them and all before to happen now
 		long lastVerifiedCompleteUpdate = Long.MIN_VALUE;
 		for (TickAmbiguousUpdate update : updates) {

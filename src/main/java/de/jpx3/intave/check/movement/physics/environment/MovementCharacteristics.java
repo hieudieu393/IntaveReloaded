@@ -55,20 +55,19 @@ public final class MovementCharacteristics {
         positionY - environment.frictionPosSubtraction(),
         positionZ
       );
+      float aiMoveSpeed = environment.aiMoveSpeed(sprinting);
       if (user.meta().protocol().supportsMovementAttributes()) {
         blockFriction = computeModifiedFriction(
-          blockFriction,
-          (float) user.meta().abilities().frictionModifier()
+          blockFriction, (float) user.meta().abilities().frictionModifier()
         );
         speed = blockFriction > 0.6F
-          ? environment.aiMoveSpeed(sprinting)
-            * (0.21600002F / (blockFriction * blockFriction * blockFriction))
-          : environment.aiMoveSpeed(sprinting);
+          ? aiMoveSpeed * (0.21600002F / (blockFriction * blockFriction * blockFriction))
+          : aiMoveSpeed;
       } else {
         float slipperiness = blockFriction * 0.91F;
         float legacyGroundAcceleration = environment.frictionMultiplier()
           / (slipperiness * slipperiness * slipperiness);
-        speed = environment.aiMoveSpeed(sprinting) * legacyGroundAcceleration;
+        speed = aiMoveSpeed * legacyGroundAcceleration;
       }
     } else {
       speed = environment.jumpMovementFactor();

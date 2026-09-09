@@ -59,7 +59,7 @@ final class KeypressBrancher extends MovementSearchBrancher {
       Input sentInput = movement.input;
       int forward = sentInput.forward();
       int strafe = sentInput.strafe();
-      if (isValidPress(input, inputBranch, forward, strafe)) {
+      if (isValidPress(user, inputBranch, forward, strafe)) {
         outputBranches.add(inputBranch.withKeypress(forward, strafe));
       } else {
         outputBranches.add(inputBranch.withKeypress(0, 0));
@@ -74,7 +74,7 @@ final class KeypressBrancher extends MovementSearchBrancher {
     if (predictedDirection >= 0) {
       int predictedForward = forwardKeyFrom(predictedDirection);
       int predictedStrafe = strafeKeyFrom(predictedDirection);
-      if (isValidPress(input, inputBranch, predictedForward, predictedStrafe)) {
+      if (isValidPress(user, inputBranch, predictedForward, predictedStrafe)) {
         outputBranches.add(inputBranch.withPredictedKeypress(predictedForward, predictedStrafe));
       }
     }
@@ -82,7 +82,7 @@ final class KeypressBrancher extends MovementSearchBrancher {
     // try the last keys
     int lastKeyForward = movement.lastKeyForward;
     int lastKeyStrafe = movement.lastKeyStrafe;
-    if (isValidPress(input, inputBranch, lastKeyForward, lastKeyStrafe)) {
+    if (isValidPress(user, inputBranch, lastKeyForward, lastKeyStrafe)) {
       outputBranches.add(inputBranch.withPredictedKeypress(lastKeyForward, lastKeyStrafe));
     }
 
@@ -90,7 +90,7 @@ final class KeypressBrancher extends MovementSearchBrancher {
     for (int[] keyPair : KEYS_USAGE_ORDERED) {
       int keyForward = keyPair[0];
       int keyStrafe = keyPair[1];
-      if (isValidPress(input, inputBranch, keyForward, keyStrafe)) {
+      if (isValidPress(user, inputBranch, keyForward, keyStrafe)) {
         outputBranches.add(inputBranch.withKeypress(keyForward, keyStrafe));
       }
     }
@@ -117,11 +117,10 @@ final class KeypressBrancher extends MovementSearchBrancher {
   }
 
   private boolean isValidPress(
-    MovementSearchInput input,
-    MovementSearchBranch parentConfig,
+    User user, MovementSearchBranch parentConfig,
     int forward, int strafe
   ) {
-    InventoryMetadata inventoryData = input.user().meta().inventory();
+    InventoryMetadata inventoryData = user.meta().inventory();
     if (inventoryData.inventoryOpen() && Math.abs(forward) + Math.abs(strafe) > 0) {
       return false;
     }

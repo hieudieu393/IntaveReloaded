@@ -15,9 +15,12 @@ import de.jpx3.intave.annotate.Nullable;
 import de.jpx3.intave.check.movement.physics.config.TraceImmutableMovementConfiguration;
 import de.jpx3.intave.check.movement.physics.environment.SimulationEnvironment;
 import de.jpx3.intave.check.movement.physics.simulator.Simulator;
+import de.jpx3.intave.check.movement.physics.update.TickAmbiguousUpdate;
 import de.jpx3.intave.user.User;
 
+import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 
@@ -28,6 +31,9 @@ public final class MovementSearchInput {
   private final boolean detectNoSlowdown;
   private final @Nullable TraceImmutableMovementConfiguration tracedAfterTickMovementConfig;
   private Map<UnaryOperator<SimulationEnvironment>, SimulationEnvironment> modifiedEnvironmentCache;
+  private @Nullable Boolean usableItemInEitherHandOrHotbar;
+  private @Nullable Boolean couldChargeCrossbow;
+  private @Nullable List<TickAmbiguousUpdate> sortedPossibleTickAmbiguousUpdates;
 
   private MovementSearchInput(User user, Simulator simulator, SimulationEnvironment environment, boolean detectNoSlowdown, TraceImmutableMovementConfiguration tracedAfterTickMovementConfig) {
     this.user = user;
@@ -74,6 +80,31 @@ public final class MovementSearchInput {
 
   boolean detectNoSlowdown() {
     return detectNoSlowdown;
+  }
+
+  List<TickAmbiguousUpdate> sortedPossibleTickAmbiguousUpdates() {
+    if (sortedPossibleTickAmbiguousUpdates == null) {
+      List<TickAmbiguousUpdate> updates = environment().possibleTickAmbiguousUpdates();
+      if (updates.size() > 1) {
+        Collections.sort(updates);
+      }
+      sortedPossibleTickAmbiguousUpdates = updates;
+    }
+    return sortedPossibleTickAmbiguousUpdates;
+  }
+
+  boolean usableItemInEitherHandOrHotbar() {
+    if (usableItemInEitherHandOrHotbar == null) {
+      usableItemInEitherHandOrHotbar = user.meta().inventory().usableItemInEitherHandOrHotbar();
+    }
+    return usableItemInEitherHandOrHotbar;
+  }
+
+  boolean couldChargeCrossbow() {
+    if (couldChargeCrossbow == null) {
+      couldChargeCrossbow = user.meta().inventory().couldChargeCrossbow();
+    }
+    return couldChargeCrossbow;
   }
 
   boolean jumpingBranchNecessary() {

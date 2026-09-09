@@ -50,7 +50,7 @@ final class UseItemBrancher extends MovementSearchBrancher {
     InventoryMetadata inventoryData = input.user().meta().inventory();
     SimulationEnvironment movementData = input.environment();
     ProtocolMetadata protocol = input.user().meta().protocol();
-    boolean hasUsableItem = inventoryData.usableItemInEitherHandOrHotbar();
+    boolean hasUsableItem = input.usableItemInEitherHandOrHotbar();
     if (!hasUsableItem) {
       return UseItemRequirement.SKIP;
     }
@@ -68,7 +68,7 @@ final class UseItemBrancher extends MovementSearchBrancher {
       skipUseItem = false;
     }
 
-    if ((requireUseItem || skipUseItem) && input.user().hasPlayer() && inventoryData.couldChargeCrossbow()) {
+    if ((requireUseItem || skipUseItem) && input.user().hasPlayer() && input.couldChargeCrossbow()) {
       requireUseItem = false;
       skipUseItem = false;
     }

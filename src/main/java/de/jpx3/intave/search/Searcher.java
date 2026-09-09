@@ -11,8 +11,9 @@
 
 package de.jpx3.intave.search;
 
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -27,8 +28,8 @@ public final class Searcher<I, T> {
 	}
 
 	private static final class ReusableCache<T> {
-		private final Set<T> alpha = new HashSet<>();
-		private final Set<T> beta = new HashSet<>();
+		private final Set<T> alpha = new ObjectOpenHashSet<>();
+		private final Set<T> beta = new ObjectOpenHashSet<>();
 	}
 
 	private final ThreadLocal<ReusableCache<T>> cachedBuffers = ThreadLocal.withInitial(ReusableCache::new);

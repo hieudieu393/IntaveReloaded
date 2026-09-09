@@ -18,8 +18,48 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 class SearcherTest {
+
+	@Test
+	void collidingConfigurationsAreDeduplicatedAndClearedBetweenSearches() {
+		record Configuration(int value) {
+			@Override
+			public int hashCode() {
+				return 1;
+			}
+		}
+		Configuration[] originals = new Configuration[64];
+		for (int i = 0; i < originals.length; i++) {
+			originals[i] = new Configuration(i);
+		}
+		Searcher<Integer, Configuration> searcher = new Searcher<>(List.of(
+			new SearchBrancher<Integer, Configuration>() {
+				@Override
+				public void branch(Integer count, Configuration configuration, Collection<Configuration> output) {
+					for (int i = 0; i < count; i++) {
+						output.add(originals[i]);
+						output.add(new Configuration(i));
+					}
+				}
+			},
+			new SearchBrancher<Integer, Configuration>() {
+				@Override
+				public void branch(Integer count, Configuration configuration, Collection<Configuration> output) {
+					output.add(configuration);
+				}
+			}
+		), _ -> originals[0]);
+
+		for (int count : new int[]{64, 3, 64}) {
+			Set<Configuration> result = searcher.searchConfigurationsFor(count);
+			assertEquals(Set.copyOf(List.of(originals).subList(0, count)), result);
+			for (Configuration configuration : result) {
+				assertSame(originals[configuration.value()], configuration);
+			}
+		}
+	}
 
 	@Test
 	public void testExample() {

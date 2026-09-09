@@ -710,13 +710,16 @@ public interface SimulationEnvironment {
   List<TickAmbiguousUpdate> allTickAmbiguousUpdates();
 
   default List<TickAmbiguousUpdate> possibleTickAmbiguousUpdates() {
-    List<TickAmbiguousUpdate> updates = new ArrayList<>();
+    List<TickAmbiguousUpdate> updates = null;
     for (TickAmbiguousUpdate update : allTickAmbiguousUpdates()) {
       if (update.possible(this)) {
+        if (updates == null) {
+          updates = new ArrayList<>();
+        }
         updates.add(update);
       }
     }
-    return updates;
+    return updates == null ? Collections.emptyList() : updates;
   }
 
   void setTreatThisFlyPacketAsMovePacket(boolean treatThisFlyPacketAsMovePacket);

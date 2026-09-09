@@ -34,7 +34,6 @@ import de.jpx3.intave.share.Motion;
 import de.jpx3.intave.share.Position;
 import de.jpx3.intave.user.User;
 import de.jpx3.intave.user.meta.MovementMetadata;
-import it.unimi.dsi.fastutil.longs.Long2LongMap;
 
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -47,6 +46,7 @@ import static de.jpx3.intave.math.MathHelper.formatDouble;
 
 public final class ThreeTickSimulationSearch implements SimulationSearch {
 	private final static double STRICT_ACCURACY = 0.0001;
+	private static final ThreadLocal<BranchFrequencySorter> FREQUENCY_SORTER = ThreadLocal.withInitial(BranchFrequencySorter::new);
 
 	private final static Searcher<MovementSearchInput, MovementSearchBranch> TICK_SEARCHER = new Searcher<>(
 		MovementSearchBranchers.tick(),
@@ -633,11 +633,7 @@ public final class ThreeTickSimulationSearch implements SimulationSearch {
 		if (sorted.length < 2) {
 			return Arrays.asList(sorted);
 		}
-		Long2LongMap frequencies = movement.branchFrequency;
-		Arrays.sort(sorted, (left, right) -> Long.compare(
-			frequencies.get(right.frequencyKey()),
-			frequencies.get(left.frequencyKey())
-		));
+		FREQUENCY_SORTER.get().sort(sorted, movement.branchFrequency);
 		return Arrays.asList(sorted);
 	}
 }
