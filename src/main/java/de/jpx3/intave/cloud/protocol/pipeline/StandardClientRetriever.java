@@ -422,10 +422,16 @@ public final class StandardClientRetriever extends ChannelInboundHandlerAdapter 
 	@Override
 	public void onEnvironmentRequest(ClientboundEnvironmentRequest packet) {
 		Synchronizer.synchronize(() -> {
-			List<EnvironmentPlugin> plugins = Arrays.stream(Bukkit.getPluginManager().getPlugins()).map(plugin -> new EnvironmentPlugin(plugin.getName(), plugin.getDescription().getVersion(), "")).collect(Collectors.toList());
+			String serverVersion = Bukkit.getName() + "@" + Bukkit.getVersion();
+			List<PluginSnapshot> pluginSnapshots = Arrays.stream(Bukkit.getPluginManager().getPlugins()).map(PluginSnapshot::capture).collect(Collectors.toList());
 			List<EnvironmentPlayer> players = Bukkit.getOnlinePlayers().stream().map(player -> new EnvironmentPlayer(player.getUniqueId(), player.getName(), player.getGameMode().name())).collect(Collectors.toList());
 			List<EnvironmentWorld> worlds = Bukkit.getWorlds().stream().map(world -> new EnvironmentWorld(world.getUID(), world.getName())).collect(Collectors.toList());
-			session.sendPacket(new ServerboundEnvironmentResponse(Bukkit.getName() + "@" + Bukkit.getVersion(), plugins, players, worlds, packet.requestUuid()));
+			BackgroundExecutors.executeWhenever(() -> {
+				List<EnvironmentPlugin> plugins = pluginSnapshots.stream()
+					.map(snapshot -> snapshot.collect(message -> IntaveLogger.logger().warn(message)))
+					.collect(Collectors.toList());
+				session.sendPacket(new ServerboundEnvironmentResponse(serverVersion, plugins, players, worlds, packet.requestUuid()));
+			});
 		});
 	}
 
