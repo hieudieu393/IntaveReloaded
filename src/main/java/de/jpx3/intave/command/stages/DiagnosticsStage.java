@@ -42,6 +42,8 @@ import de.jpx3.intave.executor.task.Task;
 import de.jpx3.intave.executor.task.Tasks;
 import de.jpx3.intave.math.MathHelper;
 import de.jpx3.intave.module.Modules;
+import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscriber;
+import de.jpx3.intave.module.linker.bukkit.BukkitEventSubscription;
 import de.jpx3.intave.module.mitigate.AttackNerfStrategy;
 import de.jpx3.intave.module.nayoro.Nayoro;
 import de.jpx3.intave.module.nayoro.OperationalMode;
@@ -73,6 +75,7 @@ import org.bukkit.entity.Turtle;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
@@ -87,25 +90,28 @@ import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static org.bukkit.attribute.Attribute.GENERIC_MOVEMENT_SPEED;
 
-public final class DiagnosticsStage extends CommandStage {
+public final class DiagnosticsStage extends CommandStage implements BukkitEventSubscriber {
   private static final DateTimeFormatter MESSAGE_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH.mm.ss.SSS");
   private static final DateTimeFormatter FILE_MESSAGE_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy-HH-mm-ss");
   private static DiagnosticsStage singletonInstance;
   private final IntavePlugin plugin;
 
   private final Map<UUID, PacketAdapter> adapterMap = GarbageCollector.watch(new HashMap<>());
+  private final Set<UUID> cancelBlockYPlayers = GarbageCollector.watch(ConcurrentHashMap.newKeySet());
 
   //  private final Set<UUID> damageDebug = GarbageCollector.watch(new HashSet<>());
 
   private DiagnosticsStage() {
     super(BaseStage.singletonInstance(), "diagnostics");
     plugin = IntavePlugin.singletonInstance();
+    Modules.linker().bukkitEvents().registerEventsIn(this);
   }
 
   private static String threadDumpFileName() {
@@ -392,6 +398,36 @@ public final class DiagnosticsStage extends CommandStage {
       exception.printStackTrace();
       user.player().sendMessage("Invalid protocollib version? Error: " + exception.getMessage());
     }
+  }
+
+  @SubCommand(
+    selectors = "cancelblocky",
+    usage = "",
+    description = "Toggle cancelling your movement when block Y changes",
+    permission = "intave.command.diagnostics.performance"
+  )
+  public void cancelBlockYCommand(User user) {
+    Player player = user.player();
+    UUID playerId = player.getUniqueId();
+    if (cancelBlockYPlayers.remove(playerId)) {
+      player.sendMessage(IntavePlugin.prefix() + ChatColor.RED + "Block Y movement cancellation disabled");
+    } else {
+      cancelBlockYPlayers.add(playerId);
+      player.sendMessage(IntavePlugin.prefix() + ChatColor.GREEN + "Block Y movement cancellation enabled. Run /intave diagnostics cancelblocky again or logout to disable");
+    }
+  }
+
+  @BukkitEventSubscription
+  public void onPlayerMove(PlayerMoveEvent event) {
+    if (!cancelBlockYPlayers.contains(event.getPlayer().getUniqueId())) {
+      return;
+    }
+    Location to = event.getTo();
+    Location from = event.getFrom();
+    if (to == null || to.getBlockY() == from.getBlockY()) {
+      return;
+    }
+    event.setCancelled(true);
   }
 
   @SubCommand(selectors = "damage", usage = "", description = "Put your attack damage in chat", permission = "intave.command.diagnostics.performance")
