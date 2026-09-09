@@ -27,13 +27,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
-import java.nio.file.OpenOption;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
 
 public final class ComponentLoader {
+  private static final int DOWNLOAD_RETRIES = 4;
+  private static final long INITIAL_RETRY_DELAY_MILLIS = 1_000L;
+
   public Map<String, String> essentialComponents = new HashMap<>();
   private final IntavePlugin plugin;
 
@@ -87,28 +89,52 @@ public final class ComponentLoader {
   private void downloadComponentPlugin(File componentPluginFile, String componentName, String downloadURL) throws IOException, InvalidPluginException, InvalidDescriptionException {
     URL website = new URL(downloadURL);
     System.out.println("[debug] Downloading " + componentName + " from " + downloadURL);
-    try (InputStream in = website.openStream()) {
-      download(in, componentPluginFile.toPath());
-      plugin.logger().info(ChatColor.GREEN + "Downloaded " + componentName);
-      Plugin componentPlugin = this.plugin.getServer().getPluginManager().loadPlugin(componentPluginFile);
+    downloadWithRetries(website, componentPluginFile.toPath(), componentName);
+    plugin.logger().info(ChatColor.GREEN + "Downloaded " + componentName);
+    Plugin componentPlugin = this.plugin.getServer().getPluginManager().loadPlugin(componentPluginFile);
 
-      try {
-        ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
-        if (protocolManager == null) {
-          componentPlugin.onLoad();
-        }
-      } catch (Throwable throwable) {
-        // ProtocolLib Moment
+    try {
+      ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
+      if (protocolManager == null) {
+        componentPlugin.onLoad();
       }
-      this.plugin.getServer().getPluginManager().enablePlugin(componentPlugin);
+    } catch (Throwable throwable) {
+      // ProtocolLib Moment
+    }
+    this.plugin.getServer().getPluginManager().enablePlugin(componentPlugin);
+  }
+
+  private void downloadWithRetries(URL website, Path target, String componentName) throws IOException {
+    for (int retry = 0; ; retry++) {
+      try {
+        download(website, target);
+        return;
+      } catch (IOException exception) {
+        if (retry == DOWNLOAD_RETRIES) {
+          throw exception;
+        }
+        long delayMillis = INITIAL_RETRY_DELAY_MILLIS << retry;
+        plugin.logger().warn("Unable to download " + componentName + ": " + exception.getMessage()
+          + ". Retrying in " + delayMillis / 1_000L + " seconds (retry " + (retry + 1) + "/" + DOWNLOAD_RETRIES + ")");
+        try {
+          Thread.sleep(delayMillis);
+        } catch (InterruptedException interruptedException) {
+          Thread.currentThread().interrupt();
+          throw new IOException("Interrupted while retrying download of " + componentName, interruptedException);
+        }
+      }
     }
   }
 
-  private void download(InputStream in, Path target) throws IOException {
-    OutputStream ostream;
-    ostream = newOutputStream(target, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-    try (OutputStream out = ostream) {
-      copy(in, out);
+  private void download(URL website, Path target) throws IOException {
+    Path temporaryFile = Files.createTempFile(target.toAbsolutePath().getParent(), target.getFileName().toString(), ".tmp");
+    try {
+      try (InputStream in = website.openStream(); OutputStream out = Files.newOutputStream(temporaryFile)) {
+        copy(in, out);
+      }
+      Files.move(temporaryFile, target);
+    } finally {
+      Files.deleteIfExists(temporaryFile);
     }
   }
 
@@ -121,9 +147,5 @@ public final class ComponentLoader {
       }
       sink.write(buf, 0, n);
     }
-  }
-
-  private OutputStream newOutputStream(Path path, OpenOption... options) throws IOException {
-    return path.getFileSystem().provider().newOutputStream(path, options);
   }
 }
