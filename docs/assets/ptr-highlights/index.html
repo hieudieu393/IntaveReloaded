@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Intave PTR highlights</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0a0a0a; }
+    main { max-width: 1440px; margin: auto; padding: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    article { overflow: hidden; border-radius: 8px; }
+    .clip { display: block; padding: 0; border: 0; width: 100%; background: #0a0a0a; cursor: pointer; }
+    .clip:focus-visible { outline: 3px solid #67e0a3; outline-offset: -3px; }
+    .clip img { display: block; width: 100%; height: auto; }
+    @media (max-width: 760px) { main { grid-template-columns: 1fr; padding: 8px; gap: 8px; } }
+  </style>
+</head>
+<body>
+  <main aria-label="Animated PTR highlights"><article><button class="clip" aria-label="Play Slime bounce" data-name="Slime bounce" data-id="01-slime-bounce" data-version="aa6746c19b24" aria-pressed="false"><img src="01-slime-bounce.png?v=aa6746c19b24" alt="Jumping, landing, and rebounding on slime." width="960" height="600"></button></article>
+<article><button class="clip" aria-label="Play Pistons and slime" data-name="Pistons and slime" data-id="02-piston-slime" data-version="602cb7990b47" aria-pressed="false"><img src="02-piston-slime.png?v=602cb7990b47" alt="A push becomes a launch, then a landing." width="960" height="600"></button></article>
+<article><button class="clip" aria-label="Play Honey contact" data-name="Honey contact" data-id="03-honey-contact" data-version="1ab9255981a9" aria-pressed="false"><img src="03-honey-contact.png?v=1ab9255981a9" alt="Movement changes at the edge of a honey block." width="960" height="600"></button></article>
+<article><button class="clip" aria-label="Play Bubble columns" data-name="Bubble columns" data-id="04-bubble-columns" data-version="981eeff5ca07" aria-pressed="false"><img src="04-bubble-columns.png?v=981eeff5ca07" alt="Vertical movement through water and into the air." width="960" height="600"></button></article>
+<article><button class="clip" aria-label="Play Lava at the edge" data-name="Lava at the edge" data-id="05-lava-motion" data-version="e87877a2a623" aria-pressed="false"><img src="05-lava-motion.png?v=e87877a2a623" alt="Jumping along the boundary between blocks and lava." width="960" height="600"></button></article>
+<article><button class="clip" aria-label="Play Cobweb slowdown" data-name="Cobweb slowdown" data-id="06-cobweb-slowdown" data-version="c03f2d39787a" aria-pressed="false"><img src="06-cobweb-slowdown.png?v=c03f2d39787a" alt="Entering a web, slowing down, and leaving it." width="960" height="600"></button></article>
+<article><button class="clip" aria-label="Play Powder snow" data-name="Powder snow" data-id="07-powder-snow" data-version="3cc1edf9cc13" aria-pressed="false"><img src="07-powder-snow.png?v=3cc1edf9cc13" alt="Jumping and moving around powder snow." width="960" height="600"></button></article>
+<article><button class="clip" aria-label="Play Elytra meets water" data-name="Elytra meets water" data-id="08-elytra-water" data-version="0f3268b2a231" aria-pressed="false"><img src="08-elytra-water.png?v=0f3268b2a231" alt="From flight into swimming in one recorded sequence." width="960" height="600"></button></article>
+<article><button class="clip" aria-label="Play Large velocity" data-name="Large velocity" data-id="09-large-velocity" data-version="6f57e2a50fd1" aria-pressed="false"><img src="09-large-velocity.png?v=6f57e2a50fd1" alt="Tracking an abrupt impulse and the movement that follows." width="960" height="600"></button></article>
+<article><button class="clip" aria-label="Play Inside the branch search" data-name="Inside the branch search" data-id="10-branch-search" data-version="9d7a0f9e9a48" aria-pressed="false"><img src="10-branch-search.png?v=9d7a0f9e9a48" alt="Three candidate layers. One selected movement path." width="960" height="600"></button></article>
+<article><button class="clip" aria-label="Play Cherry grove run" data-name="Cherry grove run" data-id="11-cherry-grove-run" data-version="e3581b006e51" aria-pressed="false"><img src="11-cherry-grove-run.png?v=e3581b006e51" alt="Following a turning sprint-jump climb through a cherry grove." width="960" height="600"></button></article></main>
+  <script>
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function setPlaying(button, playing) {
+      button.setAttribute('aria-pressed', String(playing));
+      button.setAttribute('aria-label', (playing ? 'Pause ' : 'Play ') + button.dataset.name);
+      button.querySelector('img').src = button.dataset.id + (playing ? '.gif' : '.png') + '?v=' + button.dataset.version;
+    }
+    for (const button of document.querySelectorAll('.clip')) {
+      setPlaying(button, !reducedMotion);
+      button.addEventListener('click', () => setPlaying(button, button.getAttribute('aria-pressed') !== 'true'));
+    }
+  </script>
+</body>
+</html>
