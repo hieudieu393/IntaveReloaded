@@ -419,7 +419,7 @@ public final class StandardClientRetriever extends ChannelInboundHandlerAdapter 
 			List<PluginSnapshot> pluginSnapshots = Arrays.stream(Bukkit.getPluginManager().getPlugins()).map(PluginSnapshot::capture).collect(Collectors.toList());
 			List<EnvironmentPlayer> players = Bukkit.getOnlinePlayers().stream().map(player -> new EnvironmentPlayer(player.getUniqueId(), player.getName(), player.getGameMode().name())).collect(Collectors.toList());
 			List<EnvironmentWorld> worlds = Bukkit.getWorlds().stream().map(world -> new EnvironmentWorld(world.getUID(), world.getName())).collect(Collectors.toList());
-			BackgroundExecutors.executeWhenever(() -> EnvironmentResponseSender.send(
+			BackgroundExecutors.executeWhenever(() -> EnvResponsePacket.send(
 				serverVersion, pluginSnapshots, players, worlds, packet,
 				session::sendPacket, message -> IntaveLogger.logger().warn(message)));
 		});
