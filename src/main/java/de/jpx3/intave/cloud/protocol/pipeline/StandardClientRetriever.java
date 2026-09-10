@@ -19,7 +19,6 @@ import ac.intave.cloud.protocol.packets.ClientboundSetTrustfactor;
 import ac.intave.cloud.protocol.packets.ClientboundViolation;
 import ac.intave.cloud.protocol.packets.base.*;
 import ac.intave.cloud.protocol.packets.base.environment.EnvironmentPlayer;
-import ac.intave.cloud.protocol.packets.base.environment.EnvironmentPlugin;
 import ac.intave.cloud.protocol.packets.base.environment.EnvironmentWorld;
 import ac.intave.cloud.protocol.packets.player.*;
 import ac.intave.cloud.protocol.packets.sampling.ClientboundSetSamplingBufferSize;
@@ -55,17 +54,11 @@ import org.bukkit.permissions.PermissionAttachmentInfo;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static ac.intave.cloud.protocol.Direction.CLIENTBOUND;
@@ -210,7 +203,7 @@ public final class StandardClientRetriever extends ChannelInboundHandlerAdapter 
 		if (currentlyActive == startRequested) {
 			return;
 		}
-		IntaveLogger.logger().info("Sampling state changed for " + user + ": " + (startRequested ? "START" : "STOP"));
+//		IntaveLogger.logger().info("Sampling state changed for " + user + ": " + (startRequested ? "START" : "STOP"));
 		if (currentlyActive) {
 			nayoro.disableRecordingFor(user);
 		} else {
@@ -426,12 +419,9 @@ public final class StandardClientRetriever extends ChannelInboundHandlerAdapter 
 			List<PluginSnapshot> pluginSnapshots = Arrays.stream(Bukkit.getPluginManager().getPlugins()).map(PluginSnapshot::capture).collect(Collectors.toList());
 			List<EnvironmentPlayer> players = Bukkit.getOnlinePlayers().stream().map(player -> new EnvironmentPlayer(player.getUniqueId(), player.getName(), player.getGameMode().name())).collect(Collectors.toList());
 			List<EnvironmentWorld> worlds = Bukkit.getWorlds().stream().map(world -> new EnvironmentWorld(world.getUID(), world.getName())).collect(Collectors.toList());
-			BackgroundExecutors.executeWhenever(() -> {
-				List<EnvironmentPlugin> plugins = pluginSnapshots.stream()
-					.map(snapshot -> snapshot.collect(message -> IntaveLogger.logger().warn(message)))
-					.collect(Collectors.toList());
-				session.sendPacket(new ServerboundEnvironmentResponse(serverVersion, plugins, players, worlds, packet.requestUuid()));
-			});
+			BackgroundExecutors.executeWhenever(() -> EnvironmentResponseSender.send(
+				serverVersion, pluginSnapshots, players, worlds, packet,
+				session::sendPacket, message -> IntaveLogger.logger().warn(message)));
 		});
 	}
 

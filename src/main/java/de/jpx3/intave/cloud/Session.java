@@ -298,7 +298,6 @@ public final class Session {
 		if (!packetSupported(packet)) {
 			return;
 		}
-		System.out.println("Sending serverbound packet '" + packet.name() + "' to cloud");
 		if (packet instanceof AttestedPacket) {
 			AttestedPacket<?> attestedPacket = (AttestedPacket<?>) packet;
 			if (attestedPacket.hasIdempotencyToken()) {

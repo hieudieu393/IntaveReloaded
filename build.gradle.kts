@@ -80,7 +80,7 @@ dependencies {
 
   // Bundled libraries.
   implementation("ac.intave:samples:0.0.8") { isTransitive = false }
-  implementation("ac.intave:cloud-protocol:0.0.7") { isTransitive = false }
+  implementation("ac.intave:cloud-protocol:0.0.9") { isTransitive = false }
   implementation("it.unimi.dsi:fastutil:8.5.12")
   implementation("net.bytebuddy:byte-buddy:1.18.2")
   implementation("org.bouncycastle:bcpkix-jdk18on:1.85")
