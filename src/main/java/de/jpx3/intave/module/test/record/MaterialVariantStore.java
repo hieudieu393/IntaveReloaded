@@ -17,7 +17,6 @@ import io.netty.buffer.ByteBuf;
 import org.bukkit.Material;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -76,7 +75,7 @@ public final class MaterialVariantStore {
 		if (type == null) {
 			throw new IllegalArgumentException("Material type cannot be null");
 		}
-		return cache.computeIfAbsent(type, t -> new HashMap<>())
+		return cache.computeIfAbsent(type, t -> new ConcurrentHashMap<>())
 			.computeIfAbsent(variantIndex, i -> new MaterialVariantStore(type, variantIndex));
 	}
 
