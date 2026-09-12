@@ -31,6 +31,9 @@ This also means the core simulation code comes out of any anticheat closest to t
 We unit-test the simulation engine on every build end-to-end using pre-recorded movement scenarios.
 Every new bug is added, ensuring it never resurfaces again.
 
+Additionally, we employ double latency compensation, ensuring that
+an acknowledgment packet arriving on a later tick does not cause false positives.
+
 ### Heuristics
 
 Intave also checks for known cheat patterns, such as unnatural aiming, suspicious block placement,

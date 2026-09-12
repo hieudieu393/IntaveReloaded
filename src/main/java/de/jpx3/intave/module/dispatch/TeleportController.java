@@ -750,31 +750,12 @@ public final class TeleportController implements PacketEventSubscriber {
   ) {
     User user = UserRepository.userOf(player);
     MovementMetadata movementData = user.meta().movement();
-    movementData.positionX = positionX;
-    movementData.positionY = positionY;
-    movementData.positionZ = positionZ;
-    movementData.verifiedLastPositionX = positionX;
-    movementData.verifiedLastPositionY = positionY;
-    movementData.verifiedLastPositionZ = positionZ;
-    movementData.verifiedPositionOrigin = "Teleport";
-
     Motion teleportMotionModify = movementData.teleportMotion;
     Set<Relative> teleportRelatives = movementData.teleportRelatives;
     Motion previousMotion = movementData.mutableBaseMotionCopy();
     Motion packetMotion = teleportMotionModify == null ? null : teleportMotionModify.copy();
     Set<Relative> packetRelatives = teleportRelatives == null ? null : new HashSet<>(teleportRelatives);
-    if (teleportMotionModify == null || teleportRelatives == null || teleportRelatives.isEmpty()) {
-      movementData.baseMotionX = 0.0;
-      movementData.baseMotionY = 0.0;
-      movementData.baseMotionZ = 0.0;
-    } else {
-      Motion keepMotion = movementData.mutableBaseMotionCopy().filtered(teleportRelatives);
-      Motion newMotion = keepMotion.add(teleportMotionModify);
-      movementData.setBaseMotion(newMotion);
-      movementData.clearPostTickMotionCandidates();
-      movementData.teleportMotion.setNull();
-      movementData.teleportRelatives.clear();
-    }
+    applyTeleportState(user, positionX, positionY, positionZ);
 
     PacketLogging logging = Modules.tracker().packetLogging();
     Motion confirmedMotion = movementData.mutableBaseMotionCopy();
@@ -784,7 +765,39 @@ public final class TeleportController implements PacketEventSubscriber {
         " relatives=" + packetRelatives +
         " result=" + MathHelper.formatMotion(confirmedMotion)
     );
-    movementData.lastOnGround = false;
+  }
+
+  static void applyTeleportState(User user, double positionX, double positionY, double positionZ) {
+    MovementMetadata movementData = user.meta().movement();
+    movementData.positionX = positionX;
+    movementData.positionY = positionY;
+    movementData.positionZ = positionZ;
+    movementData.verifiedLastPositionX = positionX;
+    movementData.verifiedLastPositionY = positionY;
+    movementData.verifiedLastPositionZ = positionZ;
+    movementData.verifiedPositionOrigin = "Teleport";
+    applyTeleportMotion(movementData);
+    // The client's teleport acknowledgement sends onGround=false, but the
+    // teleport handler preserves the entity's ground state for the next move.
     movementData.setBoundingBox(BoundingBox.fromPosition(user, movementData, movementData.teleportLocation));
+  }
+
+  static void applyTeleportMotion(MovementMetadata movementData) {
+    Motion teleportMotionModify = movementData.teleportMotion;
+    Set<Relative> teleportRelatives = movementData.teleportRelatives;
+    if (teleportMotionModify == null || teleportRelatives == null || teleportRelatives.isEmpty()) {
+      movementData.baseMotionX = 0.0;
+      movementData.baseMotionY = 0.0;
+      movementData.baseMotionZ = 0.0;
+    } else {
+      Motion keepMotion = movementData.mutableBaseMotionCopy().filtered(teleportRelatives);
+      Motion newMotion = keepMotion.add(teleportMotionModify);
+      movementData.setBaseMotion(newMotion);
+      movementData.teleportMotion.setNull();
+      movementData.teleportRelatives.clear();
+    }
+    // PreviousPostTickBrancher would otherwise replace the confirmed motion
+    // with a candidate from before the teleport, including after an absolute reset.
+    movementData.clearPostTickMotionCandidates();
   }
 }
